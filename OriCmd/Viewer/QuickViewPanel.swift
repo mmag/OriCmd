@@ -9,7 +9,7 @@ final class QuickViewPanel: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        titleBar.path = "Quick View"
+        titleBar.path = String(localized: "Quick View")
         titleBar.showsMask = false
         var views: [NSView] = [titleBar]
         if let preview { views.append(preview) }
@@ -30,7 +30,7 @@ final class QuickViewPanel: NSView {
     }
 
     func show(_ url: URL?) {
-        titleBar.path = url.map { "Quick View: \($0.lastPathComponent)" } ?? "Quick View"
+        titleBar.path = url.map { String(localized: "Quick View: \($0.lastPathComponent)") } ?? String(localized: "Quick View")
         preview?.previewItem = url as NSURL?
     }
 

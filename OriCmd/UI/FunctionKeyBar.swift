@@ -10,13 +10,13 @@ final class FunctionKeyBar: NSView {
     }
 
     static let defaultItems: [Item] = [
-        Item(key: "F3", title: "View", command: .list),
-        Item(key: "F4", title: "Edit", command: .edit),
-        Item(key: "F5", title: "Copy", command: .copy),
-        Item(key: "F6", title: "Move", command: .renMov),
-        Item(key: "F7", title: "NewFolder", command: .mkDir),
-        Item(key: "F8", title: "Delete", command: .delete),
-        Item(key: "⌘Q", title: "Exit", command: .exit),
+        Item(key: "F3", title: String(localized: "fkey.view", defaultValue: "View"), command: .list),
+        Item(key: "F4", title: String(localized: "fkey.edit", defaultValue: "Edit"), command: .edit),
+        Item(key: "F5", title: String(localized: "fkey.copy", defaultValue: "Copy"), command: .copy),
+        Item(key: "F6", title: String(localized: "fkey.move", defaultValue: "Move"), command: .renMov),
+        Item(key: "F7", title: String(localized: "fkey.newFolder", defaultValue: "NewFolder"), command: .mkDir),
+        Item(key: "F8", title: String(localized: "fkey.delete", defaultValue: "Delete"), command: .delete),
+        Item(key: "⌘Q", title: String(localized: "fkey.exit", defaultValue: "Exit"), command: .exit),
     ]
 
     var items: [Item] = FunctionKeyBar.defaultItems {

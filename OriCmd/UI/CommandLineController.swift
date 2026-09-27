@@ -209,14 +209,14 @@ enum ShellRunner {
             let message = String(decoding: collected.withLock { $0 }, as: UTF8.self)
             guard status != 0 else { return }
             Task { @MainActor in
-                let error = TransferError(message: message.isEmpty ? "Exit status \(status)" : message)
-                Prompt.error("\u{201C}\(command)\u{201D} failed", error, in: window)
+                let error = TransferError(message: message.isEmpty ? String(localized: "Exit status \(status)") : message)
+                Prompt.error(String(localized: "\u{201C}\(command)\u{201D} failed"), error, in: window)
             }
         }
         do {
             try process.run()
         } catch {
-            Prompt.error("Cannot run \u{201C}\(command)\u{201D}", error, in: window)
+            Prompt.error(String(localized: "Cannot run \u{201C}\(command)\u{201D}"), error, in: window)
         }
     }
 

@@ -7,9 +7,9 @@ final class FindFilesWindowController: NSWindowController {
     private let maskField = NSTextField(string: "*")
     private let directoryField = NSTextField(string: "")
     private let textField = NSTextField(string: "")
-    private let caseSensitiveBox = NSButton(checkboxWithTitle: "Case sensitive", target: nil, action: nil)
-    private let startButton = NSButton(title: "Start Search", target: nil, action: nil)
-    private let goToButton = NSButton(title: "Go to File", target: nil, action: nil)
+    private let caseSensitiveBox = NSButton(checkboxWithTitle: String(localized: "Case sensitive"), target: nil, action: nil)
+    private let startButton = NSButton(title: String(localized: "Start Search"), target: nil, action: nil)
+    private let goToButton = NSButton(title: String(localized: "Go to File"), target: nil, action: nil)
     private let statusLabel = NSTextField(labelWithString: "")
     private let resultsTable = ResultsTableView()
 
@@ -36,7 +36,7 @@ final class FindFilesWindowController: NSWindowController {
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered, defer: false
         )
-        window.title = "Find Files"
+        window.title = String(localized: "Find Files")
         window.center()
         window.setFrameAutosaveName("FindFiles")
         super.init(window: window)
@@ -56,7 +56,7 @@ final class FindFilesWindowController: NSWindowController {
         goToButton.action = #selector(goToFile(_:))
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("path"))
-        column.title = "Found files"
+        column.title = String(localized: "Found files")
         column.resizingMask = .autoresizingMask
         resultsTable.addTableColumn(column)
         resultsTable.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
@@ -70,9 +70,9 @@ final class FindFilesWindowController: NSWindowController {
         scrollView.borderType = .bezelBorder
 
         let grid = NSGridView(views: [
-            [NSTextField(labelWithString: "Search for:"), maskField],
-            [NSTextField(labelWithString: "Search in:"), directoryField],
-            [NSTextField(labelWithString: "Find text:"), textField],
+            [NSTextField(labelWithString: String(localized: "Search for:")), maskField],
+            [NSTextField(labelWithString: String(localized: "Search in:")), directoryField],
+            [NSTextField(labelWithString: String(localized: "Find text:")), textField],
             [NSGridCell.emptyContentView, caseSensitiveBox],
         ])
         grid.column(at: 0).xPlacement = .trailing
@@ -109,7 +109,7 @@ final class FindFilesWindowController: NSWindowController {
         self.search = search
         results = []
         resultsTable.reloadData()
-        startButton.title = "Stop"
+        startButton.title = String(localized: "Stop")
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
@@ -127,10 +127,10 @@ final class FindFilesWindowController: NSWindowController {
             results = state.found
             resultsTable.reloadData()
         }
-        let summary = "\(results.count) found, \(state.scannedCount) scanned"
+        let summary = String(localized: "\(results.count) found, \(state.scannedCount) scanned")
         if state.isFinished {
-            statusLabel.stringValue = state.isCancelled ? "Stopped: \(summary)" : "Done: \(summary)"
-            startButton.title = "Start Search"
+            statusLabel.stringValue = state.isCancelled ? String(localized: "Stopped: \(summary)") : String(localized: "Done: \(summary)")
+            startButton.title = String(localized: "Start Search")
             timer?.invalidate()
             timer = nil
             if !results.isEmpty, resultsTable.selectedRow < 0 {
@@ -138,7 +138,7 @@ final class FindFilesWindowController: NSWindowController {
                 window?.makeFirstResponder(resultsTable)
             }
         } else {
-            statusLabel.stringValue = "Searching… \(summary)"
+            statusLabel.stringValue = String(localized: "Searching… \(summary)")
         }
     }
 

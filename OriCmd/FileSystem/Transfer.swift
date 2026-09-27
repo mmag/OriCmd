@@ -100,10 +100,10 @@ nonisolated final class TransferEngine {
         let targetPath = target.standardizedFileURL.path
         if sourcePath == targetPath {
             if job.kind == .move { return true }
-            throw TransferError(message: "Cannot copy \u{201C}\(source.lastPathComponent)\u{201D} onto itself.")
+            throw TransferError(message: String(localized: "Cannot copy \u{201C}\(source.lastPathComponent)\u{201D} onto itself."))
         }
         if targetPath.hasPrefix(sourcePath + "/") {
-            throw TransferError(message: "Cannot copy \u{201C}\(source.lastPathComponent)\u{201D} into itself.")
+            throw TransferError(message: String(localized: "Cannot copy \u{201C}\(source.lastPathComponent)\u{201D} into itself."))
         }
 
         var sourceInfo = stat()

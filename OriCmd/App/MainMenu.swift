@@ -9,16 +9,16 @@ enum MainMenu {
         let mainMenu = NSMenu()
 
         mainMenu.addItem(container(for: appMenu()))
-        mainMenu.addItem(container(for: commandMenu("Files", [
+        mainMenu.addItem(container(for: commandMenu(String(localized: "Files"), [
             [.list, .edit],
             [.copy, .renMov, .renameOnly, .mkDir],
             [.delete, .deletePermanently],
         ])))
         mainMenu.addItem(container(for: editMenu()))
-        mainMenu.addItem(container(for: commandMenu("Mark", [
+        mainMenu.addItem(container(for: commandMenu(String(localized: "Mark"), [
             [.spreadSelection, .shrinkSelection],
         ], extra: markItems())))
-        mainMenu.addItem(container(for: commandMenu("Commands", [
+        mainMenu.addItem(container(for: commandMenu(String(localized: "Commands"), [
             [.rereadSource, .exchange],
             [.openNewTab, .openDirInNewTab, .closeCurrentTab, .switchToNextTab, .switchToPreviousTab],
             [.searchFor, .directoryHotlist],
@@ -26,7 +26,7 @@ enum MainMenu {
             [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],
         ])))
-        mainMenu.addItem(container(for: commandMenu("Show", [
+        mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcTree, .srcQuickView],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
             [.switchHidSys],
@@ -36,7 +36,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: windowMenu))
         NSApp.windowsMenu = windowMenu
 
-        let helpMenu = NSMenu(title: "Help")
+        let helpMenu = NSMenu(title: String(localized: "Help"))
         mainMenu.addItem(container(for: helpMenu))
         NSApp.helpMenu = helpMenu
 
@@ -47,34 +47,34 @@ enum MainMenu {
         let name = ProcessInfo.processInfo.processName
         let menu = NSMenu(title: name)
 
-        menu.addItem(item("About \(name)", #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
+        menu.addItem(item(String(localized: "About \(name)"), #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
         menu.addItem(.separator())
 
-        let servicesMenu = NSMenu(title: "Services")
-        let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
+        let servicesMenu = NSMenu(title: String(localized: "Services"))
+        let services = NSMenuItem(title: String(localized: "Services"), action: nil, keyEquivalent: "")
         services.submenu = servicesMenu
         NSApp.servicesMenu = servicesMenu
         menu.addItem(services)
         menu.addItem(.separator())
 
-        menu.addItem(item("Hide \(name)", #selector(NSApplication.hide(_:)), "h"))
-        menu.addItem(item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
-        menu.addItem(item("Show All", #selector(NSApplication.unhideAllApplications(_:))))
+        menu.addItem(item(String(localized: "Hide \(name)"), #selector(NSApplication.hide(_:)), "h"))
+        menu.addItem(item(String(localized: "Hide Others"), #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
+        menu.addItem(item(String(localized: "Show All"), #selector(NSApplication.unhideAllApplications(_:))))
         menu.addItem(.separator())
-        menu.addItem(item("Quit \(name)", #selector(NSApplication.terminate(_:)), "q"))
+        menu.addItem(item(String(localized: "Quit \(name)"), #selector(NSApplication.terminate(_:)), "q"))
 
         return menu
     }
 
     private static func editMenu() -> NSMenu {
-        let menu = NSMenu(title: "Edit")
-        menu.addItem(item("Undo", Selector(("undo:")), "z"))
-        menu.addItem(item("Redo", Selector(("redo:")), "z", [.command, .shift]))
+        let menu = NSMenu(title: String(localized: "Edit"))
+        menu.addItem(item(String(localized: "Undo"), Selector(("undo:")), "z"))
+        menu.addItem(item(String(localized: "Redo"), Selector(("redo:")), "z", [.command, .shift]))
         menu.addItem(.separator())
-        menu.addItem(item("Cut", #selector(NSText.cut(_:)), "x"))
-        menu.addItem(item("Copy", #selector(NSText.copy(_:)), "c"))
-        menu.addItem(item("Paste", #selector(NSText.paste(_:)), "v"))
-        menu.addItem(item("Select All", #selector(NSText.selectAll(_:)), "a"))
+        menu.addItem(item(String(localized: "Cut"), #selector(NSText.cut(_:)), "x"))
+        menu.addItem(item(String(localized: "edit.copy", defaultValue: "Copy"), #selector(NSText.copy(_:)), "c"))
+        menu.addItem(item(String(localized: "Paste"), #selector(NSText.paste(_:)), "v"))
+        menu.addItem(item(String(localized: "Select All"), #selector(NSText.selectAll(_:)), "a"))
         return menu
     }
 
@@ -102,18 +102,18 @@ enum MainMenu {
     private static func markItems() -> [NSMenuItem] {
         [
             .separator(),
-            item("Select All", #selector(NSText.selectAll(_:))),
+            item(String(localized: "mark.selectAll", defaultValue: "Select All"), #selector(NSText.selectAll(_:))),
             item(Command.clearAll.title, Command.clearAll.selector, "a", [.command, .option]),
             item(Command.exchangeSelection.title, Command.exchangeSelection.selector),
         ]
     }
 
     private static func windowMenu() -> NSMenu {
-        let menu = NSMenu(title: "Window")
-        menu.addItem(item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"))
-        menu.addItem(item("Zoom", #selector(NSWindow.performZoom(_:))))
+        let menu = NSMenu(title: String(localized: "Window"))
+        menu.addItem(item(String(localized: "Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m"))
+        menu.addItem(item(String(localized: "Zoom"), #selector(NSWindow.performZoom(_:))))
         menu.addItem(.separator())
-        menu.addItem(item("Bring All to Front", #selector(NSApplication.arrangeInFront(_:))))
+        menu.addItem(item(String(localized: "Bring All to Front"), #selector(NSApplication.arrangeInFront(_:))))
         return menu
     }
 

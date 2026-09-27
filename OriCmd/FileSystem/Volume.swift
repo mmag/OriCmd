@@ -45,6 +45,6 @@ struct VolumeSpace {
     var summary: String {
         let free = (available / 1024).formatted(.number.grouping(.automatic))
         let all = (total / 1024).formatted(.number.grouping(.automatic))
-        return "\(free) k of \(all) k free"
+        return String(localized: "\(free) k of \(all) k free")
     }
 }

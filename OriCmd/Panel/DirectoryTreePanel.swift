@@ -48,7 +48,7 @@ final class DirectoryTreePanel: NSView {
         self.root = Node(url: root, showsHidden: showsHidden)
         super.init(frame: .zero)
 
-        titleBar.path = "Tree"
+        titleBar.path = String(localized: "Tree")
         titleBar.showsMask = false
         titleBar.isActive = true
 

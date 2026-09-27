@@ -21,7 +21,7 @@ final class TransferController {
         buildSheet()
     }
 
-    private var title: String { job.kind == .copy ? "Copying" : "Moving" }
+    private var title: String { job.kind == .copy ? String(localized: "Copying") : String(localized: "Moving") }
 
     /// Runs the transfer and returns the sources that were fully transferred.
     /// Errors are reported to the user.
@@ -55,7 +55,8 @@ final class TransferController {
             return done
         case .failure(let error):
             if !(error is CancellationError) {
-                Prompt.error("\(title) failed", error, in: window)
+                Prompt.error(job.kind == .copy ? String(localized: "Copying failed") : String(localized: "Moving failed"),
+                             error, in: window)
             }
             return []
         }
@@ -74,7 +75,7 @@ final class TransferController {
             bar.minValue = 0
             bar.maxValue = 100
         }
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancel(_:)))
+        let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancel(_:)))
         cancel.keyEquivalent = "\u{1b}"
 
         let buttonRow = NSStackView()
@@ -94,8 +95,8 @@ final class TransferController {
 
     private func refresh() {
         let state = progress.snapshot
-        fromLabel.stringValue = state.source.isEmpty ? "" : "From: \(state.source)"
-        toLabel.stringValue = state.target.isEmpty ? "" : "To: \(state.target)"
+        fromLabel.stringValue = state.source.isEmpty ? "" : String(localized: "From: \(state.source)")
+        toLabel.stringValue = state.target.isEmpty ? "" : String(localized: "To: \(state.target)")
         fileBar.doubleValue = state.fileBytes > 0 ? Double(state.fileDoneBytes) / Double(state.fileBytes) * 100 : 0
         totalBar.doubleValue = state.totalBytes > 0 ? Double(state.doneBytes) / Double(state.totalBytes) * 100 : 0
     }
@@ -106,9 +107,10 @@ final class TransferController {
 
     private func askOverwrite(_ source: URL, _ target: URL) async -> ConflictDecision {
         let alert = NSAlert()
-        alert.messageText = "File already exists"
-        alert.informativeText = "Overwrite:\n\(describe(target))\n\nWith:\n\(describe(source))"
-        for title in ["Overwrite", "Overwrite All", "Skip", "Skip All", "Cancel"] {
+        alert.messageText = String(localized: "File already exists")
+        alert.informativeText = String(localized: "Overwrite:\n\(describe(target))\n\nWith:\n\(describe(source))")
+        for title in [String(localized: "Overwrite"), String(localized: "Overwrite All"), String(localized: "Skip"),
+                      String(localized: "Skip All"), String(localized: "Cancel")] {
             alert.addButton(withTitle: title)
         }
         let response = await alert.beginSheetModal(for: sheet)
@@ -123,7 +125,7 @@ final class TransferController {
 
     private func describe(_ url: URL) -> String {
         let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
-        let size = values?.fileSize.map { Int64($0).formatted(.number.grouping(.automatic)) + " bytes" } ?? ""
+        let size = values?.fileSize.map { String(localized: "\(Int64($0).formatted(.number.grouping(.automatic))) bytes") } ?? ""
         let date = values?.contentModificationDate?.formatted(date: .numeric, time: .shortened) ?? ""
         return "\(url.path)\n\(size)   \(date)"
     }

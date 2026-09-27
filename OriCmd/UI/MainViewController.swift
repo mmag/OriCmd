@@ -197,12 +197,13 @@ extension MainViewController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
-        let what = items.count == 1 ? "\u{201C}\(items[0].name)\u{201D}" : "\(items.count) files/folders"
+        let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}") : String(localized: "\(items.count) files/folders")
         let targetPath = inactivePanel.directory.path
         let initial = targetPath.hasSuffix("/") ? targetPath : targetPath + "/"
-        Prompt.text(kind == .copy ? "Copy" : "Move/Rename",
-                    message: kind == .copy ? "Copy \(what) to:" : "Rename/move \(what) to:",
-                    initial: initial, okTitle: kind == .copy ? "Copy" : "Move", in: window) { [weak self] text in
+        Prompt.text(kind == .copy ? String(localized: "copy.title", defaultValue: "Copy") : String(localized: "Move/Rename"),
+                    message: kind == .copy ? String(localized: "Copy \(what) to:") : String(localized: "Rename/move \(what) to:"),
+                    initial: initial, okTitle: kind == .copy ? String(localized: "copy.button", defaultValue: "Copy")
+                        : String(localized: "move.button", defaultValue: "Move"), in: window) { [weak self] text in
             self?.transfer(kind, items: items, from: source, to: text)
         }
     }

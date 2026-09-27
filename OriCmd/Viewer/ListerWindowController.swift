@@ -140,9 +140,15 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         }
         var result = text ?? String(decoding: data, as: UTF8.self)
         if size > data.count {
-            result += "\n\n[… showing the first \(data.count.formatted()) of \(size.formatted()) bytes]"
+            result += "\n\n" + truncationNote(shown: data.count, of: size)
         }
         return result
+    }
+
+    private static func truncationNote(shown: Int, of size: Int) -> String {
+        let shownText = shown.formatted()
+        let sizeText = size.formatted()
+        return String(localized: "[… showing the first \(shownText) of \(sizeText) bytes]")
     }
 
     private static func hexDump(of url: URL) -> String {
@@ -158,7 +164,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
             lines.append(String(format: "%08X", offset) + "  " + padded + "  " + ascii)
         }
         if size > data.count {
-            lines.append("\n[… showing the first \(data.count.formatted()) of \(size.formatted()) bytes]")
+            lines.append("\n" + truncationNote(shown: data.count, of: size))
         }
         return lines.joined(separator: "\n")
     }

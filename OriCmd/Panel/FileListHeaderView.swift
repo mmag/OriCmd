@@ -4,7 +4,8 @@ import AppKit
 /// clicking it again reverses the order.
 final class FileListHeaderView: NSView {
     private static let titles: [SortColumn: String] = [
-        .name: "Name", .ext: "Ext", .size: "Size", .date: "Date", .attr: "Attr",
+        .name: String(localized: "Name"), .ext: String(localized: "Ext"), .size: String(localized: "Size"),
+        .date: String(localized: "Date"), .attr: String(localized: "Attr"),
     ]
 
     var sortOrder = SortOrder() {

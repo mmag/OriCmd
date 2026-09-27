@@ -66,48 +66,48 @@ enum Command: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .list: "View"
-        case .edit: "Edit"
-        case .copy: "Copy…"
-        case .renMov: "Move/Rename…"
-        case .renameOnly: "Rename"
-        case .mkDir: "New Folder…"
-        case .delete: "Delete"
-        case .deletePermanently: "Delete Permanently"
-        case .exit: "Exit"
-        case .spreadSelection: "Select Group…  (+)"
-        case .shrinkSelection: "Unselect Group…  (−)"
-        case .clearAll: "Unselect All"
-        case .exchangeSelection: "Invert Selection  (*)"
-        case .rereadSource: "Refresh"
-        case .exchange: "Swap Panels"
-        case .goToRoot: "Go to Root"
-        case .goToParent: "Go to Parent"
-        case .executeDOS: "Open Terminal Here"
-        case .goToPrevDir: "Back"
-        case .goToNextDir: "Forward"
-        case .directoryHistory: "Folder History…"
-        case .transferLeft: "Show in Left Panel"
-        case .transferRight: "Show in Right Panel"
-        case .leftOpenDrives: "Left Volume List"
-        case .rightOpenDrives: "Right Volume List"
-        case .openNewTab: "New Tab"
-        case .openDirInNewTab: "Open Folder in New Tab"
-        case .closeCurrentTab: "Close Tab"
-        case .switchToNextTab: "Next Tab"
-        case .switchToPreviousTab: "Previous Tab"
-        case .directoryHotlist: "Directory Hotlist…"
-        case .searchFor: "Find Files…"
-        case .srcShort: "Brief"
-        case .srcLong: "Full"
-        case .srcTree: "Tree"
-        case .srcQuickView: "Quick View"
-        case .sortByName: "Sort by Name"
-        case .sortByExt: "Sort by Extension"
-        case .sortByDateTime: "Sort by Date"
-        case .sortBySize: "Sort by Size"
-        case .reverseOrder: "Reverse Order"
-        case .switchHidSys: "Show Hidden Files"
+        case .list: String(localized: "View")
+        case .edit: String(localized: "Edit")
+        case .copy: String(localized: "Copy…")
+        case .renMov: String(localized: "Move/Rename…")
+        case .renameOnly: String(localized: "Rename")
+        case .mkDir: String(localized: "New Folder…")
+        case .delete: String(localized: "Delete")
+        case .deletePermanently: String(localized: "Delete Permanently")
+        case .exit: String(localized: "Exit")
+        case .spreadSelection: String(localized: "Select Group…  (+)")
+        case .shrinkSelection: String(localized: "Unselect Group…  (−)")
+        case .clearAll: String(localized: "Unselect All")
+        case .exchangeSelection: String(localized: "Invert Selection  (*)")
+        case .rereadSource: String(localized: "Refresh")
+        case .exchange: String(localized: "Swap Panels")
+        case .goToRoot: String(localized: "Go to Root")
+        case .goToParent: String(localized: "Go to Parent")
+        case .executeDOS: String(localized: "Open Terminal Here")
+        case .goToPrevDir: String(localized: "Back")
+        case .goToNextDir: String(localized: "Forward")
+        case .directoryHistory: String(localized: "Folder History…")
+        case .transferLeft: String(localized: "Show in Left Panel")
+        case .transferRight: String(localized: "Show in Right Panel")
+        case .leftOpenDrives: String(localized: "Left Volume List")
+        case .rightOpenDrives: String(localized: "Right Volume List")
+        case .openNewTab: String(localized: "New Tab")
+        case .openDirInNewTab: String(localized: "Open Folder in New Tab")
+        case .closeCurrentTab: String(localized: "Close Tab")
+        case .switchToNextTab: String(localized: "Next Tab")
+        case .switchToPreviousTab: String(localized: "Previous Tab")
+        case .directoryHotlist: String(localized: "Directory Hotlist…")
+        case .searchFor: String(localized: "Find Files…")
+        case .srcShort: String(localized: "Brief")
+        case .srcLong: String(localized: "Full")
+        case .srcTree: String(localized: "Tree")
+        case .srcQuickView: String(localized: "Quick View")
+        case .sortByName: String(localized: "Sort by Name")
+        case .sortByExt: String(localized: "Sort by Extension")
+        case .sortByDateTime: String(localized: "Sort by Date")
+        case .sortBySize: String(localized: "Sort by Size")
+        case .reverseOrder: String(localized: "Reverse Order")
+        case .switchHidSys: String(localized: "Show Hidden Files")
         }
     }
 

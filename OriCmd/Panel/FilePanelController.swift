@@ -298,14 +298,16 @@ final class FilePanelController: NSViewController {
             let bytes = files.reduce(Int64(0)) { $0 + $1.size }
             return ((bytes + 1023) / 1024).formatted(.number.grouping(.automatic))
         }
-        panelView.statusLabel.stringValue =
-            "\(kilobytes(markedFiles)) k / \(kilobytes(files)) k in \(markedFiles.count) / \(files.count) file(s), "
-            + "\(markedFolderCount) / \(folders.count) dir(s)"
+        let markedSize = kilobytes(markedFiles)
+        let totalSize = kilobytes(files)
+        panelView.statusLabel.stringValue = String(localized:
+            "\(markedSize) k / \(totalSize) k in \(markedFiles.count) / \(files.count) file(s), \(markedFolderCount) / \(folders.count) dir(s)")
     }
 
     private func askForMask(marking: Bool) {
         guard let window = view.window else { return }
-        Prompt.text(marking ? "Select files" : "Unselect files", message: "File mask, e.g. *.txt;*.md",
+        Prompt.text(marking ? String(localized: "Select files") : String(localized: "Unselect files"),
+                    message: String(localized: "File mask, e.g. *.txt;*.md"),
                     initial: lastMask, in: window) { [weak self] mask in
             guard let self else { return }
             lastMask = mask
@@ -327,7 +329,7 @@ final class FilePanelController: NSViewController {
     }
 
     private func present(_ error: Error, reading directory: URL) {
-        Prompt.error("Cannot read folder \u{201C}\(directory.path)\u{201D}", error, in: view.window)
+        Prompt.error(String(localized: "Cannot read folder \u{201C}\(directory.path)\u{201D}"), error, in: view.window)
     }
 }
 
@@ -410,7 +412,7 @@ extension FilePanelController: NSMenuItemValidation {
         let current = directory.path
         let isListed = Hotlist.directories.contains(current)
         let name = tabs[activeTabIndex].title
-        let toggle = NSMenuItem(title: isListed ? "Remove \u{201C}\(name)\u{201D}" : "Add \u{201C}\(name)\u{201D}",
+        let toggle = NSMenuItem(title: isListed ? String(localized: "Remove \u{201C}\(name)\u{201D}") : String(localized: "Add \u{201C}\(name)\u{201D}"),
                                 action: #selector(toggleHotlistEntry(_:)), keyEquivalent: "")
         toggle.target = self
         menu.addItem(toggle)
@@ -485,15 +487,15 @@ extension FilePanelController: NSMenuItemValidation {
     func mkDir(_ sender: Any?) {
         guard let window = view.window else { return }
         let initial = listView.currentItem.flatMap { $0.isParent ? nil : $0.name } ?? ""
-        Prompt.text("New folder", message: "Folder name (use / for nested folders):",
-                    initial: initial, okTitle: "Create", in: window) { [weak self] name in
+        Prompt.text(String(localized: "New folder"), message: String(localized: "Folder name (use / for nested folders):"),
+                    initial: initial, okTitle: String(localized: "Create"), in: window) { [weak self] name in
             guard let self, !name.isEmpty else { return }
             do {
                 _ = try FileOperations.createDirectory(named: name, in: directory)
                 let topLevel = name.split(separator: "/").first.map(String.init) ?? name
                 load(directory, selecting: topLevel)
             } catch {
-                Prompt.error("Cannot create folder \u{201C}\(name)\u{201D}", error, in: view.window)
+                Prompt.error(String(localized: "Cannot create folder \u{201C}\(name)\u{201D}"), error, in: view.window)
             }
         }
     }
@@ -528,16 +530,17 @@ extension FilePanelController: NSMenuItemValidation {
             return
         }
         let what = items.count == 1
-            ? "\u{201C}\(items[0].name)\u{201D}"
-            : "the selected \(items.count) files/folders"
+            ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
+            : String(localized: "the selected \(items.count) files/folders")
         if permanently {
-            Prompt.confirm("Do you really want to permanently delete \(what)?", message: "This cannot be undone.",
-                           okTitle: "Delete", destructive: true, in: window) { [weak self] in
+            Prompt.confirm(String(localized: "Do you really want to permanently delete \(what)?"),
+                           message: String(localized: "This cannot be undone."),
+                           okTitle: String(localized: "Delete"), destructive: true, in: window) { [weak self] in
                 self?.performDelete(items.map(\.url), permanently: true)
             }
         } else {
-            Prompt.confirm("Do you really want to move \(what) to the Trash?",
-                           okTitle: "Move to Trash", in: window) { [weak self] in
+            Prompt.confirm(String(localized: "Do you really want to move \(what) to the Trash?"),
+                           okTitle: String(localized: "Move to Trash"), in: window) { [weak self] in
                 self?.performDelete(items.map(\.url), permanently: false)
             }
         }
@@ -552,7 +555,7 @@ extension FilePanelController: NSMenuItemValidation {
                     try await FileOperations.moveToTrash(urls)
                 }
             } catch {
-                Prompt.error("Cannot delete", error, in: view.window)
+                Prompt.error(String(localized: "Cannot delete"), error, in: view.window)
             }
             // The cursor stays at the same row, i.e. on the next remaining entry.
             reread()
@@ -712,7 +715,7 @@ extension FilePanelController: FileListViewDelegate {
             let url = try FileOperations.rename(item.url, to: newName)
             load(directory, selecting: url.lastPathComponent)
         } catch {
-            Prompt.error("Cannot rename \u{201C}\(item.name)\u{201D}", error, in: view.window)
+            Prompt.error(String(localized: "Cannot rename \u{201C}\(item.name)\u{201D}"), error, in: view.window)
         }
     }
 

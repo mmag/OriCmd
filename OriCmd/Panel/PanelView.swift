@@ -63,7 +63,7 @@ final class PanelView: NSView {
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         quickSearchField.font = Theme.chromeFont
-        quickSearchField.placeholderString = "Quick search"
+        quickSearchField.placeholderString = String(localized: "Quick search")
         quickSearchField.isHidden = true
 
         let views: [NSView] = [volumeButton, freeSpaceLabel, rootButton, parentButton, tabBar, pathBar, headerView,

@@ -8,7 +8,7 @@ enum Prompt {
         message: String,
         initial: String = "",
         selection: NSRange? = nil,
-        okTitle: String = "OK",
+        okTitle: String = String(localized: "OK"),
         in window: NSWindow,
         completion: @escaping (String) -> Void
     ) {
@@ -20,7 +20,7 @@ enum Prompt {
         alert.informativeText = message
         alert.accessoryView = field
         alert.addButton(withTitle: okTitle)
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(localized: "Cancel"))
         alert.window.initialFirstResponder = field
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
@@ -47,7 +47,7 @@ enum Prompt {
         alert.alertStyle = destructive ? .critical : .warning
         let ok = alert.addButton(withTitle: okTitle)
         ok.hasDestructiveAction = destructive
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(localized: "Cancel"))
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
                 completion()
