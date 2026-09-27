@@ -6,6 +6,24 @@
 поведение и управляющие клавиши при сохранении стандартных сочетаний macOS
 (`⌘C`, `⌘V`, `⌘Q`, `⌘W`, …).
 
+## Установка
+
+Готовый образ собирается скриптом (универсальное приложение для Apple Silicon и
+Intel, macOS 14+):
+
+```sh
+scripts/make-dmg.sh        # → build/OriCmd-<версия>.dmg
+```
+
+Откройте образ и перетащите OriCmd в «Программы». Приложение подписано
+ad-hoc, без сертификата Apple, поэтому при первом запуске macOS его не
+откроет: нажмите на OriCmd правой кнопкой → «Открыть» → «Открыть» (или
+System Settings → Privacy & Security → «Open Anyway»). Либо снимите карантин:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/OriCmd.app
+```
+
 ## Сборка
 
 Требуется macOS 14+ и Xcode.
@@ -13,6 +31,8 @@
 ```sh
 xcodebuild -project OriCmd.xcodeproj -scheme OriCmd -configuration Debug build
 ```
+
+Иконка рисуется скриптом `swift scripts/make-icon.swift`.
 
 ## Клавиши
 

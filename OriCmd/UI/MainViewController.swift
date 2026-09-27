@@ -362,13 +362,13 @@ extension MainViewController: NSMenuItemValidation {
             let names = items.map(\.name)
             confirmOverwriting([archive.lastPathComponent], in: archive.deletingLastPathComponent()) {
                 Task {
-                    _ = await TransferController(title: String(localized: "Packing"),
-                                                 failureTitle: String(localized: "Packing failed"), window: window)
-                        .run(source: source.directory.path, target: archive.path) { progress, _ in
-                            try? FileManager.default.removeItem(at: archive)
-                            try await ArchiveWriter.pack(names, in: source.directory, to: archive, progress: progress)
-                            return []
-                        }
+                    let controller = TransferController(title: String(localized: "Packing"),
+                                                        failureTitle: String(localized: "Packing failed"), window: window)
+                    _ = await controller.run(source: source.directory.path, target: archive.path) { progress, _ in
+                        try? FileManager.default.removeItem(at: archive)
+                        try await ArchiveWriter.pack(names, in: source.directory, to: archive, progress: progress)
+                        return []
+                    }
                     self.leftPanel.reread()
                     self.rightPanel.reread()
                 }
@@ -379,20 +379,20 @@ extension MainViewController: NSMenuItemValidation {
     private func unpack(_ archives: [(url: URL, paths: [String], base: String)], to destination: URL, total: Int64?) {
         guard let window = view.window else { return }
         Task {
-            _ = await TransferController(title: String(localized: "Unpacking"),
-                                         failureTitle: String(localized: "Unpacking failed"), window: window)
-                .run(source: archives.first?.url.path ?? "", target: destination.path) { progress, _ in
-                    let size = try total ?? archives.reduce(Int64(0)) { sum, archive in
-                        try sum + ArchiveReader.entries(of: archive.url).reduce(Int64(0)) { $0 + $1.size }
-                    }
-                    progress.update { $0.totalBytes = size }
-                    try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-                    for archive in archives {
-                        try await ArchiveReader.extract(archive.url, paths: archive.paths, base: archive.base,
-                                                        to: destination, progress: progress)
-                    }
-                    return archives.map(\.url)
+            let controller = TransferController(title: String(localized: "Unpacking"),
+                                                failureTitle: String(localized: "Unpacking failed"), window: window)
+            _ = await controller.run(source: archives.first?.url.path ?? "", target: destination.path) { progress, _ in
+                let size = try total ?? archives.reduce(Int64(0)) { sum, archive in
+                    try sum + ArchiveReader.entries(of: archive.url).reduce(Int64(0)) { $0 + $1.size }
                 }
+                progress.update { $0.totalBytes = size }
+                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+                for archive in archives {
+                    try await ArchiveReader.extract(archive.url, paths: archive.paths, base: archive.base,
+                                                    to: destination, progress: progress)
+                }
+                return archives.map(\.url)
+            }
             leftPanel.reread()
             rightPanel.reread()
         }

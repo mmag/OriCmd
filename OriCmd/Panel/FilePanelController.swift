@@ -215,12 +215,12 @@ final class FilePanelController: NSViewController {
         guard let archive, let window = view.window else { return }
         let url = archive.url
         Task {
-            let done = await TransferController(title: String(localized: "Updating archive"),
+            let controller = TransferController(title: String(localized: "Updating archive"),
                                                 failureTitle: String(localized: "Cannot update archive"), window: window)
-                .run(source: url.path, target: url.path) { progress, _ in
-                    try await ArchiveEditor.apply(edit, to: url, progress: progress)
-                    return [url]
-                }
+            let done = await controller.run(source: url.path, target: url.path) { progress, _ in
+                try await ArchiveEditor.apply(edit, to: url, progress: progress)
+                return [url]
+            }
             if let current = self.archive, current.url == url {
                 reopenArchive(current, selecting: name)
             }

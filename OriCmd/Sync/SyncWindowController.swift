@@ -202,19 +202,19 @@ final class SyncWindowController: NSWindowController {
                        message: String(localized: "Existing files in the target folders are replaced."),
                        okTitle: String(localized: "Synchronize"), in: window) { [weak self] in
             Task {
-                _ = await TransferController(title: String(localized: "Synchronizing"),
-                                             failureTitle: String(localized: "Synchronization failed"), window: window)
-                    .run(source: left.path, target: right.path) { progress, _ in
-                        let total = copies.reduce(Int64(0)) { $0 + $1.size }
-                        progress.update { $0.totalBytes = total }
-                        for copy in copies {
-                            let job = TransferJob(kind: .copy, sources: [copy.source], destination: copy.folder, newName: nil)
-                            _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false) { _, _ in
-                                .overwriteAll
-                            }.run()
-                        }
-                        return copies.map(\.source)
+                let controller = TransferController(title: String(localized: "Synchronizing"),
+                                                    failureTitle: String(localized: "Synchronization failed"), window: window)
+                _ = await controller.run(source: left.path, target: right.path) { progress, _ in
+                    let total = copies.reduce(Int64(0)) { $0 + $1.size }
+                    progress.update { $0.totalBytes = total }
+                    for copy in copies {
+                        let job = TransferJob(kind: .copy, sources: [copy.source], destination: copy.folder, newName: nil)
+                        _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false) { _, _ in
+                            .overwriteAll
+                        }.run()
                     }
+                    return copies.map(\.source)
+                }
                 self?.onFinish?()
                 self?.compare(nil)
             }
