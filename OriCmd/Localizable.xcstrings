@@ -371,6 +371,16 @@
         }
       }
     },
+    "Cannot check for updates": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить обновления"
+          }
+        }
+      }
+    },
     "Cannot connect to “%@”": {
       "localizations": {
         "ru": {
@@ -627,6 +637,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Изменение атрибутов"
+          }
+        }
+      }
+    },
+    "Check for Updates…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить обновления…"
+          }
+        }
+      }
+    },
+    "Check for updates automatically": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверять обновления автоматически"
           }
         }
       }
@@ -1251,6 +1281,16 @@
         }
       }
     },
+    "Downloading OriCmd %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка OriCmd %@"
+          }
+        }
+      }
+    },
     "Duplicate Tab": {
       "localizations": {
         "ru": {
@@ -1741,6 +1781,16 @@
         }
       }
     },
+    "Install and Relaunch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установить и перезапустить"
+          }
+        }
+      }
+    },
     "Internal Associations": {
       "localizations": {
         "ru": {
@@ -1827,6 +1877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Тип файла"
+          }
+        }
+      }
+    },
+    "Later": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позже"
           }
         }
       }
@@ -2301,6 +2361,16 @@
         }
       }
     },
+    "Open Release Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть страницу релиза"
+          }
+        }
+      }
+    },
     "Open Terminal Here": {
       "localizations": {
         "ru": {
@@ -2327,6 +2397,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "⌥+буквы (буквы — в командную строку)"
+          }
+        }
+      }
+    },
+    "OriCmd %@ is available": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступна OriCmd %@"
+          }
+        }
+      }
+    },
+    "OriCmd is up to date": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установлена последняя версия OriCmd"
           }
         }
       }
@@ -3131,6 +3221,16 @@
         }
       }
     },
+    "Skip This Version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустить эту версию"
+          }
+        }
+      }
+    },
     "Sort by Date": {
       "localizations": {
         "ru": {
@@ -3327,6 +3427,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Архив стал бы пустым."
+          }
+        }
+      }
+    },
+    "The disk image contains an older version.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В образе диска более старая версия."
+          }
+        }
+      }
+    },
+    "The disk image does not contain OriCmd.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В образе диска нет OriCmd."
           }
         }
       }
@@ -3601,6 +3721,26 @@
         }
       }
     },
+    "Update failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось обновить"
+          }
+        }
+      }
+    },
+    "Updates:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновления:"
+          }
+        }
+      }
+    },
     "Updating archive": {
       "localizations": {
         "ru": {
@@ -3671,6 +3811,16 @@
         }
       }
     },
+    "Version %@ is the newest one.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия %@ — самая новая."
+          }
+        }
+      }
+    },
     "View": {
       "localizations": {
         "ru": {
@@ -3717,6 +3867,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запись"
+          }
+        }
+      }
+    },
+    "You have version %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У вас версия %@."
           }
         }
       }

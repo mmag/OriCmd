@@ -21,6 +21,7 @@ enum Settings {
         static let driveButtons = "ShowDriveButtons"
         static let confirmTrash = "ConfirmMoveToTrash"
         static let extraColumns = "ExtraColumns"
+        static let checkUpdates = "CheckForUpdates"
     }
 
     static let defaultFontSize: CGFloat = 12
@@ -76,6 +77,12 @@ enum Settings {
     static var confirmsMoveToTrash: Bool {
         get { bool(Key.confirmTrash, default: true) }
         set { set(newValue, Key.confirmTrash) }
+    }
+
+    /// Looks for a new release on GitHub once a day.
+    static var checksForUpdates: Bool {
+        get { bool(Key.checkUpdates, default: true) }
+        set { set(newValue, Key.checkUpdates) }
     }
 
     private static func bool(_ key: String, default value: Bool) -> Bool {

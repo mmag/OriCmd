@@ -19,6 +19,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
 
         NSApp.activate()
+        // A little after launch, so the first look is not an alert.
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            Updater.checkIfDue(window: mainWindowController?.window)
+        }
+    }
+
+    @objc func checkForUpdates(_ sender: Any?) {
+        Updater.check(interactive: true, window: mainWindowController?.window)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

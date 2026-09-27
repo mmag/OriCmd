@@ -69,6 +69,7 @@ enum MainMenu {
         let menu = NSMenu(title: name)
 
         menu.addItem(item(String(localized: "About \(name)"), #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
+        menu.addItem(item(String(localized: "Check for Updates…"), #selector(AppDelegate.checkForUpdates(_:))))
         menu.addItem(.separator())
         menu.addItem(item(String(localized: "Settings…"), #selector(AppDelegate.showSettings(_:)), ","))
         menu.addItem(.separator())

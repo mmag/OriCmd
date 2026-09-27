@@ -19,6 +19,8 @@ final class SettingsWindowController: NSWindowController {
                                           target: nil, action: nil)
     private let confirmTrashBox = NSButton(checkboxWithTitle: String(localized: "Confirm moving to the Trash"),
                                            target: nil, action: nil)
+    private let updatesBox = NSButton(checkboxWithTitle: String(localized: "Check for updates automatically"),
+                                      target: nil, action: nil)
 
     private init() {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 220),
@@ -64,7 +66,7 @@ final class SettingsWindowController: NSWindowController {
         ])
         let fileColors = NSButton(title: String(localized: "File Colors…"), target: self, action: #selector(showFileColors(_:)))
 
-        for box in [commandLineBox, functionKeysBox, driveButtonsBox, confirmTrashBox, alternatingBox] {
+        for box in [commandLineBox, functionKeysBox, driveButtonsBox, confirmTrashBox, alternatingBox, updatesBox] {
             box.target = self
             box.action = #selector(checkboxChanged(_:))
         }
@@ -82,6 +84,7 @@ final class SettingsWindowController: NSWindowController {
             [NSTextField(labelWithString: String(localized: "Programs:")),
              NSButton(title: String(localized: "Internal Associations…"), target: nil,
                       action: Command.internalAssociate.selector)],
+            [NSTextField(labelWithString: String(localized: "Updates:")), updatesBox],
             [NSTextField(labelWithString: String(localized: "Keyboard:")),
              NSButton(title: String(localized: "Keyboard Shortcuts…"), target: self, action: #selector(showKeys(_:)))],
         ])
@@ -110,6 +113,7 @@ final class SettingsWindowController: NSWindowController {
         functionKeysBox.state = Settings.showsFunctionKeys ? .on : .off
         driveButtonsBox.state = Settings.showsDriveButtons ? .on : .off
         confirmTrashBox.state = Settings.confirmsMoveToTrash ? .on : .off
+        updatesBox.state = Settings.checksForUpdates ? .on : .off
         alternatingBox.state = ColorSettings.alternatingRows ? .on : .off
         markedWell.color = Theme.markedText
         cursorWell.color = Theme.cursorBackground
@@ -167,6 +171,7 @@ final class SettingsWindowController: NSWindowController {
         case functionKeysBox: Settings.showsFunctionKeys = on
         case driveButtonsBox: Settings.showsDriveButtons = on
         case alternatingBox: ColorSettings.alternatingRows = on
+        case updatesBox: Settings.checksForUpdates = on
         default: Settings.confirmsMoveToTrash = on
         }
     }
