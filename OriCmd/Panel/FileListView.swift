@@ -21,6 +21,12 @@ protocol FileListViewDelegate: AnyObject {
     func fileList(_ list: FileListView, beginQuickSearchWith text: String)
     /// Space on a folder: its size should be calculated, as in Total Commander.
     func fileList(_ list: FileListView, calculateSizeOf item: FileItem)
+    /// Right click: the context menu for the given entries.
+    func fileList(_ list: FileListView, contextMenuFor items: [FileItem]) -> NSMenu?
+    /// Whether entries may be dragged out (not from inside archives).
+    func fileListCanDragItems(_ list: FileListView) -> Bool
+    /// Files were dropped on the list, or on the folder entry `folder`.
+    func fileList(_ list: FileListView, drop urls: [URL], into folder: FileItem?, moving: Bool) -> Bool
 }
 
 /// The file list of a panel, in Full view (one row per entry with details) or
@@ -63,6 +69,13 @@ final class FileListView: NSView {
     private var renameField: NSTextField?
     private var renamedItem: FileItem?
 
+    /// Where a click started, for telling drags from clicks.
+    var dragOrigin: (point: NSPoint, row: Int)?
+    /// The folder entry highlighted as drop target.
+    var dropTargetRow: Int? {
+        didSet { if dropTargetRow != oldValue { needsDisplay = true } }
+    }
+
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .short
@@ -72,6 +85,16 @@ final class FileListView: NSView {
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
 
     override func becomeFirstResponder() -> Bool {
         delegate?.fileListDidBecomeActive(self)
@@ -241,7 +264,7 @@ final class FileListView: NSView {
         max(Int((superview?.bounds.height ?? rowHeight) / rowHeight), 1)
     }
 
-    private func rowRect(_ row: Int) -> NSRect {
+    func rowRect(_ row: Int) -> NSRect {
         switch viewMode {
         case .full:
             return NSRect(x: 0, y: CGFloat(row) * rowHeight, width: bounds.width, height: rowHeight)
@@ -252,7 +275,7 @@ final class FileListView: NSView {
         }
     }
 
-    private func index(at point: NSPoint) -> Int? {
+    func index(at point: NSPoint) -> Int? {
         let row = Int(point.y / rowHeight)
         let index: Int
         switch viewMode {
@@ -341,6 +364,12 @@ final class FileListView: NSView {
             case .full: drawRow(row, layout: layout)
             case .brief: drawBriefCell(row)
             }
+        }
+        if let dropTargetRow, items.indices.contains(dropTargetRow) {
+            NSColor.controlAccentColor.setStroke()
+            let outline = NSBezierPath(roundedRect: rowRect(dropTargetRow).insetBy(dx: 1, dy: 1), xRadius: 3, yRadius: 3)
+            outline.lineWidth = 2
+            outline.stroke()
         }
     }
 
@@ -445,7 +474,9 @@ final class FileListView: NSView {
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
+        dragOrigin = nil
         guard let row = index(at: point) else { return }
+        dragOrigin = (point, row)
         if event.modifierFlags.contains(.command) {
             toggleMark(at: row)
             moveCursor(to: row)

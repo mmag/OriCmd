@@ -693,7 +693,7 @@ extension FilePanelController: NSMenuItemValidation {
     private func pasteFiles(moving forceMove: Bool) {
         let pasteboard = AppDefaults.pasteboard
         let urls = clipboardFiles
-        guard !urls.isEmpty, let window = view.window else {
+        guard !urls.isEmpty else {
             NSSound.beep()
             return
         }
@@ -708,7 +708,13 @@ extension FilePanelController: NSMenuItemValidation {
             }
             return
         }
-        let destination = directory
+        transfer(urls, to: directory, moving: moving)
+    }
+
+    /// Copies or moves files into `destination` (paste, drag and drop). Items
+    /// already in that folder are duplicated as "name copy" instead.
+    private func transfer(_ urls: [URL], to destination: URL, moving: Bool) {
+        guard let window = view.window else { return }
         Task {
             let controller = moving
                 ? TransferController(title: String(localized: "Moving"), failureTitle: String(localized: "Moving failed"),
@@ -771,6 +777,95 @@ extension FilePanelController: NSMenuItemValidation {
         let pasteboard = AppDefaults.pasteboard
         pasteboard.clearContents()
         pasteboard.setString(lines.joined(separator: "\n"), forType: .string)
+    }
+
+    // MARK: - Context menu
+
+    private func contextMenu(for items: [FileItem]) -> NSMenu {
+        let menu = NSMenu()
+        @discardableResult
+        func add(_ title: String, _ action: Selector, target: AnyObject? = nil) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = target
+            menu.addItem(item)
+            return item
+        }
+        if let first = items.first {
+            add(String(localized: "Open"), #selector(openSelection(_:)), target: self)
+            if items.count == 1, !first.isFolder, archive == nil {
+                let openWith = NSMenuItem(title: String(localized: "Open With"), action: nil, keyEquivalent: "")
+                openWith.submenu = openWithMenu(for: first.url)
+                menu.addItem(openWith)
+            }
+            add(Command.list.title, Command.list.selector)
+            if archive == nil {
+                add(String(localized: "Show in Finder"), #selector(revealInFinder(_:)), target: self)
+            }
+            menu.addItem(.separator())
+            if archive == nil {
+                add(String(localized: "edit.copy", defaultValue: "Copy"), #selector(copy(_:)))
+                add(String(localized: "Cut"), #selector(cut(_:)))
+            }
+        }
+        add(String(localized: "Paste"), #selector(paste(_:)))
+        if !items.isEmpty {
+            add(Command.copyFullNamesToClip.title, Command.copyFullNamesToClip.selector)
+            menu.addItem(.separator())
+            add(Command.renameOnly.title, Command.renameOnly.selector)
+            add(Command.delete.title, Command.delete.selector)
+            if archive == nil {
+                menu.addItem(.separator())
+                add(Command.packFiles.title, Command.packFiles.selector)
+                if items.contains(where: { !$0.isDirectory && ArchiveReader.isArchive($0.name) }) {
+                    add(Command.unpackFiles.title, Command.unpackFiles.selector)
+                }
+            }
+        }
+        return menu
+    }
+
+    private func openWithMenu(for url: URL) -> NSMenu {
+        let menu = NSMenu()
+        let defaultApplication = NSWorkspace.shared.urlForApplication(toOpen: url)
+        var applications = NSWorkspace.shared.urlsForApplications(toOpen: url)
+        if let defaultApplication {
+            applications.removeAll { $0 == defaultApplication }
+            applications.insert(defaultApplication, at: 0)
+        }
+        for application in applications.prefix(25) {
+            var title = FileManager.default.displayName(atPath: application.path)
+            if title.hasSuffix(".app") {
+                title = (title as NSString).deletingPathExtension
+            }
+            if application == defaultApplication {
+                title = String(localized: "\(title) (default)")
+            }
+            let item = NSMenuItem(title: title, action: #selector(openWithApplication(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = application
+            let icon = NSWorkspace.shared.icon(forFile: application.path)
+            icon.size = NSSize(width: 16, height: 16)
+            item.image = icon
+            menu.addItem(item)
+            if application == defaultApplication && applications.count > 1 {
+                menu.addItem(.separator())
+            }
+        }
+        return menu
+    }
+
+    @objc private func openSelection(_ sender: Any?) {
+        fileList(listView, openItemAt: listView.cursor)
+    }
+
+    @objc private func openWithApplication(_ sender: NSMenuItem) {
+        guard let application = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(selectedItems.map(\.url), withApplicationAt: application,
+                                configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    @objc private func revealInFinder(_ sender: Any?) {
+        NSWorkspace.shared.activateFileViewerSelecting(selectedItems.map(\.url))
     }
 
     /// Alt+Shift+Enter: calculates the sizes of all folders in the panel.
@@ -1150,6 +1245,34 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileListCursorDidMove(_ list: FileListView) {
         delegate?.filePanelCursorDidMove(self)
+    }
+
+    func fileList(_ list: FileListView, contextMenuFor items: [FileItem]) -> NSMenu? {
+        contextMenu(for: items)
+    }
+
+    func fileListCanDragItems(_ list: FileListView) -> Bool {
+        archive == nil
+    }
+
+    func fileList(_ list: FileListView, drop urls: [URL], into folder: FileItem?, moving: Bool) -> Bool {
+        if let archive, !(folder?.isParent == true && archive.folder.isEmpty) {
+            guard !refuseReadOnlyArchive() else { return false }
+            let target: String
+            if let folder {
+                target = folder.isParent ? (archive.folder as NSString).deletingLastPathComponent : archive.path(of: folder.name)
+            } else {
+                target = archive.folder
+            }
+            applyArchiveEdit(.add(urls, folder: target), selecting: urls.first?.lastPathComponent) { succeeded in
+                guard succeeded, moving else { return }
+                Task { try? await FileOperations.deletePermanently(urls) }
+            }
+            return true
+        }
+        let destination = archive != nil ? directory : (folder?.url ?? directory)
+        transfer(urls, to: destination, moving: moving)
+        return true
     }
 
     func fileList(_ list: FileListView, calculateSizeOf item: FileItem) {

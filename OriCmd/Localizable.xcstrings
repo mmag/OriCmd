@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ (default)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (по умолчанию)"
+          }
+        }
+      }
+    },
     "%@ already exists. Replace?": {
       "localizations": {
         "ru": {
@@ -1181,6 +1191,16 @@
         }
       }
     },
+    "Open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть"
+          }
+        }
+      }
+    },
     "Open Folder in New Tab": {
       "localizations": {
         "ru": {
@@ -1197,6 +1217,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть Терминал здесь"
+          }
+        }
+      }
+    },
+    "Open With": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в программе"
           }
         }
       }
@@ -1657,6 +1687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать кнопки F-клавиш"
+          }
+        }
+      }
+    },
+    "Show in Finder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать в Finder"
           }
         }
       }

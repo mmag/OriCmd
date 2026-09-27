@@ -5,7 +5,8 @@ import AppKit
 ///
 /// - `ORICMD_LEFT`, `ORICMD_RIGHT`: initial panel directories.
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
-///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`. Only played when both panel
+///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
+///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`. Only played when both panel
 ///   directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
 ///   `<name>-sheet.png`) is rendered there after the keys are played.
@@ -31,6 +32,19 @@ enum DebugAutomation {
             for token in keys {
                 if token == "wait" {
                     try? await Task.sleep(for: .milliseconds(700))
+                } else if token == "menu", let list = window.firstResponder as? FileListView,
+                          let menu = list.delegate?.fileList(list, contextMenuFor: list.selectedEntries),
+                          let snapshot = environment["ORICMD_SNAPSHOT"] {
+                    // Writes the context menu's titles next to the snapshot.
+                    let titles = menu.items.map { item in
+                        item.isSeparatorItem ? "---" : item.title
+                            + (item.submenu.map { " ▸ " + $0.items.map(\.title).joined(separator: " | ") } ?? "")
+                    }
+                    try? titles.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
+                                                                atomically: true, encoding: .utf8)
+                } else if token.hasPrefix("drop:"), let list = window.firstResponder as? FileListView {
+                    // Simulates dropping a file onto the focused panel.
+                    _ = list.delegate?.fileList(list, drop: [URL(filePath: String(token.dropFirst(5)))], into: nil, moving: false)
                 } else if token.hasPrefix("cmd:") {
                     perform(Selector(String(token.dropFirst(4)) + ":"), in: window)
                 } else if token.hasPrefix("text:") {
