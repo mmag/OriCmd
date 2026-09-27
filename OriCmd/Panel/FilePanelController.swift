@@ -18,6 +18,7 @@ final class FilePanelController: NSViewController {
     private(set) var directory: URL
     private var entries: [FileItem] = []
     private var lastMask = "*.*"
+    private var watcher: DirectoryWatcher?
 
     var sortOrder = SortOrder() {
         didSet {
@@ -77,14 +78,37 @@ final class FilePanelController: NSViewController {
             present(error, reading: directory)
             return
         }
-        if directory != self.directory {
+        let isNewDirectory = directory != self.directory
+        if isNewDirectory {
             listView.setMarked([])
         }
         self.directory = directory
         self.entries = entries
+        if isNewDirectory || watcher == nil {
+            watcher = DirectoryWatcher(url: directory) { [weak self] in self?.reread() }
+        }
         panelView.show(directory: directory, volumes: Volume.mounted())
-        refreshList(selecting: name)
+        refreshList(selecting: name, fallback: isNewDirectory ? 0 : listView.cursor)
         delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    /// Reloads the current directory keeping cursor and marks, or moves up
+    /// to the nearest existing folder if it has been removed.
+    func reread() {
+        var directory = self.directory
+        while !FileManager.default.fileExists(atPath: directory.path) && directory.path != "/" {
+            directory = directory.deletingLastPathComponent()
+        }
+        load(directory, selecting: listView.currentItem?.name)
+    }
+
+    /// Mounted volumes changed: refresh the volume list, leave a vanished volume.
+    func volumesDidChange() {
+        if FileManager.default.fileExists(atPath: directory.path) {
+            panelView.show(directory: directory, volumes: Volume.mounted())
+        } else {
+            load(FileManager.default.homeDirectoryForCurrentUser)
+        }
     }
 
     func goToParent() {
@@ -105,13 +129,13 @@ final class FilePanelController: NSViewController {
         }
     }
 
-    private func refreshList(selecting name: String?) {
+    private func refreshList(selecting name: String?, fallback: Int = 0) {
         var items = showsHidden ? entries : entries.filter { !$0.isHidden }
         items = sortOrder.sorted(items)
         if directory.path != "/" {
             items.insert(.parent(of: directory), at: 0)
         }
-        let cursor = name.flatMap { name in items.firstIndex { $0.name == name } } ?? 0
+        let cursor = name.flatMap { name in items.firstIndex { $0.name == name } } ?? fallback
         listView.reload(items: items, cursor: cursor)
         updateStatus()
     }
@@ -175,6 +199,69 @@ final class FilePanelController: NSViewController {
         } else {
             alert.runModal()
         }
+    }
+}
+
+// MARK: - Commands
+
+extension FilePanelController: NSMenuItemValidation {
+    @objc(cm_RereadSource:)
+    func rereadSource(_ sender: Any?) {
+        reread()
+    }
+
+    @objc(cm_GoToParent:)
+    func goToParentCommand(_ sender: Any?) {
+        goToParent()
+    }
+
+    @objc(cm_GoToRoot:)
+    func goToRootCommand(_ sender: Any?) {
+        goToRoot()
+    }
+
+    @objc(cm_SrcByName:)
+    func sortByName(_ sender: Any?) {
+        sort(by: .name)
+    }
+
+    @objc(cm_SrcByExt:)
+    func sortByExt(_ sender: Any?) {
+        sort(by: .ext)
+    }
+
+    @objc(cm_SrcByDateTime:)
+    func sortByDateTime(_ sender: Any?) {
+        sort(by: .date)
+    }
+
+    @objc(cm_SrcBySize:)
+    func sortBySize(_ sender: Any?) {
+        sort(by: .size)
+    }
+
+    @objc(cm_SrcNegOrder:)
+    func reverseOrder(_ sender: Any?) {
+        sortOrder.ascending.toggle()
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard let action = menuItem.action, let command = Command(selector: action) else { return true }
+        let sortColumn: SortColumn? = switch command {
+        case .sortByName: .name
+        case .sortByExt: .ext
+        case .sortByDateTime: .date
+        case .sortBySize: .size
+        default: nil
+        }
+        if let sortColumn {
+            menuItem.state = sortOrder.column == sortColumn ? .on : .off
+        } else if command == .reverseOrder {
+            menuItem.state = sortOrder.ascending ? .off : .on
+        } else if command == .goToParent {
+            return directory.path != "/"
+        }
+        return true
     }
 }
 

@@ -79,10 +79,44 @@ enum DebugAutomation {
             ) else { continue }
             if type == .keyDown {
                 if target.performKeyEquivalent(with: event) { break }
-                if target.attachedSheet == nil, NSApp.mainMenu?.performKeyEquivalent(with: event) == true { break }
+                if target === window, performMenuShortcut(stroke, in: window) { break }
             }
             target.sendEvent(event)
         }
+    }
+
+    /// Finds the menu item for `stroke` and sends its action along the window's
+    /// responder chain. Unlike `NSMenu.performKeyEquivalent`, this also works
+    /// while the app is inactive (e.g. the screen is locked during a test run).
+    private static func performMenuShortcut(_ stroke: KeyStroke, in window: NSWindow) -> Bool {
+        let modifiers = stroke.modifiers.subtracting(.function)
+        func find(in menu: NSMenu) -> NSMenuItem? {
+            for item in menu.items {
+                if let submenu = item.submenu, let found = find(in: submenu) { return found }
+                if item.keyEquivalent == stroke.charactersIgnoringModifiers,
+                   item.keyEquivalentModifierMask == modifiers,
+                   !item.isHidden || item.allowsKeyEquivalentWhenHidden {
+                    return item
+                }
+            }
+            return nil
+        }
+        guard let item = NSApp.mainMenu.flatMap(find(in:)), let action = item.action else { return false }
+
+        var responder = window.firstResponder
+        while let current = responder {
+            if current.responds(to: action) {
+                return NSApp.sendAction(action, to: current, from: item)
+            }
+            if let supplemental = current.supplementalTarget(forAction: action, sender: item) {
+                return NSApp.sendAction(action, to: supplemental, from: item)
+            }
+            responder = current.nextResponder
+        }
+        if let delegate = NSApp.delegate, delegate.responds(to: action) {
+            return NSApp.sendAction(action, to: delegate, from: item)
+        }
+        return false
     }
 
     private static func save(_ window: NSWindow, to path: String) {
@@ -121,6 +155,15 @@ private struct KeyStroke {
         "plus": (0x2B, 24), "minus": (0x2D, 27), "star": (0x2A, 28),
     ]
 
+    /// ANSI key codes, so menus match synthetic events like real ones.
+    private static let keyCodes: [Character: UInt16] = [
+        "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9,
+        "b": 11, "q": 12, "w": 13, "e": 14, "r": 15, "y": 16, "t": 17, "1": 18, "2": 19,
+        "3": 20, "4": 21, "6": 22, "5": 23, "=": 24, "9": 25, "7": 26, "-": 27, "8": 28,
+        "0": 29, "]": 30, "o": 31, "u": 32, "[": 33, "i": 34, "p": 35, "l": 37, "j": 38,
+        "'": 39, "k": 40, ";": 41, "\\": 42, ",": 43, "/": 44, "n": 45, "m": 46, ".": 47, "`": 50,
+    ]
+
     init?(_ token: String) {
         var parts = token.lowercased().split(separator: "+").map(String.init)
         guard let key = parts.popLast() else { return nil }
@@ -140,7 +183,7 @@ private struct KeyStroke {
                 modifiers.insert(.function)
             }
         } else if key.count == 1 {
-            self.init(characters: key, keyCode: 0)
+            self.init(characters: key, keyCode: Self.keyCodes[Character(key)] ?? 0)
         } else {
             return nil
         }

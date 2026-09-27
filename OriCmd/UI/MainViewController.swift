@@ -11,6 +11,17 @@ final class MainViewController: NSViewController {
 
     private var didAppear = false
 
+    private static let showHiddenKey = "ShowHiddenFiles"
+
+    /// Hidden files are shown or hidden in both panels at once, as in Total Commander.
+    private var showsHidden = UserDefaults.standard.bool(forKey: showHiddenKey) {
+        didSet {
+            UserDefaults.standard.set(showsHidden, forKey: Self.showHiddenKey)
+            leftPanel.showsHidden = showsHidden
+            rightPanel.showsHidden = showsHidden
+        }
+    }
+
     private(set) var activePanel: FilePanelController
 
     init() {
@@ -29,6 +40,14 @@ final class MainViewController: NSViewController {
         addChild(rightPanel)
         leftPanel.delegate = self
         rightPanel.delegate = self
+        leftPanel.showsHidden = showsHidden
+        rightPanel.showsHidden = showsHidden
+
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification,
+                     NSWorkspace.didRenameVolumeNotification] {
+            workspace.addObserver(self, selector: #selector(volumesDidChange(_:)), name: name, object: nil)
+        }
     }
 
     @available(*, unavailable)
@@ -82,11 +101,50 @@ final class MainViewController: NSViewController {
         }
     }
 
+    @objc private func volumesDidChange(_ notification: Notification) {
+        leftPanel.volumesDidChange()
+        rightPanel.volumesDidChange()
+    }
+
+    /// Panel commands reach the active panel even when the command line has focus.
+    override func supplementalTarget(forAction action: Selector, sender: Any?) -> Any? {
+        if activePanel.responds(to: action) { return activePanel }
+        if activePanel.listView.responds(to: action) { return activePanel.listView }
+        return super.supplementalTarget(forAction: action, sender: sender)
+    }
+
     private func activate(_ panel: FilePanelController) {
         activePanel = panel
         leftPanel.isActive = panel === leftPanel
         rightPanel.isActive = panel === rightPanel
         commandLine.directory = panel.directory
+    }
+}
+
+// MARK: - Commands
+
+extension MainViewController: NSMenuItemValidation {
+    @objc(cm_SwitchHidSys:)
+    func switchHidSys(_ sender: Any?) {
+        showsHidden.toggle()
+    }
+
+    /// Ctrl+U: swaps the directories (and sort orders) of the two panels.
+    @objc(cm_Exchange:)
+    func exchange(_ sender: Any?) {
+        let left = (leftPanel.directory, leftPanel.listView.currentItem?.name, leftPanel.sortOrder)
+        let right = (rightPanel.directory, rightPanel.listView.currentItem?.name, rightPanel.sortOrder)
+        leftPanel.sortOrder = right.2
+        rightPanel.sortOrder = left.2
+        leftPanel.load(right.0, selecting: right.1)
+        rightPanel.load(left.0, selecting: left.1)
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == Command.switchHidSys.selector {
+            menuItem.state = showsHidden ? .on : .off
+        }
+        return true
     }
 }
 

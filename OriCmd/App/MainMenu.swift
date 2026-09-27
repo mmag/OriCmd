@@ -9,8 +9,24 @@ enum MainMenu {
         let mainMenu = NSMenu()
 
         mainMenu.addItem(container(for: appMenu()))
+        mainMenu.addItem(container(for: commandMenu("Files", [
+            [.list, .edit],
+            [.copy, .renMov, .renameOnly, .mkDir],
+            [.delete, .deletePermanently],
+        ])))
         mainMenu.addItem(container(for: editMenu()))
-        mainMenu.addItem(container(for: markMenu()))
+        mainMenu.addItem(container(for: commandMenu("Mark", [
+            [.spreadSelection, .shrinkSelection],
+        ], extra: markItems())))
+        mainMenu.addItem(container(for: commandMenu("Commands", [
+            [.rereadSource, .exchange],
+            [.goToParent, .goToRoot],
+        ])))
+        mainMenu.addItem(container(for: commandMenu("Show", [
+            [.srcQuickView],
+            [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
+            [.switchHidSys],
+        ])))
 
         let windowMenu = windowMenu()
         mainMenu.addItem(container(for: windowMenu))
@@ -58,15 +74,34 @@ enum MainMenu {
         return menu
     }
 
-    /// Total Commander's "Mark" menu.
-    private static func markMenu() -> NSMenu {
-        let menu = NSMenu(title: "Mark")
-        menu.addItem(item("Select Group…  (+)", Command.spreadSelection.selector))
-        menu.addItem(item("Unselect Group…  (−)", Command.shrinkSelection.selector))
-        menu.addItem(item("Select All", #selector(NSText.selectAll(_:))))
-        menu.addItem(item("Unselect All", Command.clearAll.selector, "a", [.command, .option]))
-        menu.addItem(item("Invert Selection  (*)", Command.exchangeSelection.selector))
+    /// A menu of commands in groups separated by separators. Each command
+    /// gets its shortcut, plus hidden items that make its aliases work.
+    private static func commandMenu(_ title: String, _ groups: [[Command]], extra: [NSMenuItem] = []) -> NSMenu {
+        let menu = NSMenu(title: title)
+        for (index, group) in groups.enumerated() {
+            if index > 0 { menu.addItem(.separator()) }
+            for command in group {
+                let shortcut = command.shortcut
+                menu.addItem(item(command.title, command.selector, shortcut?.key ?? "", shortcut?.modifiers ?? []))
+                for alias in command.aliases {
+                    let hidden = item(command.title, command.selector, alias.key, alias.modifiers)
+                    hidden.isHidden = true
+                    hidden.allowsKeyEquivalentWhenHidden = true
+                    menu.addItem(hidden)
+                }
+            }
+        }
+        extra.forEach(menu.addItem)
         return menu
+    }
+
+    private static func markItems() -> [NSMenuItem] {
+        [
+            .separator(),
+            item("Select All", #selector(NSText.selectAll(_:))),
+            item(Command.clearAll.title, Command.clearAll.selector, "a", [.command, .option]),
+            item(Command.exchangeSelection.title, Command.exchangeSelection.selector),
+        ]
     }
 
     private static func windowMenu() -> NSMenu {
