@@ -421,6 +421,26 @@
         }
       }
     },
+    "Copy Full Paths": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать полные пути"
+          }
+        }
+      }
+    },
+    "Copy Names": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать имена"
+          }
+        }
+      }
+    },
     "Copy in Same Folder…": {
       "localizations": {
         "ru": {
@@ -977,6 +997,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Переместить %1$@ в %2$@?"
+          }
+        }
+      }
+    },
+    "Move Items Here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить сюда"
           }
         }
       }

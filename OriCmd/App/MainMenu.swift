@@ -79,6 +79,8 @@ enum MainMenu {
         menu.addItem(item(String(localized: "Cut"), #selector(NSText.cut(_:)), "x"))
         menu.addItem(item(String(localized: "edit.copy", defaultValue: "Copy"), #selector(NSText.copy(_:)), "c"))
         menu.addItem(item(String(localized: "Paste"), #selector(NSText.paste(_:)), "v"))
+        menu.addItem(item(String(localized: "Move Items Here"), #selector(FilePanelController.moveItemsHere(_:)), "v",
+                          [.command, .option]))
         menu.addItem(item(String(localized: "Select All"), #selector(NSText.selectAll(_:)), "a"))
         return menu
     }
@@ -110,6 +112,9 @@ enum MainMenu {
             item(String(localized: "mark.selectAll", defaultValue: "Select All"), #selector(NSText.selectAll(_:))),
             item(Command.clearAll.title, Command.clearAll.selector, "a", [.command, .option]),
             item(Command.exchangeSelection.title, Command.exchangeSelection.selector),
+            .separator(),
+            item(Command.copyNamesToClip.title, Command.copyNamesToClip.selector),
+            item(Command.copyFullNamesToClip.title, Command.copyFullNamesToClip.selector, "c", [.command, .option]),
         ]
     }
 

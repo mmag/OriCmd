@@ -514,6 +514,14 @@ final class FileListView: NSView {
             } else {
                 super.keyDown(with: event)
             }
+        case (nil, [.control]) where ["c", "x", "v"].contains(event.charactersIgnoringModifiers ?? ""):
+            // Total Commander's Ctrl+C / Ctrl+X / Ctrl+V for files.
+            let action = switch event.charactersIgnoringModifiers {
+            case "c": #selector(NSText.copy(_:))
+            case "x": #selector(NSText.cut(_:))
+            default: #selector(NSText.paste(_:))
+            }
+            tryToPerform(action, with: self)
         case (nil, [.control]) where event.charactersIgnoringModifiers == "d":
             tryToPerform(Command.directoryHotlist.selector, with: self)
         case (.leftArrow?, [.control]), (.leftArrow?, [.command, .option]):

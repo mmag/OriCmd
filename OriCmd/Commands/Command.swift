@@ -29,6 +29,8 @@ enum Command: String, CaseIterable {
     case spreadSelection = "cm_SpreadSelection"
     case shrinkSelection = "cm_ShrinkSelection"
     case clearAll = "cm_ClearAll"
+    case copyNamesToClip = "cm_CopyNamesToClip"
+    case copyFullNamesToClip = "cm_CopyFullNamesToClip"
     case exchangeSelection = "cm_ExchangeSelection"
 
     // Commands
@@ -92,6 +94,8 @@ enum Command: String, CaseIterable {
         case .spreadSelection: String(localized: "Select Group…  (+)")
         case .shrinkSelection: String(localized: "Unselect Group…  (−)")
         case .clearAll: String(localized: "Unselect All")
+        case .copyNamesToClip: String(localized: "Copy Names")
+        case .copyFullNamesToClip: String(localized: "Copy Full Paths")
         case .exchangeSelection: String(localized: "Invert Selection  (*)")
         case .rereadSource: String(localized: "Refresh")
         case .exchange: String(localized: "Swap Panels")
@@ -146,6 +150,7 @@ enum Command: String, CaseIterable {
         case .packFiles: .f(5, .option)
         case .unpackFiles: .f(9, .option)
         case .clearAll: .cmd("a", .option)
+        case .copyFullNamesToClip: .cmd("c", .option)
         case .rereadSource: .cmd("r")
         case .exchange: .ctrl("u")
         case .goToRoot: .ctrl("\\")

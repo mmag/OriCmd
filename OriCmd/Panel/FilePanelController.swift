@@ -651,6 +651,128 @@ extension FilePanelController: NSMenuItemValidation {
         MultiRenameWindowController.show(for: items) { [weak self] in self?.reread() }
     }
 
+    // MARK: - Clipboard
+
+    /// Files cut with ⌘X: pasting them (while the clipboard is unchanged) moves them.
+    private static var cutClipboard: (changeCount: Int, urls: [URL])?
+
+    @objc func copy(_ sender: Any?) {
+        writeSelectionToClipboard(cut: false)
+    }
+
+    @objc func cut(_ sender: Any?) {
+        writeSelectionToClipboard(cut: true)
+    }
+
+    @objc func paste(_ sender: Any?) {
+        pasteFiles(moving: false)
+    }
+
+    /// ⌥⌘V, like Finder's "Move Item Here".
+    @objc func moveItemsHere(_ sender: Any?) {
+        pasteFiles(moving: true)
+    }
+
+    private func writeSelectionToClipboard(cut: Bool) {
+        let urls = selectedItems.map(\.url)
+        guard archive == nil, !urls.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let pasteboard = AppDefaults.pasteboard
+        pasteboard.clearContents()
+        pasteboard.writeObjects(urls as [NSURL])
+        Self.cutClipboard = cut ? (pasteboard.changeCount, urls) : nil
+    }
+
+    private var clipboardFiles: [URL] {
+        (AppDefaults.pasteboard.readObjects(forClasses: [NSURL.self],
+                                            options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+    }
+
+    private func pasteFiles(moving forceMove: Bool) {
+        let pasteboard = AppDefaults.pasteboard
+        let urls = clipboardFiles
+        guard !urls.isEmpty, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let moving = forceMove || Self.cutClipboard?.changeCount == pasteboard.changeCount
+        if moving { Self.cutClipboard = nil }
+
+        if let archive {
+            guard !refuseReadOnlyArchive() else { return }
+            applyArchiveEdit(.add(urls, folder: archive.folder), selecting: urls.first?.lastPathComponent) { succeeded in
+                guard succeeded, moving else { return }
+                Task { try? await FileOperations.deletePermanently(urls) }
+            }
+            return
+        }
+        let destination = directory
+        Task {
+            let controller = moving
+                ? TransferController(title: String(localized: "Moving"), failureTitle: String(localized: "Moving failed"),
+                                     window: window)
+                : TransferController(title: String(localized: "Copying"), failureTitle: String(localized: "Copying failed"),
+                                     window: window)
+            _ = await controller.run(source: urls[0].deletingLastPathComponent().path, target: destination.path) {
+                progress, resolveConflict in
+                let total = urls.reduce(Int64(0)) { $0 + TransferEngine.totalSize(of: $1) }
+                progress.update { $0.totalBytes = total }
+                for url in urls {
+                    var newName: String?
+                    if url.deletingLastPathComponent().standardizedFileURL.path == destination.standardizedFileURL.path {
+                        if moving { continue }
+                        newName = Self.copyName(for: url.lastPathComponent, in: destination)
+                    }
+                    let job = TransferJob(kind: moving ? .move : .copy, sources: [url], destination: destination,
+                                          newName: newName)
+                    _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
+                                                 resolveConflict: resolveConflict).run()
+                }
+                return urls
+            }
+            load(directory, selecting: urls.first?.lastPathComponent)
+        }
+    }
+
+    /// "name copy.ext", "name copy 2.ext", … — the first name not taken in `folder`.
+    nonisolated static func copyName(for name: String, in folder: URL) -> String {
+        let base = (name as NSString).deletingPathExtension
+        let ext = (name as NSString).pathExtension
+        for index in 1... {
+            let candidate = index == 1 ? "\(base) copy" : "\(base) copy \(index)"
+            let full = ext.isEmpty ? candidate : candidate + "." + ext
+            if !FileManager.default.fileExists(atPath: folder.appending(path: full).path) {
+                return full
+            }
+        }
+        return name
+    }
+
+    /// Copies the names of the selected entries to the clipboard, one per line.
+    @objc(cm_CopyNamesToClip:)
+    func copyNamesToClip(_ sender: Any?) {
+        copyToClipboard(selectedItems.map(\.name))
+    }
+
+    /// ⌥⌘C: copies the full paths of the selected entries, like Finder's "Copy as Pathname".
+    @objc(cm_CopyFullNamesToClip:)
+    func copyFullNamesToClip(_ sender: Any?) {
+        let prefix = archive.map { $0.displayPath + "/" }
+        copyToClipboard(selectedItems.map { item in prefix.map { $0 + item.name } ?? item.url.path })
+    }
+
+    private func copyToClipboard(_ lines: [String]) {
+        guard !lines.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let pasteboard = AppDefaults.pasteboard
+        pasteboard.clearContents()
+        pasteboard.setString(lines.joined(separator: "\n"), forType: .string)
+    }
+
     /// Alt+Shift+Enter: calculates the sizes of all folders in the panel.
     @objc(cm_CountDirContent:)
     func countDirContent(_ sender: Any?) {
@@ -879,6 +1001,14 @@ extension FilePanelController: NSMenuItemValidation {
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case #selector(copy(_:)), #selector(cut(_:)):
+            return archive == nil && !selectedItems.isEmpty
+        case #selector(paste(_:)), #selector(moveItemsHere(_:)):
+            return !clipboardFiles.isEmpty
+        default:
+            break
+        }
         guard let action = menuItem.action, let command = Command(selector: action) else { return true }
         let sortColumn: SortColumn? = switch command {
         case .sortByName: .name
