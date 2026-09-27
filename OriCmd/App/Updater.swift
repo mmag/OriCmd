@@ -105,17 +105,26 @@ enum Updater {
         return try JSONDecoder().decode(Release.self, from: data)
     }
 
-    /// Compares dotted versions numerically: 0.10 is newer than 0.9.
+    /// Compares dotted versions numerically: 0.10 is newer than 0.9. A letter
+    /// suffix marks a pre-release: 0.2b is newer than 0.1 but older than 0.2,
+    /// and 0.2b2 is newer than 0.2b.
     nonisolated static func isVersion(_ version: String, newerThan other: String) -> Bool {
-        func parts(_ text: String) -> [Int] {
-            text.split(separator: ".").map { Int($0.prefix(while: \.isNumber)) ?? 0 }
+        func parse(_ text: String) -> (numbers: [Int], suffix: String) {
+            let numeric = text.prefix { $0.isNumber || $0 == "." }
+            return (numeric.split(separator: ".").map { Int($0) ?? 0 }, String(text.dropFirst(numeric.count)))
         }
-        let (a, b) = (parts(version), parts(other))
-        for index in 0..<max(a.count, b.count) {
-            let (x, y) = (index < a.count ? a[index] : 0, index < b.count ? b[index] : 0)
+        let (a, b) = (parse(version), parse(other))
+        for index in 0..<max(a.numbers.count, b.numbers.count) {
+            let x = index < a.numbers.count ? a.numbers[index] : 0
+            let y = index < b.numbers.count ? b.numbers[index] : 0
             if x != y { return x > y }
         }
-        return false
+        switch (a.suffix.isEmpty, b.suffix.isEmpty) {
+        case (true, true): return false
+        case (true, false): return true
+        case (false, true): return false
+        case (false, false): return a.suffix.compare(b.suffix, options: .numeric) == .orderedDescending
+        }
     }
 
     private static func offer(_ release: Release, window: NSWindow?) {

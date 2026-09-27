@@ -41,7 +41,13 @@
 
 ## Установка
 
-Готовые образы — на странице [Releases](https://github.com/mmag/OriCmd/releases).
+Через [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask mmag/tap/oricmd
+```
+
+Или скачайте образ со страницы [Releases](https://github.com/mmag/OriCmd/releases).
 Образ можно собрать и самому (универсальное приложение для Apple Silicon и
 Intel, macOS 14+):
 
@@ -51,7 +57,7 @@ scripts/make-dmg.sh        # → build/OriCmd-<версия>.dmg
 
 Откройте образ и перетащите OriCmd в «Программы». Приложение подписано
 ad-hoc, без сертификата Apple, поэтому при первом запуске macOS его не
-откроет: нажмите на OriCmd правой кнопкой → «Открыть» → «Открыть» (или
+откроет (и после Homebrew, и из образа): нажмите на OriCmd правой кнопкой → «Открыть» → «Открыть» (или
 System Settings → Privacy & Security → «Open Anyway»). Либо снимите карантин:
 
 ```sh

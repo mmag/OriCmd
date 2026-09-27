@@ -39,7 +39,13 @@ The screenshots are made by `scripts/screenshots.sh` on demo folders
 
 ## Installation
 
-Disk images are on the [Releases](https://github.com/mmag/OriCmd/releases)
+With [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask mmag/tap/oricmd
+```
+
+Or download the disk image from the [Releases](https://github.com/mmag/OriCmd/releases)
 page. You can also build one yourself (a universal app for Apple Silicon and
 Intel, macOS 14+):
 
@@ -48,7 +54,8 @@ scripts/make-dmg.sh        # → build/OriCmd-<version>.dmg
 ```
 
 Open the image and drag OriCmd to Applications. The app is ad-hoc signed,
-without an Apple certificate, so macOS won't open it the first time: right-click
+without an Apple certificate, so macOS won't open it the first time (whether it
+came from Homebrew or from the image): right-click
 OriCmd → Open → Open (or System Settings → Privacy & Security → Open Anyway).
 Or remove the quarantine:
 
