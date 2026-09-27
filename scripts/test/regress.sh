@@ -50,5 +50,17 @@ scripts/test/mkdata.sh
 run clip "alt+n wait text:otes escape cmd+c tab cmd+v wait wait"
 check "Cmd+C / Cmd+V copies" "cmp -s $L/notes.md $R/notes.md"
 
+scripts/test/servers.sh start
+connect() { echo "cmd:connectToServer wait cmd+a text:$1 enter wait $2 wait wait"; }
+
+scripts/test/mkdata.sh
+run sftp "$(connect sftp://oritest$PWD/$L) home down down enter wait wait down f5 wait enter wait wait wait"
+check "SFTP downloads a folder" "cmp -s $L/beta/deep/deeper/blob.bin $R/deep/deeper/blob.bin"
+
+scripts/test/mkdata.sh; echo upload > $R/up.txt
+run ftp "$(connect ftp://tester@127.0.0.1:2121/left 'text:secret enter wait') tab down f5 wait enter wait wait wait"
+check "FTP uploads a file" "cmp -s $R/up.txt $L/up.txt"
+scripts/test/servers.sh stop
+
 echo "passed: $pass, failed: $fail"
 [ $fail -eq 0 ]
