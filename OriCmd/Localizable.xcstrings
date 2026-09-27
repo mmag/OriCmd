@@ -51,6 +51,16 @@
         }
       }
     },
+    "%lld conflicting names": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфликтующих имён: %lld"
+          }
+        }
+      }
+    },
     "%lld files/folders": {
       "localizations": {
         "ru": {
@@ -67,6 +77,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "найдено: %1$lld, просмотрено: %2$lld"
+          }
+        }
+      }
+    },
+    "%lld of %lld files will be renamed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будет переименовано файлов: %1$lld из %2$lld"
           }
         }
       }
@@ -221,6 +241,16 @@
         }
       }
     },
+    "Cannot rename": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся переименовать"
+          }
+        }
+      }
+    },
     "Cannot rename “%@”": {
       "localizations": {
         "ru": {
@@ -267,6 +297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "С учётом регистра"
+          }
+        }
+      }
+    },
+    "Case:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регистр:"
           }
         }
       }
@@ -387,6 +427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Копировать…"
+          }
+        }
+      }
+    },
+    "Counter [C]:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Счётчик [C]:"
           }
         }
       }
@@ -571,6 +621,16 @@
         }
       }
     },
+    "Extension:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расширение:"
+          }
+        }
+      }
+    },
     "File already exists": {
       "localizations": {
         "ru": {
@@ -627,6 +687,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "С текстом:"
+          }
+        }
+      }
+    },
+    "First Letter Of Each Word": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждое Слово С Заглавной"
+          }
+        }
+      }
+    },
+    "First letter uppercase": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первая буква заглавная"
           }
         }
       }
@@ -881,6 +961,26 @@
         }
       }
     },
+    "Multi-Rename Tool": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Групповое переименование"
+          }
+        }
+      }
+    },
+    "Multi-Rename Tool…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Групповое переименование…"
+          }
+        }
+      }
+    },
     "Name": {
       "localizations": {
         "ru": {
@@ -921,6 +1021,16 @@
         }
       }
     },
+    "New name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое имя"
+          }
+        }
+      }
+    },
     "Next Tab": {
       "localizations": {
         "ru": {
@@ -947,6 +1057,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "OK"
+          }
+        }
+      }
+    },
+    "Old name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Старое имя"
           }
         }
       }
@@ -1191,6 +1311,16 @@
         }
       }
     },
+    "Regular expressions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регулярные выражения"
+          }
+        }
+      }
+    },
     "Remove “%@”": {
       "localizations": {
         "ru": {
@@ -1211,12 +1341,32 @@
         }
       }
     },
+    "Rename mask:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маска имени:"
+          }
+        }
+      }
+    },
     "Rename/move %@ to:": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Переименовать/переместить %@ в:"
+          }
+        }
+      }
+    },
+    "Replace with:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить на:"
           }
         }
       }
@@ -1681,6 +1831,26 @@
         }
       }
     },
+    "UPPERCASE": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ВСЕ ПРОПИСНЫЕ"
+          }
+        }
+      }
+    },
+    "Unchanged": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без изменений"
+          }
+        }
+      }
+    },
     "Undo": {
       "localizations": {
         "ru": {
@@ -1831,6 +2001,16 @@
         }
       }
     },
+    "characters": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "символы"
+          }
+        }
+      }
+    },
     "copy.button": {
       "extractionState": "manual",
       "localizations": {
@@ -1865,6 +2045,36 @@
         }
       }
     },
+    "counter": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "счётчик"
+          }
+        }
+      }
+    },
+    "date and time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "дата и время"
+          }
+        }
+      }
+    },
+    "digits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "цифр"
+          }
+        }
+      }
+    },
     "edit.copy": {
       "extractionState": "manual",
       "localizations": {
@@ -1878,6 +2088,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Скопировать"
+          }
+        }
+      }
+    },
+    "extension": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "расширение"
           }
         }
       }
@@ -2001,6 +2221,26 @@
         }
       }
     },
+    "folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "папка"
+          }
+        }
+      }
+    },
+    "lowercase": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "все строчные"
+          }
+        }
+      }
+    },
     "mark.selectAll": {
       "extractionState": "manual",
       "localizations": {
@@ -2031,6 +2271,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Переместить"
+          }
+        }
+      }
+    },
+    "name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "имя"
+          }
+        }
+      }
+    },
+    "start": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "начало"
+          }
+        }
+      }
+    },
+    "step": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "шаг"
           }
         }
       }

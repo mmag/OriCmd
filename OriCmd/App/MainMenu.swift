@@ -11,7 +11,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: appMenu()))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Files"), [
             [.list, .edit],
-            [.copy, .renMov, .renameOnly, .mkDir],
+            [.copy, .renMov, .renameOnly, .multiRenameFiles, .mkDir],
             [.delete, .deletePermanently],
             [.packFiles, .unpackFiles],
         ])))

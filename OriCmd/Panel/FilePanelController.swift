@@ -634,6 +634,18 @@ extension FilePanelController: NSMenuItemValidation {
         }
     }
 
+    /// Ctrl+M: renames the selected files with the Multi-Rename Tool.
+    @objc(cm_MultiRenameFiles:)
+    func multiRenameFiles(_ sender: Any?) {
+        guard !refuseInsideArchive() else { return }
+        let items = selectedItems
+        guard !items.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        MultiRenameWindowController.show(for: items) { [weak self] in self?.reread() }
+    }
+
     /// F3: opens the file under the cursor in the Lister window.
     @objc(cm_List:)
     func list(_ sender: Any?) {
