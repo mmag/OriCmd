@@ -131,6 +131,16 @@
         }
       }
     },
+    "All Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все файлы"
+          }
+        }
+      }
+    },
     "Attr": {
       "localizations": {
         "ru": {
@@ -757,6 +767,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Файл"
+          }
+        }
+      }
+    },
+    "Filter": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фильтр"
+          }
+        }
+      }
+    },
+    "Filter…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фильтр…"
           }
         }
       }
@@ -1591,6 +1621,16 @@
         }
       }
     },
+    "Select Same Extension  (⌥+)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выделить файлы того же типа  (⌥+)"
+          }
+        }
+      }
+    },
     "Select files": {
       "localizations": {
         "ru": {
@@ -1727,6 +1767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть в правой панели"
+          }
+        }
+      }
+    },
+    "Show only files matching (e.g. *.jpg;*.png):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать только файлы по маске (например, *.jpg;*.png):"
           }
         }
       }
@@ -2087,6 +2137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Снять выделение с группы…  (−)"
+          }
+        }
+      }
+    },
+    "Unselect Same Extension  (⌥−)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять выделение с файлов того же типа  (⌥−)"
           }
         }
       }

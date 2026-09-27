@@ -538,6 +538,11 @@ final class FileListView: NSView {
             tryToPerform(Command.directoryHistory.selector, with: self)
         case (.upArrow?, [.control]), (.upArrow?, [.command, .option]):
             tryToPerform(Command.openDirInNewTab.selector, with: self)
+        case (nil, [.option]) where ["+", "=", "-"].contains(event.charactersIgnoringModifiers ?? ""):
+            // Total Commander's Alt+Num+ / Alt+Num−.
+            let select = event.charactersIgnoringModifiers != "-"
+            tryToPerform(select ? Command.selectCurrentExtension.selector : Command.unselectCurrentExtension.selector,
+                         with: self)
         case (nil, [.option]), (nil, [.control, .option]):
             if let text = event.charactersIgnoringModifiers, !text.isEmpty,
                text.unicodeScalars.allSatisfy({ $0.value >= 0x20 && $0.value != 0x7F }) {

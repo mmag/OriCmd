@@ -29,6 +29,8 @@ enum Command: String, CaseIterable {
     case spreadSelection = "cm_SpreadSelection"
     case shrinkSelection = "cm_ShrinkSelection"
     case clearAll = "cm_ClearAll"
+    case selectCurrentExtension = "cm_SelectCurrentExtension"
+    case unselectCurrentExtension = "cm_UnselectCurrentExtension"
     case copyNamesToClip = "cm_CopyNamesToClip"
     case copyFullNamesToClip = "cm_CopyFullNamesToClip"
     case exchangeSelection = "cm_ExchangeSelection"
@@ -57,6 +59,8 @@ enum Command: String, CaseIterable {
     case syncDirs = "cm_SyncDirs"
 
     // Show
+    case srcAllFiles = "cm_SrcAllFiles"
+    case srcUserSpec = "cm_SrcUserSpec"
     case srcShort = "cm_SrcShort"
     case srcLong = "cm_SrcLong"
     case srcTree = "cm_SrcTree"
@@ -94,6 +98,8 @@ enum Command: String, CaseIterable {
         case .spreadSelection: String(localized: "Select Group…  (+)")
         case .shrinkSelection: String(localized: "Unselect Group…  (−)")
         case .clearAll: String(localized: "Unselect All")
+        case .selectCurrentExtension: String(localized: "Select Same Extension  (⌥+)")
+        case .unselectCurrentExtension: String(localized: "Unselect Same Extension  (⌥−)")
         case .copyNamesToClip: String(localized: "Copy Names")
         case .copyFullNamesToClip: String(localized: "Copy Full Paths")
         case .exchangeSelection: String(localized: "Invert Selection  (*)")
@@ -118,6 +124,8 @@ enum Command: String, CaseIterable {
         case .searchFor: String(localized: "Find Files…")
         case .compareDirs: String(localized: "Compare Directories")
         case .syncDirs: String(localized: "Synchronize Directories…")
+        case .srcAllFiles: String(localized: "All Files")
+        case .srcUserSpec: String(localized: "Filter…")
         case .srcShort: String(localized: "Brief")
         case .srcLong: String(localized: "Full")
         case .srcTree: String(localized: "Tree")

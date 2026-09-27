@@ -11,8 +11,12 @@ final class PathBar: NSView {
         didSet { needsDisplay = true }
     }
 
-    /// Appends the "*.*" mask, as Total Commander does for folders.
+    /// Appends the file mask ("*.*", or the panel filter), as Total Commander does.
     var showsMask = true {
+        didSet { needsDisplay = true }
+    }
+
+    var mask = "*.*" {
         didSet { needsDisplay = true }
     }
 
@@ -32,7 +36,7 @@ final class PathBar: NSView {
             .foregroundColor: isActive ? Theme.activeHeaderText : Theme.inactiveHeaderText,
             .paragraphStyle: paragraph,
         ]
-        let text = showsMask ? (path.hasSuffix("/") ? path : path + "/") + "*.*" : path
+        let text = showsMask ? (path.hasSuffix("/") ? path : path + "/") + mask : path
         let height = (text as NSString).size(withAttributes: attributes).height
         (text as NSString).draw(
             in: NSRect(x: 4, y: (bounds.height - height) / 2, width: bounds.width - 8, height: height),

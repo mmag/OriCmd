@@ -30,6 +30,7 @@ enum MainMenu {
         ])))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcTree, .srcQuickView],
+            [.srcAllFiles, .srcUserSpec],
             [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
             [.switchHidSys],
@@ -112,6 +113,8 @@ enum MainMenu {
             item(String(localized: "mark.selectAll", defaultValue: "Select All"), #selector(NSText.selectAll(_:))),
             item(Command.clearAll.title, Command.clearAll.selector, "a", [.command, .option]),
             item(Command.exchangeSelection.title, Command.exchangeSelection.selector),
+            item(Command.selectCurrentExtension.title, Command.selectCurrentExtension.selector),
+            item(Command.unselectCurrentExtension.title, Command.unselectCurrentExtension.selector),
             .separator(),
             item(Command.copyNamesToClip.title, Command.copyNamesToClip.selector),
             item(Command.copyFullNamesToClip.title, Command.copyFullNamesToClip.selector, "c", [.command, .option]),

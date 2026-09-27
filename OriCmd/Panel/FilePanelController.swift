@@ -81,6 +81,14 @@ final class FilePanelController: NSViewController {
         didSet { refreshList(selecting: listView.currentItem?.name) }
     }
 
+    /// Show → Filter: only files matching this mask are listed (folders always are).
+    private var filterMask: String? {
+        didSet {
+            panelView.pathBar.mask = filterMask ?? "*.*"
+            refreshList(selecting: listView.currentItem?.name)
+        }
+    }
+
     var listView: FileListView { panelView.listView }
 
     var viewMode: FileListView.ViewMode {
@@ -452,6 +460,9 @@ final class FilePanelController: NSViewController {
 
     private func refreshList(selecting name: String?, fallback: Int = 0) {
         var items = showsHidden ? entries : entries.filter { !$0.isHidden }
+        if let filterMask {
+            items = items.filter { $0.isFolder || FileMask.matches($0.name, filterMask) }
+        }
         items = sortOrder.sorted(items)
         if archive != nil || directory.path != "/" {
             items.insert(.parent(of: directory), at: 0)
@@ -652,6 +663,47 @@ extension FilePanelController: NSMenuItemValidation {
             return
         }
         MultiRenameWindowController.show(for: items) { [weak self] in self?.reread() }
+    }
+
+    // MARK: - Selection by extension, filter
+
+    /// Alt+Num+: marks all files with the extension of the file under the cursor.
+    @objc(cm_SelectCurrentExtension:)
+    func selectCurrentExtension(_ sender: Any?) {
+        markCurrentExtension(true)
+    }
+
+    /// Alt+Num−: unmarks all files with the extension of the file under the cursor.
+    @objc(cm_UnselectCurrentExtension:)
+    func unselectCurrentExtension(_ sender: Any?) {
+        markCurrentExtension(false)
+    }
+
+    private func markCurrentExtension(_ mark: Bool) {
+        guard let current = listView.currentItem, !current.isParent, !current.isFolder else {
+            NSSound.beep()
+            return
+        }
+        let ext = current.fileExtension.lowercased()
+        let names = listView.items.filter { !$0.isFolder && $0.fileExtension.lowercased() == ext }.map(\.name)
+        listView.setMarked(mark ? listView.marked.union(names) : listView.marked.subtracting(names))
+    }
+
+    /// Show → Filter: lists only files matching a mask, e.g. "*.jpg;*.png".
+    @objc(cm_SrcUserSpec:)
+    func srcUserSpec(_ sender: Any?) {
+        guard let window = view.window else { return }
+        Prompt.text(String(localized: "Filter"), message: String(localized: "Show only files matching (e.g. *.jpg;*.png):"),
+                    initial: filterMask ?? "*.*", okTitle: String(localized: "Filter"), in: window) { [weak self] mask in
+            let mask = mask.trimmingCharacters(in: .whitespaces)
+            self?.filterMask = mask.isEmpty || mask == "*" || mask == "*.*" ? nil : mask
+        }
+    }
+
+    /// Show → All Files: removes the filter.
+    @objc(cm_SrcAllFiles:)
+    func srcAllFiles(_ sender: Any?) {
+        filterMask = nil
     }
 
     // MARK: - Clipboard
@@ -1121,6 +1173,8 @@ extension FilePanelController: NSMenuItemValidation {
             menuItem.state = sortOrder.ascending ? .off : .on
         } else if command == .goToParent {
             return directory.path != "/"
+        } else if command == .srcAllFiles || command == .srcUserSpec {
+            menuItem.state = (filterMask == nil) == (command == .srcAllFiles) ? .on : .off
         } else if command == .srcShort || command == .srcLong {
             menuItem.state = (viewMode == .brief) == (command == .srcShort) ? .on : .off
         } else if [.closeCurrentTab, .switchToNextTab, .switchToPreviousTab].contains(command) {
