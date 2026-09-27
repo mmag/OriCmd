@@ -5,7 +5,7 @@ import AppKit
 ///
 /// - `ORICMD_LEFT`, `ORICMD_RIGHT`: initial panel directories.
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
-///   `down shift+down f7 text:New enter wait`. Only played when both panel
+///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`. Only played when both panel
 ///   directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
 ///   `<name>-sheet.png`) is rendered there after the keys are played.
@@ -31,6 +31,8 @@ enum DebugAutomation {
             for token in keys {
                 if token == "wait" {
                     try? await Task.sleep(for: .milliseconds(700))
+                } else if token.hasPrefix("cmd:") {
+                    perform(Selector(String(token.dropFirst(4)) + ":"), in: window)
                 } else if token.hasPrefix("text:") {
                     type(String(token.dropFirst(5)), in: window)
                 } else if let stroke = KeyStroke(token) {
@@ -128,6 +130,23 @@ enum DebugAutomation {
             if let found = button(for: stroke, in: subview) { return found }
         }
         return nil
+    }
+
+    /// Sends a command (e.g. `cm_SyncDirs:`) along the window's responder chain.
+    @discardableResult
+    private static func perform(_ action: Selector, in window: NSWindow) -> Bool {
+        var responder = topmost(window).firstResponder
+        while let current = responder {
+            if current.responds(to: action) {
+                return NSApp.sendAction(action, to: current, from: nil)
+            }
+            if let supplemental = current.supplementalTarget(forAction: action, sender: nil) {
+                return NSApp.sendAction(action, to: supplemental, from: nil)
+            }
+            responder = current.nextResponder
+        }
+        NSLog("No target for \(action)")
+        return false
     }
 
     /// Finds the menu item for `stroke` and sends its action along the window's

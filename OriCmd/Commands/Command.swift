@@ -47,6 +47,8 @@ enum Command: String, CaseIterable {
     case switchToPreviousTab = "cm_SwitchToPreviousTab"
     case directoryHotlist = "cm_DirectoryHotlist"
     case searchFor = "cm_SearchFor"
+    case compareDirs = "cm_CompareDirs"
+    case syncDirs = "cm_SyncDirs"
 
     // Show
     case srcShort = "cm_SrcShort"
@@ -102,6 +104,8 @@ enum Command: String, CaseIterable {
         case .switchToPreviousTab: String(localized: "Previous Tab")
         case .directoryHotlist: String(localized: "Directory Hotlist…")
         case .searchFor: String(localized: "Find Files…")
+        case .compareDirs: String(localized: "Compare Directories")
+        case .syncDirs: String(localized: "Synchronize Directories…")
         case .srcShort: String(localized: "Brief")
         case .srcLong: String(localized: "Full")
         case .srcTree: String(localized: "Tree")
@@ -149,6 +153,7 @@ enum Command: String, CaseIterable {
         case .switchToPreviousTab: .ctrl("\t", .shift)
         case .directoryHotlist: .cmd("d")
         case .searchFor: .f(7, .option)
+        case .compareDirs: .f(2, .shift)
         case .srcShort: .cmd("1")
         case .srcLong: .cmd("2")
         case .srcTree: .cmd("3")

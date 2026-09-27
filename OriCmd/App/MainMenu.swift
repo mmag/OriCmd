@@ -23,6 +23,7 @@ enum MainMenu {
             [.rereadSource, .exchange],
             [.openNewTab, .openDirInNewTab, .closeCurrentTab, .switchToNextTab, .switchToPreviousTab],
             [.searchFor, .directoryHotlist],
+            [.compareDirs, .syncDirs],
             [.goToPrevDir, .goToNextDir, .directoryHistory, .goToParent, .goToRoot],
             [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],

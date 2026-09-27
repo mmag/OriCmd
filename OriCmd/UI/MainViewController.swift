@@ -484,6 +484,49 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
+    /// Shift+F2: marks the files that are missing from, or newer than, the other panel.
+    @objc(cm_CompareDirs:)
+    func compareDirs(_ sender: Any?) {
+        func files(_ panel: FilePanelController) -> [String: FileItem] {
+            Dictionary(panel.listView.items.filter { !$0.isParent && !$0.isFolder }.map { ($0.name, $0) },
+                       uniquingKeysWith: { first, _ in first })
+        }
+        let left = files(leftPanel)
+        let right = files(rightPanel)
+        var markLeft = Set<String>()
+        var markRight = Set<String>()
+        for (name, file) in left {
+            guard let other = right[name] else {
+                markLeft.insert(name)
+                continue
+            }
+            let difference = file.modified.timeIntervalSince(other.modified)
+            if difference > DirectoryComparison.dateTolerance {
+                markLeft.insert(name)
+            } else if difference < -DirectoryComparison.dateTolerance {
+                markRight.insert(name)
+            } else if file.size != other.size {
+                markLeft.insert(name)
+                markRight.insert(name)
+            }
+        }
+        markRight.formUnion(right.keys.filter { left[$0] == nil })
+        leftPanel.listView.setMarked(markLeft)
+        rightPanel.listView.setMarked(markRight)
+        if markLeft.isEmpty && markRight.isEmpty {
+            Prompt.info(String(localized: "The panels contain the same files."), message: "", in: view.window)
+        }
+    }
+
+    /// Opens the "Synchronize directories" window for the two panels' folders.
+    @objc(cm_SyncDirs:)
+    func syncDirs(_ sender: Any?) {
+        SyncWindowController.show(left: leftPanel.directory, right: rightPanel.directory) { [weak self] in
+            self?.leftPanel.reread()
+            self?.rightPanel.reread()
+        }
+    }
+
     /// Opens Terminal in the active panel's folder.
     @objc(cm_ExecuteDOS:)
     func executeDOS(_ sender: Any?) {

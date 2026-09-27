@@ -69,17 +69,24 @@ nonisolated final class TransferEngine {
     private var overwriteAll = false
     private var skipAll = false
 
-    init(job: TransferJob, progress: TransferProgress, resolveConflict: @escaping ConflictHandler) {
+    private let reportsTotal: Bool
+
+    /// With `reportsTotal` false the caller has set `totalBytes` for a batch of jobs.
+    init(job: TransferJob, progress: TransferProgress, reportsTotal: Bool = true,
+         resolveConflict: @escaping ConflictHandler) {
         self.job = job
         self.progress = progress
+        self.reportsTotal = reportsTotal
         self.resolveConflict = resolveConflict
     }
 
     /// Returns the sources that were fully transferred.
     @concurrent
     func run() async throws -> [URL] {
-        let total = job.sources.reduce(Int64(0)) { $0 + Self.totalSize(of: $1) }
-        progress.update { $0.totalBytes = total }
+        if reportsTotal {
+            let total = job.sources.reduce(Int64(0)) { $0 + Self.totalSize(of: $1) }
+            progress.update { $0.totalBytes = total }
+        }
 
         try FileManager.default.createDirectory(at: job.destination, withIntermediateDirectories: true)
         var done: [URL] = []

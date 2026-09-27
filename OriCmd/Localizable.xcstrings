@@ -71,6 +71,16 @@
         }
       }
     },
+    "%lld → , %lld ← , %lld ≠ , %lld files compared; %@ to copy": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld → , %2$lld ← , %3$lld ≠ , сравнено файлов: %4$lld; копировать %5$@"
+          }
+        }
+      }
+    },
     "About %@": {
       "localizations": {
         "ru": {
@@ -127,6 +137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все окна — на передний план"
+          }
+        }
+      }
+    },
+    "By content": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По содержимому"
           }
         }
       }
@@ -281,6 +301,36 @@
         }
       }
     },
+    "Compare": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сравнить"
+          }
+        }
+      }
+    },
+    "Compare Directories": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сравнить каталоги"
+          }
+        }
+      }
+    },
+    "Comparing…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сравнение…"
+          }
+        }
+      }
+    },
     "Confirm moving to the Trash": {
       "localizations": {
         "ru": {
@@ -297,6 +347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Копировать %@ в:"
+          }
+        }
+      }
+    },
+    "Copy %lld files?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать файлы (%lld)?"
           }
         }
       }
@@ -467,6 +527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Одноимённые элементы архива будут заменены."
+          }
+        }
+      }
+    },
+    "Existing files in the target folders are replaced.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Существующие файлы в целевых папках будут заменены."
           }
         }
       }
@@ -691,12 +761,32 @@
         }
       }
     },
+    "Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слева"
+          }
+        }
+      }
+    },
     "Left Volume List": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Список дисков слева"
+          }
+        }
+      }
+    },
+    "Left:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слева:"
           }
         }
       }
@@ -1141,12 +1231,32 @@
         }
       }
     },
+    "Right": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Справа"
+          }
+        }
+      }
+    },
     "Right Volume List": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Список дисков справа"
+          }
+        }
+      }
+    },
+    "Right:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Справа:"
           }
         }
       }
@@ -1277,6 +1387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать командную строку"
+          }
+        }
+      }
+    },
+    "Show equal files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать одинаковые"
           }
         }
       }
@@ -1421,6 +1541,16 @@
         }
       }
     },
+    "Subfolders": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С подкаталогами"
+          }
+        }
+      }
+    },
     "Swap Panels": {
       "localizations": {
         "ru": {
@@ -1431,12 +1561,82 @@
         }
       }
     },
+    "Synchronization failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка синхронизации"
+          }
+        }
+      }
+    },
+    "Synchronize": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизировать"
+          }
+        }
+      }
+    },
+    "Synchronize Directories": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизация каталогов"
+          }
+        }
+      }
+    },
+    "Synchronize Directories…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизировать каталоги…"
+          }
+        }
+      }
+    },
+    "Synchronize…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизировать…"
+          }
+        }
+      }
+    },
+    "Synchronizing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизация"
+          }
+        }
+      }
+    },
     "The archive would become empty.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Архив стал бы пустым."
+          }
+        }
+      }
+    },
+    "The panels contain the same files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В панелях одинаковые файлы."
           }
         }
       }
