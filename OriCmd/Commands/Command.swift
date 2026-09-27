@@ -50,6 +50,7 @@ enum Command: String, CaseIterable {
     case goToParent = "cm_GoToParent"
     case executeDOS = "cm_ExecuteDOS"
     case ftpDisconnect = "cm_FtpDisconnect"
+    case ftpConnect = "cm_FtpConnect"
     case goToPrevDir = "cm_GoToPrevDir"
     case goToNextDir = "cm_GoToNextDir"
     case directoryHistory = "cm_DirectoryHistory"
@@ -129,6 +130,7 @@ enum Command: String, CaseIterable {
         case .goToParent: String(localized: "Go to Parent")
         case .executeDOS: String(localized: "Open Terminal Here")
         case .ftpDisconnect: String(localized: "Disconnect")
+        case .ftpConnect: String(localized: "Connections…")
         case .goToPrevDir: String(localized: "Back")
         case .goToNextDir: String(localized: "Forward")
         case .directoryHistory: String(localized: "Folder History…")
@@ -213,6 +215,7 @@ enum Command: String, CaseIterable {
         case .compareDirs: .f(2, .shift)
         case .branchView: .cmd("b")
         case .quickFilter: .ctrl("s")
+        case .ftpConnect: .cmd("k", .shift)
         case .srcShort: .cmd("1")
         case .srcLong: .cmd("2")
         case .srcTree: .cmd("3")

@@ -181,6 +181,26 @@
         }
       }
     },
+    "Address": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес"
+          }
+        }
+      }
+    },
+    "Address:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес:"
+          }
+        }
+      }
+    },
     "Algorithm for the checksum file:": {
       "localizations": {
         "ru": {
@@ -777,6 +797,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Подключиться к серверу…"
+          }
+        }
+      }
+    },
+    "Connections": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Соединения"
+          }
+        }
+      }
+    },
+    "Connections…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Соединения…"
           }
         }
       }
@@ -1981,12 +2021,32 @@
         }
       }
     },
+    "New": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое"
+          }
+        }
+      }
+    },
     "New Command": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Новая команда"
+          }
+        }
+      }
+    },
+    "New Connection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое соединение"
           }
         }
       }
@@ -2281,6 +2341,16 @@
         }
       }
     },
+    "Password:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль:"
+          }
+        }
+      }
+    },
     "Paste": {
       "localizations": {
         "ru": {
@@ -2431,6 +2501,16 @@
         }
       }
     },
+    "Remember password in Keychain": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запомнить пароль в связке ключей"
+          }
+        }
+      }
+    },
     "Remove": {
       "localizations": {
         "ru": {
@@ -2577,6 +2657,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выполнять в Терминале"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить"
           }
         }
       }

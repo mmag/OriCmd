@@ -36,6 +36,7 @@ enum MainMenu {
 
         let net = NSMenu(title: String(localized: "Net"))
         net.addItem(item(String(localized: "Connect to Server…"), #selector(MainViewController.connectToServer(_:)), "k"))
+        net.addItem(commandItem(.ftpConnect))
         net.addItem(item(String(localized: "Disconnect"), Command.ftpDisconnect.selector))
         net.addItem(item(String(localized: "Eject"), #selector(MainViewController.ejectVolume(_:)), "e"))
         mainMenu.addItem(container(for: net))

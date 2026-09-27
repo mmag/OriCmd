@@ -708,12 +708,7 @@ extension MainViewController: NSMenuItemValidation {
                 return
             }
             AppDefaults.store.set(address, forKey: key)
-            if let fileSystem = SFTPFileSystem(url: url, password: nil) {
-                self?.activePanel.openRemote(fileSystem)
-                return
-            }
-            if ["ftp", "ftps", "ftpes"].contains(url.scheme?.lowercased() ?? "") {
-                self?.connectFTP(url)
+            if self?.connectRemote(url, password: nil) == true {
                 return
             }
             Task {
@@ -725,6 +720,33 @@ extension MainViewController: NSMenuItemValidation {
                 }
             }
         }
+    }
+
+    /// Net → Connections (Total Commander's Ctrl+F): the saved servers.
+    @objc(cm_FtpConnect:)
+    func ftpConnect(_ sender: Any?) {
+        ConnectionsWindowController.shared.show { [weak self] url, password in
+            guard let self else { return }
+            view.window?.makeKeyAndOrderFront(nil)
+            if !connectRemote(url, password: password) {
+                NSSound.beep()
+            }
+        }
+    }
+
+    /// Opens an SFTP or FTP server in the active panel. Returns false for other addresses.
+    private func connectRemote(_ url: URL, password: String?) -> Bool {
+        if let fileSystem = SFTPFileSystem(url: url, password: password) {
+            activePanel.openRemote(fileSystem)
+            return true
+        }
+        guard ["ftp", "ftps", "ftpes"].contains(url.scheme?.lowercased() ?? "") else { return false }
+        if let password, let fileSystem = FTPFileSystem(url: url, password: password) {
+            activePanel.openRemote(fileSystem)
+        } else {
+            connectFTP(url)
+        }
+        return true
     }
 
     /// Opens an FTP server in the active panel, asking for the password if needed.

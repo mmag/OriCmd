@@ -673,6 +673,8 @@ final class FileListView: NSView {
             default: #selector(NSText.paste(_:))
             }
             tryToPerform(action, with: self)
+        case (nil, [.control]) where event.charactersIgnoringModifiers == "f":
+            tryToPerform(Command.ftpConnect.selector, with: self)
         case (nil, [.control]) where event.charactersIgnoringModifiers == "b":
             tryToPerform(Command.branchView.selector, with: self)
         case (nil, [.control]) where event.charactersIgnoringModifiers == "d":
