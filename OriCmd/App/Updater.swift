@@ -127,10 +127,26 @@ enum Updater {
         }
     }
 
+    /// Release notes as plain text: Markdown marks removed, and of notes written in
+    /// English and Russian (split by a "---" line) the part in the interface language.
+    static func displayNotes(_ body: String) -> String {
+        let parts = body.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n---\n")
+        let part = Settings.runningLanguage == .russian && parts.count > 1 ? parts[1] : parts[0]
+        let lines = part.components(separatedBy: "\n").compactMap { line -> String? in
+            var line = line
+            if line.hasPrefix("```") { return nil }
+            while line.hasPrefix("#") { line.removeFirst() }
+            if line.hasPrefix("- ") { line = "• " + line.dropFirst(2) }
+            return line.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "`", with: "")
+                .trimmingCharacters(in: .whitespaces)
+        }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private static func offer(_ release: Release, window: NSWindow?) {
         let alert = NSAlert()
         alert.messageText = String(localized: "OriCmd \(release.version) is available")
-        var notes = (release.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        var notes = displayNotes(release.body ?? "")
         if notes.count > 1500 {
             notes = String(notes.prefix(1500)) + "…"
         }
