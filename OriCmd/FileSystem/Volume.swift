@@ -1,7 +1,7 @@
 import Foundation
 
 /// A mounted volume, the macOS counterpart of a drive letter.
-struct Volume: Hashable {
+nonisolated struct Volume: Hashable, Sendable {
     let url: URL
     let name: String
 
@@ -27,7 +27,7 @@ struct Volume: Hashable {
 }
 
 /// Free and total space of the volume holding a URL.
-struct VolumeSpace {
+nonisolated struct VolumeSpace {
     let available: Int64
     let total: Int64
 

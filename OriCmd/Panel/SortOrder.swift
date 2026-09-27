@@ -1,12 +1,12 @@
 import Foundation
 
-enum SortColumn: CaseIterable {
+nonisolated enum SortColumn: CaseIterable, Sendable {
     case name, ext, size, date, attr
 }
 
 /// Total Commander ordering: "[..]" first, then folders, then files.
 /// Folders are sorted by name unless the panel is sorted by date.
-struct SortOrder: Equatable {
+nonisolated struct SortOrder: Equatable, Sendable {
     var column: SortColumn = .name
     var ascending = true
 

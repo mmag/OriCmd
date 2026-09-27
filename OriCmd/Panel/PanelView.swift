@@ -6,6 +6,8 @@ final class PanelView: NSView {
     let driveBar = DriveBar()
     let volumeButton = NSPopUpButton(frame: .zero, pullsDown: false)
     let freeSpaceLabel = NSTextField(labelWithString: "")
+    /// Spins while a slow folder is being read.
+    let loadingIndicator = NSProgressIndicator()
     let rootButton = NSButton(title: "/", target: nil, action: nil)
     let parentButton = NSButton(title: "..", target: nil, action: nil)
     let tabBar = FolderTabBar()
@@ -68,7 +70,11 @@ final class PanelView: NSView {
         quickSearchField.placeholderString = String(localized: "Quick search")
         quickSearchField.isHidden = true
 
-        let views: [NSView] = [driveBar, volumeButton, freeSpaceLabel, rootButton, parentButton, tabBar, pathBar, headerView,
+        loadingIndicator.style = .spinning
+        loadingIndicator.controlSize = .small
+        loadingIndicator.isDisplayedWhenStopped = false
+
+        let views: [NSView] = [driveBar, loadingIndicator, volumeButton, freeSpaceLabel, rootButton, parentButton, tabBar, pathBar, headerView,
                                scrollView, statusLabel, quickSearchField]
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -96,6 +102,8 @@ final class PanelView: NSView {
             parentButton.centerYAnchor.constraint(equalTo: volumeButton.centerYAnchor),
             parentButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
             parentButton.widthAnchor.constraint(equalToConstant: 24),
+            loadingIndicator.centerYAnchor.constraint(equalTo: volumeButton.centerYAnchor),
+            loadingIndicator.trailingAnchor.constraint(equalTo: rootButton.leadingAnchor, constant: -6),
             rootButton.centerYAnchor.constraint(equalTo: volumeButton.centerYAnchor),
             rootButton.trailingAnchor.constraint(equalTo: parentButton.leadingAnchor, constant: -2),
             rootButton.widthAnchor.constraint(equalToConstant: 24),
@@ -158,7 +166,16 @@ final class PanelView: NSView {
     }
 
     /// Updates the header for `directory`: path, current volume and free space.
-    func show(directory: URL, volumes: [Volume]) {
+    func setLoading(_ loading: Bool) {
+        if loading {
+            loadingIndicator.startAnimation(nil)
+        } else {
+            loadingIndicator.stopAnimation(nil)
+        }
+    }
+
+    /// `freeSpace` is computed here when not given (it can be slow on network volumes).
+    func show(directory: URL, volumes: [Volume], freeSpace: String? = nil) {
         if volumes != self.volumes || driveBar.drives.isEmpty {
             driveBar.drives = DriveBar.drives(for: volumes)
         }
@@ -172,7 +189,7 @@ final class PanelView: NSView {
            let index = volumes.firstIndex(of: current) {
             volumeButton.selectItem(at: index)
         }
-        freeSpaceLabel.stringValue = VolumeSpace(for: directory)?.summary ?? ""
+        freeSpaceLabel.stringValue = freeSpace ?? VolumeSpace(for: directory)?.summary ?? ""
     }
 
     @objc private func volumeChanged(_ sender: NSPopUpButton) {

@@ -7,7 +7,8 @@ enum DirectoryListing {
         let directoryPath = directory.path
         let prefix = directoryPath.hasSuffix("/") ? directoryPath : directoryPath + "/"
         var result: [FileItem] = []
-        for name in try names(in: directory) {
+        for (index, name) in try names(in: directory).enumerated() {
+            if index % 1000 == 999, Task.isCancelled { throw CancellationError() }
             let path = prefix + name
             var info = stat()
             guard lstat(path, &info) == 0 else { continue }
@@ -21,7 +22,7 @@ enum DirectoryListing {
                 }
             }
             let isPackage = isDirectory && name.contains(".")
-                && NSWorkspace.shared.isFilePackage(atPath: path)
+                && (try? URL(filePath: path).resourceValues(forKeys: [.isPackageKey]).isPackage) == true
             let modified = Date(
                 timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)
                     + TimeInterval(info.st_mtimespec.tv_nsec) / 1_000_000_000

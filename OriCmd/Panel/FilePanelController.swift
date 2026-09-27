@@ -19,6 +19,8 @@ final class FilePanelController: NSViewController {
 
     private(set) var directory: URL
     private var entries: [FileItem] = []
+    /// The order `entries` are already sorted in (big folders are sorted in the background).
+    private var entriesOrder: SortOrder?
 
     /// Where the panel is inside an archive, while browsing one.
     struct ArchiveLocation {
@@ -38,6 +40,8 @@ final class FilePanelController: NSViewController {
     private(set) var archive: ArchiveLocation?
     private var lastMask = "*.*"
     private var watcher: DirectoryWatcher?
+    private var loadTask: Task<Void, Never>?
+    private var loadGeneration = 0
 
     struct HistoryEntry {
         let directory: URL
@@ -163,21 +167,78 @@ final class FilePanelController: NSViewController {
     // MARK: - Navigation
 
     /// Reads `directory` and shows it, placing the cursor on `name` if given.
+    /// The folder is read in the background (a slow network volume must not
+    /// freeze the window); only the latest request is shown. Esc cancels it.
     func load(_ directory: URL, selecting name: String? = nil, recordingHistory: Bool = true) {
         let directory = directory.standardizedFileURL
         if directory != self.directory {
             isBranchView = false
         }
-        var entries: [FileItem]
+        let branch = isBranchView
+        let includingHidden = showsHidden
+        let sortOrder = sortOrder
+        loadGeneration += 1
+        let generation = loadGeneration
+        loadTask?.cancel()
+        loadTask = Task {
+            let showsIndicator = Task {
+                try? await Task.sleep(for: .milliseconds(200))
+                if !Task.isCancelled && generation == loadGeneration { panelView.setLoading(true) }
+            }
+            let result = await Self.read(directory, branch: branch, includingHidden: includingHidden,
+                                         sortOrder: sortOrder)
+            showsIndicator.cancel()
+            guard generation == loadGeneration else { return }
+            panelView.setLoading(false)
+            switch result {
+            case .success(let listing):
+                show(listing, of: directory, selecting: name, recordingHistory: recordingHistory)
+            case .failure(let error):
+                if !(error is CancellationError) {
+                    present(error, reading: directory)
+                }
+            }
+        }
+    }
+
+    /// Esc while a folder is being read: stops reading and keeps the old listing.
+    override func cancelOperation(_ sender: Any?) {
+        guard loadTask != nil else { return }
+        loadGeneration += 1
+        loadTask?.cancel()
+        loadTask = nil
+        panelView.setLoading(false)
+    }
+
+    /// What a background read produces.
+    private struct Listing: Sendable {
+        let entries: [FileItem]
+        let sortOrder: SortOrder
+        let volumes: [Volume]
+        let freeSpace: String
+    }
+
+    @concurrent
+    private nonisolated static func read(_ directory: URL, branch: Bool, includingHidden: Bool,
+                                         sortOrder: SortOrder) async -> Result<Listing, Error> {
         do {
-            entries = try DirectoryListing.items(in: directory)
+            var entries = try DirectoryListing.items(in: directory)
+            if branch {
+                entries = DirectoryListing.branchItems(in: directory, includingHidden: includingHidden)
+            }
+            try Task.checkCancellation()
+            entries = sortOrder.sorted(entries)
+            try Task.checkCancellation()
+            return .success(Listing(entries: entries, sortOrder: sortOrder, volumes: Volume.mounted(),
+                                    freeSpace: VolumeSpace(for: directory)?.summary ?? ""))
         } catch {
-            present(error, reading: directory)
-            return
+            return .failure(error)
         }
-        if isBranchView {
-            entries = DirectoryListing.branchItems(in: directory, includingHidden: showsHidden)
-        }
+    }
+
+    private func show(_ listing: Listing, of directory: URL, selecting name: String?, recordingHistory: Bool) {
+        loadTask = nil
+        let entries = listing.entries
         if archive != nil {
             archive = nil
             listView.setMarked([])
@@ -194,10 +255,11 @@ final class FilePanelController: NSViewController {
         }
         self.directory = directory
         self.entries = entries
+        entriesOrder = listing.sortOrder
         if isNewDirectory || watcher == nil {
             watcher = DirectoryWatcher(url: directory) { [weak self] in self?.reread() }
         }
-        panelView.show(directory: directory, volumes: Volume.mounted())
+        panelView.show(directory: directory, volumes: listing.volumes, freeSpace: listing.freeSpace)
         refreshList(selecting: name, fallback: isNewDirectory ? 0 : listView.cursor)
         if tabs[activeTabIndex].directory != directory {
             tabs[activeTabIndex].directory = directory
@@ -270,6 +332,7 @@ final class FilePanelController: NSViewController {
             )
         }
         entries = Array(children.values)
+        entriesOrder = nil
         panelView.show(directory: directory, volumes: Volume.mounted())
         panelView.pathBar.path = archive.displayPath
         refreshList(selecting: name, fallback: 0)
@@ -502,11 +565,14 @@ final class FilePanelController: NSViewController {
     }
 
     private func refreshList(selecting name: String?, fallback: Int = 0) {
+        if entriesOrder != sortOrder {
+            entries = sortOrder.sorted(entries)
+            entriesOrder = sortOrder
+        }
         var items = showsHidden ? entries : entries.filter { !$0.isHidden }
         if let filterMask {
             items = items.filter { $0.isFolder || FileMask.matches($0.name, filterMask) }
         }
-        items = sortOrder.sorted(items)
         if archive != nil || directory.path != "/" {
             items.insert(.parent(of: directory), at: 0)
         }

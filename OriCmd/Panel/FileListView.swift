@@ -701,6 +701,7 @@ final class FileListView: NSView {
         case "-": shrinkSelection(nil)
         case "*": exchangeSelection(nil)
         case "/": restoreSelection(nil)
+        case "\u{1b}": tryToPerform(#selector(NSResponder.cancelOperation(_:)), with: self)
         case let text? where Settings.quickSearchMode == .letters && !text.isEmpty
             && text.unicodeScalars.allSatisfy({ $0.value >= 0x21 && $0.value != 0x7F && $0.value < 0xF700 }):
             delegate?.fileList(self, beginQuickSearchWith: text)
