@@ -40,7 +40,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: net))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcThumbs, .srcTree, .srcQuickView],
-            [.srcAllFiles, .srcUserSpec, .branchView],
+            [.srcAllFiles, .srcUserSpec, .quickFilter, .branchView],
             [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
             [.switchHidSys],

@@ -91,9 +91,25 @@ final class FilePanelController: NSViewController {
     /// Show → Filter: only files matching this mask are listed (folders always are).
     private var filterMask: String? {
         didSet {
-            panelView.pathBar.mask = filterMask ?? "*.*"
+            updatePathMask()
             refreshList(selecting: listView.currentItem?.name)
         }
+    }
+
+    /// Ctrl+S quick filter: only names containing this text are listed.
+    private var quickFilter: String? {
+        didSet {
+            guard quickFilter != oldValue else { return }
+            updatePathMask()
+            refreshList(selecting: listView.currentItem?.name)
+        }
+    }
+
+    /// Whether the quick search box currently edits the quick filter.
+    private var quickSearchFilters = false
+
+    private func updatePathMask() {
+        panelView.pathBar.mask = quickFilter.map { "*\($0)*" } ?? filterMask ?? "*.*"
     }
 
     var listView: FileListView { panelView.listView }
@@ -203,7 +219,10 @@ final class FilePanelController: NSViewController {
 
     /// Esc while a folder is being read: stops reading and keeps the old listing.
     override func cancelOperation(_ sender: Any?) {
-        guard loadTask != nil else { return }
+        guard loadTask != nil else {
+            quickFilter = nil
+            return
+        }
         loadGeneration += 1
         loadTask?.cancel()
         loadTask = nil
@@ -246,6 +265,7 @@ final class FilePanelController: NSViewController {
         let isNewDirectory = directory != self.directory
         if isNewDirectory {
             listView.folderSizes = [:]
+            quickFilter = nil
             if recordingHistory {
                 backHistory.append(HistoryEntry(directory: self.directory, selectedName: listView.currentItem?.name))
                 backHistory = Array(backHistory.suffix(Self.historyLimit))
@@ -572,6 +592,9 @@ final class FilePanelController: NSViewController {
         var items = showsHidden ? entries : entries.filter { !$0.isHidden }
         if let filterMask {
             items = items.filter { $0.isFolder || FileMask.matches($0.name, filterMask) }
+        }
+        if let quickFilter {
+            items = items.filter { $0.name.localizedCaseInsensitiveContains(quickFilter) }
         }
         if archive != nil || directory.path != "/" {
             items.insert(.parent(of: directory), at: 0)
@@ -1478,14 +1501,24 @@ extension FilePanelController: NSMenuItemValidation {
 // MARK: - Quick search
 
 extension FilePanelController: NSTextFieldDelegate {
-    func beginQuickSearch(_ text: String) {
+    /// Ctrl+S: shows the box as a quick filter (Enter keeps the filter, Esc removes it).
+    @objc(cm_QuickFilter:)
+    func quickFilterCommand(_ sender: Any?) {
+        beginQuickSearch(quickFilter ?? "", filtering: true)
+    }
+
+    func beginQuickSearch(_ text: String, filtering: Bool = false) {
+        quickSearchFilters = filtering
         let field = panelView.quickSearchField
+        field.placeholderString = filtering ? String(localized: "Quick filter") : String(localized: "Quick search")
         field.stringValue = text
         field.isHidden = false
         panelView.statusLabel.isHidden = true
         view.window?.makeFirstResponder(field)
         field.currentEditor()?.selectedRange = NSRange(location: (text as NSString).length, length: 0)
-        jumpToMatch(from: 0, forward: true)
+        if !filtering {
+            jumpToMatch(from: 0, forward: true)
+        }
     }
 
     private func endQuickSearch(openingItem: Bool) {
@@ -1526,10 +1559,31 @@ extension FilePanelController: NSTextFieldDelegate {
     }
 
     func controlTextDidChange(_ notification: Notification) {
-        jumpToMatch(from: listView.cursor, forward: true)
+        if quickSearchFilters {
+            let text = panelView.quickSearchField.stringValue
+            quickFilter = text.isEmpty ? nil : text
+        } else {
+            jumpToMatch(from: listView.cursor, forward: true)
+        }
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        if quickSearchFilters {
+            switch selector {
+            case #selector(NSResponder.moveDown(_:)):
+                listView.moveCursor(to: listView.cursor + 1)
+            case #selector(NSResponder.moveUp(_:)):
+                listView.moveCursor(to: listView.cursor - 1)
+            case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertTab(_:)):
+                endQuickSearch(openingItem: false)
+            case #selector(NSResponder.cancelOperation(_:)):
+                quickFilter = nil
+                endQuickSearch(openingItem: false)
+            default:
+                return false
+            }
+            return true
+        }
         switch selector {
         case #selector(NSResponder.moveDown(_:)):
             jumpToMatch(from: listView.cursor + 1, forward: true)

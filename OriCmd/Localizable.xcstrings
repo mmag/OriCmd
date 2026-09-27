@@ -2061,6 +2061,16 @@
         }
       }
     },
+    "Quick Filter…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Быстрый фильтр…"
+          }
+        }
+      }
+    },
     "Quick View": {
       "localizations": {
         "ru": {
@@ -2077,6 +2087,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Быстрый просмотр: %@"
+          }
+        }
+      }
+    },
+    "Quick filter": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Быстрый фильтр"
           }
         }
       }
