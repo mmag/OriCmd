@@ -10,8 +10,8 @@ enum MainMenu {
 
         mainMenu.addItem(container(for: appMenu()))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Files"), [
-            [.list, .edit],
-            [.copy, .renMov, .renameOnly, .multiRenameFiles, .mkDir],
+            [.list, .edit, .editNewFile],
+            [.copy, .copySamePanel, .renMov, .renameOnly, .multiRenameFiles, .mkDir],
             [.delete, .deletePermanently],
             [.packFiles, .unpackFiles],
         ])))
@@ -30,6 +30,7 @@ enum MainMenu {
         ])))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcTree, .srcQuickView],
+            [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
             [.switchHidSys],
         ])))

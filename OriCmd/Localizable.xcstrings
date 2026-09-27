@@ -171,6 +171,16 @@
         }
       }
     },
+    "Calculate Folder Sizes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсчитать размер каталогов"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "ru": {
@@ -207,6 +217,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся создать каталог «%@»"
+          }
+        }
+      }
+    },
+    "Cannot create “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся создать «%@»"
           }
         }
       }
@@ -401,6 +421,26 @@
         }
       }
     },
+    "Copy in Same Folder…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать в тот же каталог…"
+          }
+        }
+      }
+    },
+    "Copy “%@” as:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать «%@» как:"
+          }
+        }
+      }
+    },
     "Copying": {
       "localizations": {
         "ru": {
@@ -571,6 +611,26 @@
         }
       }
     },
+    "Edit New File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Редактировать новый файл…"
+          }
+        }
+      }
+    },
+    "Edit new file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый файл"
+          }
+        }
+      }
+    },
     "Entries with the same names will be replaced.": {
       "localizations": {
         "ru": {
@@ -647,6 +707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Маска файлов, например *.txt;*.md"
+          }
+        }
+      }
+    },
+    "File name:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя файла:"
           }
         }
       }

@@ -19,6 +19,8 @@ protocol FileListViewDelegate: AnyObject {
     func fileList(_ list: FileListView, interceptKey event: NSEvent) -> Bool
     /// ⌥/⌃⌥ + letter: starts quick search with `text`.
     func fileList(_ list: FileListView, beginQuickSearchWith text: String)
+    /// Space on a folder: its size should be calculated, as in Total Commander.
+    func fileList(_ list: FileListView, calculateSizeOf item: FileItem)
 }
 
 /// The file list of a panel, in Full view (one row per entry with details) or
@@ -47,6 +49,10 @@ final class FileListView: NSView {
     private(set) var cursor = 0
     /// Names of marked entries, drawn in red.
     private(set) var marked: Set<String> = []
+    /// Calculated folder sizes by name, shown instead of <DIR>.
+    var folderSizes: [String: Int64] = [:] {
+        didSet { needsDisplay = true }
+    }
 
     var isActive = false {
         didSet { if isActive != oldValue { needsDisplay = true } }
@@ -396,7 +402,9 @@ final class FileListView: NSView {
                  font: Theme.panelFont, color: color)
 
         let size: String
-        if item.isFolder {
+        if item.isFolder, let folderSize = folderSizes[item.name] {
+            size = folderSize.formatted(.number.grouping(.automatic))
+        } else if item.isFolder {
             size = "<DIR>"
         } else if item.isPackage {
             size = "<PKG>"
@@ -540,7 +548,11 @@ final class FileListView: NSView {
     /// Space marks like Insert; "+", "-", "*" work like the numpad keys in Total Commander.
     private func handleCharacter(_ event: NSEvent) {
         switch event.charactersIgnoringModifiers {
-        case " ": toggleMarkAndMove(by: 1)
+        case " ":
+            if let item = currentItem, item.isFolder, !item.isParent, folderSizes[item.name] == nil {
+                delegate?.fileList(self, calculateSizeOf: item)
+            }
+            toggleMarkAndMove(by: 1)
         case "+": spreadSelection(nil)
         case "-": shrinkSelection(nil)
         case "*": exchangeSelection(nil)

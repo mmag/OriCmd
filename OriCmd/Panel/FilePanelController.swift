@@ -163,6 +163,7 @@ final class FilePanelController: NSViewController {
         }
         let isNewDirectory = directory != self.directory
         if isNewDirectory {
+            listView.folderSizes = [:]
             if recordingHistory {
                 backHistory.append(HistoryEntry(directory: self.directory, selectedName: listView.currentItem?.name))
                 backHistory = Array(backHistory.suffix(Self.historyLimit))
@@ -465,13 +466,17 @@ final class FilePanelController: NSViewController {
         let markedFiles = files.filter { marked.contains($0.name) }
         let folders = entries.filter(\.isFolder)
         let markedFolderCount = folders.count { marked.contains($0.name) }
+        // Calculated folder sizes count as well, as in Total Commander.
+        let sizes = listView.folderSizes
+        let markedFolderBytes = folders.filter { marked.contains($0.name) }.reduce(Int64(0)) { $0 + (sizes[$1.name] ?? 0) }
+        let folderBytes = folders.reduce(Int64(0)) { $0 + (sizes[$1.name] ?? 0) }
 
-        func kilobytes(_ files: [FileItem]) -> String {
-            let bytes = files.reduce(Int64(0)) { $0 + $1.size }
+        func kilobytes(_ files: [FileItem], plus extra: Int64) -> String {
+            let bytes = files.reduce(extra) { $0 + $1.size }
             return ((bytes + 1023) / 1024).formatted(.number.grouping(.automatic))
         }
-        let markedSize = kilobytes(markedFiles)
-        let totalSize = kilobytes(files)
+        let markedSize = kilobytes(markedFiles, plus: markedFolderBytes)
+        let totalSize = kilobytes(files, plus: folderBytes)
         panelView.statusLabel.stringValue = String(localized:
             "\(markedSize) k / \(totalSize) k in \(markedFiles.count) / \(files.count) file(s), \(markedFolderCount) / \(folders.count) dir(s)")
     }
@@ -646,6 +651,83 @@ extension FilePanelController: NSMenuItemValidation {
         MultiRenameWindowController.show(for: items) { [weak self] in self?.reread() }
     }
 
+    /// Alt+Shift+Enter: calculates the sizes of all folders in the panel.
+    @objc(cm_CountDirContent:)
+    func countDirContent(_ sender: Any?) {
+        calculateSizes(of: listView.items.filter { $0.isFolder && !$0.isParent })
+    }
+
+    /// Calculates folder sizes in the background and shows them as they arrive.
+    private func calculateSizes(of folders: [FileItem]) {
+        guard archive == nil else { return }
+        let directory = directory
+        for folder in folders {
+            let url = folder.url
+            Task {
+                let size = await Self.folderSize(url)
+                guard self.directory == directory else { return }
+                listView.folderSizes[folder.name] = size
+                updateStatus()
+            }
+        }
+    }
+
+    @concurrent
+    private nonisolated static func folderSize(_ url: URL) async -> Int64 {
+        TransferEngine.totalSize(of: url)
+    }
+
+    /// Shift+F4: asks for a file name, creates the file if needed and edits it.
+    @objc(cm_EditNewFile:)
+    func editNewFile(_ sender: Any?) {
+        guard !refuseInsideArchive(), let window = view.window else { return }
+        let initial = listView.currentItem.flatMap { $0.isFolder ? nil : $0.name } ?? "new.txt"
+        Prompt.text(String(localized: "Edit new file"), message: String(localized: "File name:"),
+                    initial: initial, okTitle: String(localized: "Edit"), in: window) { [weak self] name in
+            guard let self, !name.isEmpty, !name.contains("/") else { return }
+            let url = directory.appending(path: name)
+            if !FileManager.default.fileExists(atPath: url.path) {
+                guard FileManager.default.createFile(atPath: url.path, contents: nil) else {
+                    Prompt.error(String(localized: "Cannot create \u{201C}\(name)\u{201D}"),
+                                 CocoaError(.fileWriteUnknown), in: window)
+                    return
+                }
+            }
+            load(directory, selecting: name)
+            openInEditor(url)
+        }
+    }
+
+    private func openInEditor(_ url: URL) {
+        if let editor = NSWorkspace.shared.urlForApplication(toOpen: .plainText) {
+            NSWorkspace.shared.open([url], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
+        } else {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// Shift+F5: copies the entry under the cursor within the same folder, under a new name.
+    @objc(cm_CopySamepanel:)
+    func copySamePanel(_ sender: Any?) {
+        guard !refuseInsideArchive(), let item = listView.currentItem, !item.isParent,
+              let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let selection = NSRange(location: 0, length: (item.isFolder ? item.name : item.baseName).utf16.count)
+        Prompt.text(String(localized: "copy.title", defaultValue: "Copy"),
+                    message: String(localized: "Copy \u{201C}\(item.name)\u{201D} as:"),
+                    initial: item.name, selection: selection,
+                    okTitle: String(localized: "copy.button", defaultValue: "Copy"), in: window) { [weak self] name in
+            guard let self, !name.isEmpty, name != item.name, !name.contains("/") else { return }
+            let job = TransferJob(kind: .copy, sources: [item.url], destination: directory, newName: name)
+            Task {
+                _ = await TransferController.run(job, in: window)
+                self.load(self.directory, selecting: name)
+            }
+        }
+    }
+
     /// F3: opens the file under the cursor in the Lister window.
     @objc(cm_List:)
     func list(_ sender: Any?) {
@@ -672,11 +754,7 @@ extension FilePanelController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
-        if let editor = NSWorkspace.shared.urlForApplication(toOpen: .plainText) {
-            NSWorkspace.shared.open([item.url], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
-        } else {
-            NSWorkspace.shared.open(item.url)
-        }
+        openInEditor(item.url)
     }
 
     /// F7: asks for a name (prefilled with the entry under the cursor, as TC does).
@@ -942,6 +1020,10 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileListCursorDidMove(_ list: FileListView) {
         delegate?.filePanelCursorDidMove(self)
+    }
+
+    func fileList(_ list: FileListView, calculateSizeOf item: FileItem) {
+        calculateSizes(of: [item])
     }
 
     func fileList(_ list: FileListView, beginQuickSearchWith text: String) {
