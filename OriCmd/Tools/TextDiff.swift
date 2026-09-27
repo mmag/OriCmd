@@ -18,6 +18,9 @@ nonisolated enum TextDiff {
     /// Above this many surely-different lines the alignment would be too slow;
     /// lines are then compared by position.
     private static let alignmentLimit = 20_000
+    /// Longer stretches are first split at lines that occur once on each side
+    /// (patience diff); the full diff runs on the pieces between them.
+    private static let directDiffLimit = 6_000
 
     static func lines(of text: String) -> [Substring] {
         var lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
@@ -43,7 +46,7 @@ nonisolated enum TextDiff {
 
         var rows: [Row] = (0..<head).map { Row(left: $0, right: $0, kind: .same) }
         if lowerBoundOfDifferences(middleA, middleB) > alignmentLimit {
-            rows += positional(Array(middleA.indices), Array(middleB.indices), a, b)
+            rows += positional(middleA, middleB)
         } else {
             rows += aligned(middleA, middleB)
         }
@@ -114,6 +117,56 @@ nonisolated enum TextDiff {
     }
 
     private static func aligned(_ a: ArraySlice<String>, _ b: ArraySlice<String>) -> [Row] {
+        guard a.count + b.count > directDiffLimit else { return diffed(a, b) }
+        let anchors = uniqueAnchors(a, b)
+        guard !anchors.isEmpty else { return positional(a, b) }
+        var rows: [Row] = []
+        var (i, j) = (a.startIndex, b.startIndex)
+        for (anchorA, anchorB) in anchors {
+            rows += aligned(a[i..<anchorA], b[j..<anchorB])
+            rows.append(Row(left: anchorA, right: anchorB, kind: .same))
+            (i, j) = (anchorA + 1, anchorB + 1)
+        }
+        rows += aligned(a[i...], b[j...])
+        return rows
+    }
+
+    /// Pairs of equal lines that occur exactly once on each side, the longest
+    /// chain of them in the same order on both sides.
+    private static func uniqueAnchors(_ a: ArraySlice<String>, _ b: ArraySlice<String>) -> [(Int, Int)] {
+        var counts: [String: (a: Int, b: Int, indexB: Int)] = [:]
+        for line in a { counts[line, default: (0, 0, 0)].a += 1 }
+        for index in b.indices {
+            counts[b[index], default: (0, 0, 0)].b += 1
+            counts[b[index]]?.indexB = index
+        }
+        let pairs = a.indices.compactMap { index -> (Int, Int)? in
+            guard let count = counts[a[index]], count.a == 1, count.b == 1 else { return nil }
+            return (index, count.indexB)
+        }
+        // Longest increasing subsequence of the positions in `b` (patience sorting).
+        var pileTops: [Int] = []
+        var previous = [Int](repeating: -1, count: pairs.count)
+        for (index, pair) in pairs.enumerated() {
+            var low = 0
+            var high = pileTops.count
+            while low < high {
+                let middle = (low + high) / 2
+                if pairs[pileTops[middle]].1 < pair.1 { low = middle + 1 } else { high = middle }
+            }
+            if low > 0 { previous[index] = pileTops[low - 1] }
+            if low == pileTops.count { pileTops.append(index) } else { pileTops[low] = index }
+        }
+        var chain: [(Int, Int)] = []
+        var index = pileTops.last ?? -1
+        while index >= 0 {
+            chain.append(pairs[index])
+            index = previous[index]
+        }
+        return chain.reversed()
+    }
+
+    private static func diffed(_ a: ArraySlice<String>, _ b: ArraySlice<String>) -> [Row] {
         let difference = Array(b).difference(from: Array(a))
         var removed = Set<Int>()
         var inserted = Set<Int>()
@@ -156,12 +209,12 @@ nonisolated enum TextDiff {
         return rows
     }
 
-    private static func positional(_ a: [Int], _ b: [Int], _ linesA: [String], _ linesB: [String]) -> [Row] {
-        (0..<max(a.count, b.count)).map { index in
-            let left = index < a.count ? a[index] : nil
-            let right = index < b.count ? b[index] : nil
+    private static func positional(_ a: ArraySlice<String>, _ b: ArraySlice<String>) -> [Row] {
+        (0..<max(a.count, b.count)).map { offset in
+            let left = offset < a.count ? a.startIndex + offset : nil
+            let right = offset < b.count ? b.startIndex + offset : nil
             let kind: Kind = switch (left, right) {
-            case let (left?, right?): linesA[left] == linesB[right] ? .same : .changed
+            case let (left?, right?): a[left] == b[right] ? .same : .changed
             case (_?, nil): .leftOnly
             default: .rightOnly
             }
