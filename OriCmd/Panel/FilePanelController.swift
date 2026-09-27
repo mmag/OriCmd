@@ -665,6 +665,71 @@ extension FilePanelController: NSMenuItemValidation {
         MultiRenameWindowController.show(for: items) { [weak self] in self?.reread() }
     }
 
+    // MARK: - Checksums
+
+    /// Creates a checksum file (MD5, SHA-1, SHA-256 or SHA-512) for the selection.
+    @objc(cm_CRCcreate:)
+    func crcCreate(_ sender: Any?) {
+        guard !refuseInsideArchive(), let window = view.window else { return }
+        let items = selectedItems
+        guard !items.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let algorithms = ChecksumAlgorithm.allCases
+        Prompt.choice(String(localized: "Create Checksum File"),
+                      message: String(localized: "Algorithm for the checksum file:"),
+                      options: algorithms.map(\.title), selected: 2,
+                      okTitle: String(localized: "Create"), in: window) { [weak self] index in
+            guard let self else { return }
+            let algorithm = algorithms[index]
+            let baseName = items.count == 1 ? items[0].name : (tabs[activeTabIndex].title)
+            let output = directory.appending(path: baseName + "." + algorithm.rawValue)
+            let directory = directory
+            Task {
+                let controller = TransferController(title: String(localized: "Calculating checksums"),
+                                                    failureTitle: String(localized: "Cannot create checksums"),
+                                                    window: window)
+                _ = await controller.run(source: directory.path, target: output.path) { progress, _ in
+                    try await Checksums.create(for: items.map(\.url), relativeTo: directory, algorithm: algorithm,
+                                               output: output, progress: progress)
+                    return [output]
+                }
+                self.load(self.directory, selecting: output.lastPathComponent)
+            }
+        }
+    }
+
+    /// Verifies the checksum file under the cursor and reports the result.
+    @objc(cm_CRCcheck:)
+    func crcCheck(_ sender: Any?) {
+        guard !refuseInsideArchive(), let window = view.window,
+              let item = listView.currentItem, !item.isFolder,
+              Checksums.fileExtensions.contains(item.fileExtension.lowercased()) else {
+            NSSound.beep()
+            return
+        }
+        let result = ChecksumVerification()
+        Task {
+            let controller = TransferController(title: String(localized: "Verifying checksums"),
+                                                failureTitle: String(localized: "Cannot verify checksums"),
+                                                window: window)
+            let done = await controller.run(source: item.url.path, target: directory.path) { progress, _ in
+                try await Checksums.verify(item.url, into: result, progress: progress)
+                return [item.url]
+            }
+            guard !done.isEmpty else { return }
+            let state = result.snapshot
+            let problems = state.failed.map { String(localized: "Mismatch: \($0)") }
+                + state.missing.map { String(localized: "Missing: \($0)") }
+            let summary = String(localized:
+                "\(state.passed) OK, \(state.failed.count) mismatched, \(state.missing.count) missing")
+            Prompt.info(problems.isEmpty ? String(localized: "All checksums match") : summary,
+                        message: problems.isEmpty ? summary : problems.prefix(30).joined(separator: "\n"),
+                        in: window)
+        }
+    }
+
     // MARK: - Selection by extension, filter
 
     /// Alt+Num+: marks all files with the extension of the file under the cursor.

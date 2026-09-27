@@ -33,6 +33,33 @@ enum Prompt {
         }
     }
 
+    /// Asks to pick one of `options`; the completion gets its index.
+    static func choice(
+        _ title: String,
+        message: String,
+        options: [String],
+        selected: Int = 0,
+        okTitle: String,
+        in window: NSWindow,
+        completion: @escaping (Int) -> Void
+    ) {
+        let popUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 240, height: 26), pullsDown: false)
+        popUp.addItems(withTitles: options)
+        popUp.selectItem(at: selected)
+
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.accessoryView = popUp
+        alert.addButton(withTitle: okTitle)
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn {
+                completion(popUp.indexOfSelectedItem)
+            }
+        }
+    }
+
     static func confirm(
         _ title: String,
         message: String = "",

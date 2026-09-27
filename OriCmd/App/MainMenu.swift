@@ -14,6 +14,7 @@ enum MainMenu {
             [.copy, .copySamePanel, .renMov, .renameOnly, .multiRenameFiles, .mkDir],
             [.delete, .deletePermanently],
             [.packFiles, .unpackFiles],
+            [.crcCreate, .crcCheck],
         ])))
         mainMenu.addItem(container(for: editMenu()))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Mark"), [

@@ -51,6 +51,16 @@
         }
       }
     },
+    "%lld OK, %lld mismatched, %lld missing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в порядке: %1$lld, не совпало: %2$lld, отсутствует: %3$lld"
+          }
+        }
+      }
+    },
     "%lld archives": {
       "localizations": {
         "ru": {
@@ -131,12 +141,32 @@
         }
       }
     },
+    "Algorithm for the checksum file:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Алгоритм контрольных сумм:"
+          }
+        }
+      }
+    },
     "All Files": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Все файлы"
+          }
+        }
+      }
+    },
+    "All checksums match": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все контрольные суммы совпадают"
           }
         }
       }
@@ -201,6 +231,16 @@
         }
       }
     },
+    "Calculating checksums": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсчёт контрольных сумм"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "ru": {
@@ -227,6 +267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нельзя копировать «%@» сам в себя."
+          }
+        }
+      }
+    },
+    "Cannot create checksums": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся создать контрольные суммы"
           }
         }
       }
@@ -327,6 +377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся обновить архив"
+          }
+        }
+      }
+    },
+    "Cannot verify checksums": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся проверить контрольные суммы"
           }
         }
       }
@@ -527,6 +587,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Создать"
+          }
+        }
+      }
+    },
+    "Create Checksum File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать файл контрольных сумм"
+          }
+        }
+      }
+    },
+    "Create Checksum File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать файл контрольных сумм…"
           }
         }
       }
@@ -1027,6 +1107,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свернуть"
+          }
+        }
+      }
+    },
+    "Mismatch: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не совпадает: %@"
+          }
+        }
+      }
+    },
+    "Missing: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсутствует: %@"
           }
         }
       }
@@ -2167,6 +2267,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Обновление архива"
+          }
+        }
+      }
+    },
+    "Verify Checksums": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить контрольные суммы"
+          }
+        }
+      }
+    },
+    "Verifying checksums": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка контрольных сумм"
           }
         }
       }
