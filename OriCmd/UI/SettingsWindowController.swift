@@ -233,7 +233,19 @@ private final class PanelsPane: SettingsPane {
         let manager = NSFontManager.shared
         manager.target = self
         manager.setSelectedFont(Settings.panelFont, isMultiple: false)
+        // Right next to the Settings window (or inside the screen), not wherever it was last.
+        let panel = manager.fontPanel(true)
+        if let panel, let window = view.window, let screen = window.screen?.visibleFrame {
+            var origin = NSPoint(x: window.frame.maxX + 12, y: window.frame.maxY - panel.frame.height)
+            if origin.x + panel.frame.width > screen.maxX {
+                origin.x = window.frame.minX - panel.frame.width - 12
+            }
+            origin.x = min(max(origin.x, screen.minX), screen.maxX - panel.frame.width)
+            origin.y = min(max(origin.y, screen.minY), screen.maxY - panel.frame.height)
+            panel.setFrameOrigin(origin)
+        }
         manager.orderFrontFontPanel(self)
+        panel?.makeKeyAndOrderFront(self)
     }
 
     /// Sent by the font panel.
