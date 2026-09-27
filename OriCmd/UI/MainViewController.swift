@@ -518,6 +518,78 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
+    /// Compares two files: the two marked in the active panel, or the files under
+    /// the cursors of both panels. Different text files open in FileMerge.
+    @objc(cm_CompareFilesByContent:)
+    func compareFilesByContent(_ sender: Any?) {
+        let marked = activePanel.selectedItems.filter { !$0.isFolder }
+        let pair: [FileItem]
+        if marked.count == 2 {
+            pair = marked
+        } else if let left = leftPanel.listView.currentItem, let right = rightPanel.listView.currentItem,
+                  !left.isFolder, !right.isFolder, !left.isParent, !right.isParent {
+            pair = [left, right]
+        } else {
+            pair = []
+        }
+        guard pair.count == 2, leftPanel.archive == nil, rightPanel.archive == nil, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let (a, b) = (pair[0].url, pair[1].url)
+        Task {
+            let difference = await Self.firstDifference(a, b)
+            guard let difference else {
+                Prompt.info(String(localized: "The files are identical."), message: "\(a.path)\n\(b.path)", in: window)
+                return
+            }
+            let opendiff = URL(filePath: "/usr/bin/opendiff")
+            if ListerWindowController.defaultMode(for: a) == .text, ListerWindowController.defaultMode(for: b) == .text,
+               FileManager.default.isExecutableFile(atPath: opendiff.path) {
+                let process = Process()
+                process.executableURL = opendiff
+                process.arguments = [a.path, b.path]
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = FileHandle.nullDevice
+                try? process.run()
+            } else {
+                Prompt.info(String(localized: "The files differ."),
+                            message: String(localized: "First difference at byte \(difference)."), in: window)
+            }
+        }
+    }
+
+    @concurrent
+    private nonisolated static func firstDifference(_ a: URL, _ b: URL) async -> Int64? {
+        DirectoryComparison.firstDifference(a, b)
+    }
+
+    /// Ctrl+Shift+F5: creates a symbolic link to the entry under the cursor,
+    /// by default in the other panel.
+    @objc(cm_CreateSymlink:)
+    func createSymlink(_ sender: Any?) {
+        guard let item = activePanel.listView.currentItem, !item.isParent, activePanel.archive == nil,
+              let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let folder = inactivePanel.archive == nil ? inactivePanel.directory : activePanel.directory
+        let initial = folder.appending(path: item.name).path
+        Prompt.text(String(localized: "Create Symbolic Link"),
+                    message: String(localized: "Link to \u{201C}\(item.name)\u{201D} to create:"),
+                    initial: initial, okTitle: String(localized: "Create"), in: window) { [weak self] path in
+            guard let self, !path.isEmpty else { return }
+            let link = URL(filePath: (path as NSString).expandingTildeInPath)
+            do {
+                try FileManager.default.createSymbolicLink(at: link, withDestinationURL: item.url)
+                leftPanel.reread()
+                rightPanel.reread()
+            } catch {
+                Prompt.error(String(localized: "Cannot create link"), error, in: window)
+            }
+        }
+    }
+
     /// Opens the "Synchronize directories" window for the two panels' folders.
     @objc(cm_SyncDirs:)
     func syncDirs(_ sender: Any?) {

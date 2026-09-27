@@ -321,6 +321,16 @@
         }
       }
     },
+    "Cannot create link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся создать ссылку"
+          }
+        }
+      }
+    },
     "Cannot create “%@”": {
       "localizations": {
         "ru": {
@@ -531,6 +541,16 @@
         }
       }
     },
+    "Compare by Content": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сравнить по содержимому"
+          }
+        }
+      }
+    },
     "Comparing…": {
       "localizations": {
         "ru": {
@@ -677,6 +697,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Создать файл контрольных сумм…"
+          }
+        }
+      }
+    },
+    "Create Symbolic Link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать символическую ссылку"
+          }
+        }
+      }
+    },
+    "Create Symbolic Link…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать символическую ссылку…"
           }
         }
       }
@@ -991,6 +1031,16 @@
         }
       }
     },
+    "First difference at byte %lld.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первое различие в байте %lld."
+          }
+        }
+      }
+    },
     "First letter uppercase": {
       "localizations": {
         "ru": {
@@ -1197,6 +1247,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Буквы (⌥+буквы — в командную строку)"
+          }
+        }
+      }
+    },
+    "Link to “%@” to create:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылка на «%@»:"
           }
         }
       }
@@ -2237,6 +2297,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Архив стал бы пустым."
+          }
+        }
+      }
+    },
+    "The files are identical.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы одинаковы."
+          }
+        }
+      }
+    },
+    "The files differ.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы различаются."
           }
         }
       }

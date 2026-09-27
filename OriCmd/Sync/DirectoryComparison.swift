@@ -84,18 +84,30 @@ nonisolated enum DirectoryComparison {
         }
     }
 
-    private static func sameContent(_ a: URL, _ b: URL) -> Bool {
+    static func sameContent(_ a: URL, _ b: URL) -> Bool {
+        firstDifference(a, b) == nil
+    }
+
+    /// Byte offset of the first difference, or nil for identical contents
+    /// (unreadable files differ at 0).
+    static func firstDifference(_ a: URL, _ b: URL) -> Int64? {
         guard let first = try? FileHandle(forReadingFrom: a),
-              let second = try? FileHandle(forReadingFrom: b) else { return false }
+              let second = try? FileHandle(forReadingFrom: b) else { return 0 }
         defer {
             try? first.close()
             try? second.close()
         }
+        var offset: Int64 = 0
         while true {
             let chunkA = (try? first.read(upToCount: 1 << 20)) ?? Data()
             let chunkB = (try? second.read(upToCount: 1 << 20)) ?? Data()
-            if chunkA != chunkB { return false }
-            if chunkA.isEmpty { return true }
+            if chunkA != chunkB {
+                let index = zip(chunkA, chunkB).enumerated().first { $0.element.0 != $0.element.1 }?.offset
+                    ?? min(chunkA.count, chunkB.count)
+                return offset + Int64(index)
+            }
+            if chunkA.isEmpty { return nil }
+            offset += Int64(chunkA.count)
         }
     }
 }
