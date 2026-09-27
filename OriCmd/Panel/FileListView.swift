@@ -52,7 +52,7 @@ final class FileListView: NSView {
         didSet { if isActive != oldValue { needsDisplay = true } }
     }
 
-    private let rowHeight = Theme.rowHeight
+    private var rowHeight = Theme.rowHeight
 
     private var renameField: NSTextField?
     private var renamedItem: FileItem?
@@ -102,6 +102,15 @@ final class FileListView: NSView {
         setNeedsDisplay(rowRect(cursor))
         scrollCursorToVisible()
         delegate?.fileListCursorDidMove(self)
+    }
+
+    /// Font or other settings changed: re-measure rows and redraw.
+    func settingsDidChange() {
+        rowHeight = Theme.rowHeight
+        updateBriefColumnWidth()
+        updateFrameSize()
+        needsDisplay = true
+        scrollCursorToVisible()
     }
 
     // MARK: - In-place rename
@@ -535,6 +544,9 @@ final class FileListView: NSView {
         case "+": spreadSelection(nil)
         case "-": shrinkSelection(nil)
         case "*": exchangeSelection(nil)
+        case let text? where Settings.quickSearchMode == .letters && !text.isEmpty
+            && text.unicodeScalars.allSatisfy({ $0.value >= 0x21 && $0.value != 0x7F && $0.value < 0xF700 }):
+            delegate?.fileList(self, beginQuickSearchWith: text)
         default: super.keyDown(with: event)
         }
     }

@@ -134,6 +134,13 @@ final class FilePanelController: NSViewController {
         return []
     }
 
+    /// Font or other appearance settings changed.
+    func settingsDidChange() {
+        listView.settingsDidChange()
+        panelView.pathBar.needsDisplay = true
+        panelView.headerView.needsDisplay = true
+    }
+
     func focus() {
         panelView.window?.makeFirstResponder(listView)
     }
@@ -691,6 +698,8 @@ extension FilePanelController: NSMenuItemValidation {
                            okTitle: String(localized: "Delete"), destructive: true, in: window) { [weak self] in
                 self?.performDelete(items.map(\.url), permanently: true)
             }
+        } else if !Settings.confirmsMoveToTrash {
+            performDelete(items.map(\.url), permanently: false)
         } else {
             Prompt.confirm(String(localized: "Do you really want to move \(what) to the Trash?"),
                            okTitle: String(localized: "Move to Trash"), in: window) { [weak self] in

@@ -3,10 +3,27 @@ import AppKit
 /// Visual constants modelled on Total Commander's default look,
 /// adapted to light and dark appearance.
 enum Theme {
-    static let panelFont = NSFont.systemFont(ofSize: 12)
-    static let panelNumberFont = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+    static var panelFont: NSFont { Settings.panelFont }
+
+    /// The panel font with fixed-width digits, for sizes and dates.
+    static var panelNumberFont: NSFont {
+        let font = panelFont
+        let descriptor = font.fontDescriptor.addingAttributes([
+            .featureSettings: [[
+                NSFontDescriptor.FeatureKey.typeIdentifier: kNumberSpacingType,
+                NSFontDescriptor.FeatureKey.selectorIdentifier: kMonospacedNumbersSelector,
+            ]],
+        ])
+        return NSFont(descriptor: descriptor, size: font.pointSize) ?? font
+    }
+
     static let chromeFont = NSFont.systemFont(ofSize: 11)
-    static let rowHeight: CGFloat = 18
+
+    /// Row height follows the panel font (18 pt for the default 12 pt font).
+    static var rowHeight: CGFloat {
+        let font = panelFont
+        return max(ceil(font.ascender - font.descender + font.leading) + 4, 16)
+    }
 
     static let panelBackground = NSColor.textBackgroundColor
     static let panelText = NSColor.textColor

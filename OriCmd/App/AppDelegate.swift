@@ -20,6 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
+    @objc func showSettings(_ sender: Any?) {
+        SettingsWindowController.shared.showWindow(sender)
+    }
+
     @objc(cm_Exit:)
     func exit(_ sender: Any?) {
         NSApp.terminate(sender)

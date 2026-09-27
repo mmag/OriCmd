@@ -2,6 +2,8 @@ import AppKit
 
 /// The command line under the panels: "<current path>>" prompt and an input box.
 final class CommandLineView: NSView {
+    static let height: CGFloat = 26
+
     let promptLabel = NSTextField(labelWithString: "")
     let inputField = NSComboBox()
 
@@ -34,7 +36,6 @@ final class CommandLineView: NSView {
             inputField.leadingAnchor.constraint(equalTo: promptLabel.trailingAnchor, constant: 2),
             inputField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
             inputField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            heightAnchor.constraint(equalToConstant: 26),
         ])
     }
 

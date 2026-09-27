@@ -241,6 +241,16 @@
         }
       }
     },
+    "Choose…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать…"
+          }
+        }
+      }
+    },
     "Close Tab": {
       "localizations": {
         "ru": {
@@ -257,6 +267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Команды"
+          }
+        }
+      }
+    },
+    "Confirm moving to the Trash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спрашивать перед перемещением в Корзину"
           }
         }
       }
@@ -331,6 +351,16 @@
         }
       }
     },
+    "Default": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По умолчанию"
+          }
+        }
+      }
+    },
     "Delete": {
       "localizations": {
         "ru": {
@@ -347,6 +377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Удалить безвозвратно"
+          }
+        }
+      }
+    },
+    "Delete:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удаление:"
           }
         }
       }
@@ -631,6 +671,16 @@
         }
       }
     },
+    "Letters (Option+letters go to the command line)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Буквы (⌥+буквы — в командную строку)"
+          }
+        }
+      }
+    },
     "Mark": {
       "localizations": {
         "ru": {
@@ -791,6 +841,16 @@
         }
       }
     },
+    "Option+letters (letters go to the command line)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌥+буквы (буквы — в командную строку)"
+          }
+        }
+      }
+    },
     "Overwrite": {
       "localizations": {
         "ru": {
@@ -881,6 +941,16 @@
         }
       }
     },
+    "Panel font:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шрифт панелей:"
+          }
+        }
+      }
+    },
     "Paste": {
       "localizations": {
         "ru": {
@@ -927,6 +997,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Быстрый поиск"
+          }
+        }
+      }
+    },
+    "Quick search:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Быстрый поиск:"
           }
         }
       }
@@ -1081,6 +1161,26 @@
         }
       }
     },
+    "Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки…"
+          }
+        }
+      }
+    },
     "Show": {
       "localizations": {
         "ru": {
@@ -1111,6 +1211,26 @@
         }
       }
     },
+    "Show command line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать командную строку"
+          }
+        }
+      }
+    },
+    "Show function key buttons": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать кнопки F-клавиш"
+          }
+        }
+      }
+    },
     "Show in Left Panel": {
       "localizations": {
         "ru": {
@@ -1127,6 +1247,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть в правой панели"
+          }
+        }
+      }
+    },
+    "Show:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать:"
           }
         }
       }

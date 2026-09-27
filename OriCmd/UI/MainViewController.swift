@@ -10,6 +10,8 @@ final class MainViewController: NSViewController {
     private let functionKeyBar = FunctionKeyBar()
 
     private var didAppear = false
+    private var commandLineHeight: NSLayoutConstraint!
+    private var functionKeyBarHeight: NSLayoutConstraint!
 
     /// Ctrl+Q preview shown in place of `quickViewReplaces`' view.
     private var quickView: QuickViewPanel?
@@ -58,6 +60,8 @@ final class MainViewController: NSViewController {
                      NSWorkspace.didRenameVolumeNotification] {
             workspace.addObserver(self, selector: #selector(volumesDidChange(_:)), name: name, object: nil)
         }
+        NotificationCenter.default.addObserver(self, selector: #selector(settingsDidChange(_:)),
+                                               name: Settings.didChange, object: nil)
     }
 
     @available(*, unavailable)
@@ -80,7 +84,11 @@ final class MainViewController: NSViewController {
             view.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(view)
         }
+        commandLineHeight = commandLine.view.heightAnchor.constraint(equalToConstant: CommandLineView.height)
+        functionKeyBarHeight = functionKeyBar.heightAnchor.constraint(equalToConstant: 22)
         NSLayoutConstraint.activate([
+            commandLineHeight,
+            functionKeyBarHeight,
             splitView.topAnchor.constraint(equalTo: root.topAnchor),
             splitView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             splitView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
@@ -100,6 +108,21 @@ final class MainViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         activate(leftPanel)
+        applyLayoutSettings()
+    }
+
+    @objc private func settingsDidChange(_ notification: Notification) {
+        applyLayoutSettings()
+        leftPanel.settingsDidChange()
+        rightPanel.settingsDidChange()
+    }
+
+    /// Shows or hides the command line and the function key bar.
+    private func applyLayoutSettings() {
+        commandLine.view.isHidden = !Settings.showsCommandLine
+        commandLineHeight.constant = Settings.showsCommandLine ? CommandLineView.height : 0
+        functionKeyBar.isHidden = !Settings.showsFunctionKeys
+        functionKeyBarHeight.constant = Settings.showsFunctionKeys ? 22 : 0
     }
 
     override func viewDidAppear() {
@@ -546,7 +569,7 @@ extension MainViewController: FilePanelControllerDelegate {
     }
 
     func filePanel(_ panel: FilePanelController, interceptKey event: NSEvent) -> Bool {
-        commandLine.handlePanelKey(event)
+        commandLine.handlePanelKey(event, lettersStartQuickSearch: Settings.quickSearchMode == .letters)
     }
 
     func filePanelCursorDidMove(_ panel: FilePanelController) {

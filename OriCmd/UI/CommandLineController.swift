@@ -36,7 +36,9 @@ final class CommandLineController: NSObject {
     // MARK: - Keys typed in a panel
 
     /// Handles a key pressed in a file list. Returns true if the command line consumed it.
-    func handlePanelKey(_ event: NSEvent) -> Bool {
+    /// With `lettersStartQuickSearch`, plain letters are left to the panel's quick
+    /// search and Option+letters type into the command line instead.
+    func handlePanelKey(_ event: NSEvent, lettersStartQuickSearch: Bool) -> Bool {
         let modifiers = event.modifierFlags
             .intersection(.deviceIndependentFlagsMask)
             .subtracting([.function, .numericPad, .capsLock])
@@ -67,8 +69,12 @@ final class CommandLineController: NSObject {
         case (nil, []), (nil, [.shift]):
             guard let characters = event.characters, Self.isPrintable(characters) else { break }
             if characters == "\u{1b}" { break }
-            // With an empty command line these keys mark files instead.
-            if text.isEmpty && ["+", "-", "*", " "].contains(characters) { return false }
+            // With an empty command line these keys mark files (or search) instead.
+            if text.isEmpty && (lettersStartQuickSearch || ["+", "-", "*", " "].contains(characters)) { return false }
+            append(characters)
+            return true
+        case (nil, [.option]) where lettersStartQuickSearch:
+            guard let characters = event.charactersIgnoringModifiers, Self.isPrintable(characters) else { break }
             append(characters)
             return true
         default:
