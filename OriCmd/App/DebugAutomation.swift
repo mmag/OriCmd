@@ -78,11 +78,33 @@ enum DebugAutomation {
                 isARepeat: false, keyCode: stroke.keyCode
             ) else { continue }
             if type == .keyDown {
+                if target !== window, stroke.characters == "\r", let cell = target.defaultButtonCell {
+                    cell.performClick(nil)
+                    break
+                }
+                if target !== window, let button = button(for: stroke, in: target.contentView) {
+                    button.performClick(nil)
+                    break
+                }
                 if target.performKeyEquivalent(with: event) { break }
                 if target === window, performMenuShortcut(stroke, in: window) { break }
             }
             target.sendEvent(event)
         }
+    }
+
+    /// The sheet button whose key equivalent matches `stroke` (Return, Escape…).
+    private static func button(for stroke: KeyStroke, in view: NSView?) -> NSButton? {
+        guard let view else { return nil }
+        if let button = view as? NSButton, button.isEnabled,
+           button.keyEquivalent == stroke.characters,
+           button.keyEquivalentModifierMask == stroke.modifiers.subtracting(.function) {
+            return button
+        }
+        for subview in view.subviews {
+            if let found = button(for: stroke, in: subview) { return found }
+        }
+        return nil
     }
 
     /// Finds the menu item for `stroke` and sends its action along the window's

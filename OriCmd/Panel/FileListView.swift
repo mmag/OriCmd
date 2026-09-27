@@ -9,6 +9,8 @@ protocol FileListViewDelegate: AnyObject {
     func fileList(_ list: FileListView, enterItemAt index: Int)
     func fileListGoToParent(_ list: FileListView)
     func fileListSwitchPanel(_ list: FileListView)
+    /// ⇧F6 in-place rename was confirmed with Enter.
+    func fileList(_ list: FileListView, rename item: FileItem, to newName: String)
     func fileListMarksDidChange(_ list: FileListView)
     /// Num+ / Num−: ask for a mask, then mark or unmark matching files.
     func fileList(_ list: FileListView, markGroup mark: Bool)
@@ -30,6 +32,9 @@ final class FileListView: NSView {
 
     private let rowHeight = Theme.rowHeight
 
+    private var renameField: NSTextField?
+    private var renamedItem: FileItem?
+
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .short
@@ -49,6 +54,9 @@ final class FileListView: NSView {
 
     /// Replaces the entries; marks survive for names that are still present.
     func reload(items: [FileItem], cursor: Int) {
+        if let renamedItem, !items.contains(renamedItem) {
+            endRenaming()
+        }
         self.items = items
         marked.formIntersection(items.map(\.name))
         self.cursor = items.isEmpty ? 0 : min(max(cursor, 0), items.count - 1)
@@ -69,6 +77,49 @@ final class FileListView: NSView {
         cursor = clamped
         setNeedsDisplay(rowRect(cursor))
         scrollCursorToVisible()
+    }
+
+    // MARK: - In-place rename
+
+    /// Shows an editor over the Name and Ext columns of the cursor row,
+    /// with the name selected but not the extension.
+    func beginRenaming() {
+        guard let item = currentItem, !item.isParent else { return }
+        endRenaming()
+        scrollCursorToVisible()
+
+        let layout = ColumnLayout(width: bounds.width)
+        let row = rowRect(cursor)
+        let name = layout.rect(for: .name, y: row.minY, height: rowHeight)
+        let ext = layout.rect(for: .ext, y: row.minY, height: rowHeight)
+        let field = NSTextField(frame: NSRect(x: name.minX + 20, y: row.minY - 1,
+                                              width: ext.maxX - name.minX - 20, height: rowHeight + 2))
+        field.stringValue = item.name
+        field.font = Theme.panelFont
+        field.focusRingType = .none
+        field.cell?.isScrollable = true
+        field.cell?.wraps = false
+        field.delegate = self
+        addSubview(field)
+        renameField = field
+        renamedItem = item
+
+        window?.makeFirstResponder(field)
+        let length = item.isFolder ? item.name.utf16.count : item.baseName.utf16.count
+        field.currentEditor()?.selectedRange = NSRange(location: 0, length: length)
+    }
+
+    private func endRenaming(commit: Bool = false) {
+        guard let field = renameField, let item = renamedItem else { return }
+        renameField = nil
+        renamedItem = nil
+        let newName = field.stringValue
+        field.delegate = nil
+        field.removeFromSuperview()
+        window?.makeFirstResponder(self)
+        if commit {
+            delegate?.fileList(self, rename: item, to: newName)
+        }
     }
 
     // MARK: - Marking
@@ -312,6 +363,10 @@ final class FileListView: NSView {
             delegate?.fileListGoToParent(self)
         case (.tab?, []), (.tab?, [.shift]), (.backTab?, _):
             delegate?.fileListSwitchPanel(self)
+        case (.deleteForward?, []), (.delete?, [.command]):
+            tryToPerform(Command.delete.selector, with: self)
+        case (.deleteForward?, [.shift]):
+            tryToPerform(Command.deletePermanently.selector, with: self)
         case (.insert?, []), (.help?, []):
             toggleMarkAndMove(by: 1)
         case (.upArrow?, [.shift]):
@@ -342,5 +397,25 @@ final class FileListView: NSView {
         case "*": exchangeSelection(nil)
         default: super.keyDown(with: event)
         }
+    }
+}
+
+extension FileListView: NSTextFieldDelegate {
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        switch selector {
+        case #selector(NSResponder.insertNewline(_:)):
+            endRenaming(commit: true)
+            return true
+        case #selector(NSResponder.cancelOperation(_:)):
+            endRenaming()
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Leaving the editor (click elsewhere, Tab) cancels the rename.
+    func controlTextDidEndEditing(_ notification: Notification) {
+        endRenaming()
     }
 }

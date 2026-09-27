@@ -62,6 +62,14 @@ final class FilePanelController: NSViewController {
         view = panelView
     }
 
+    /// Marked entries, or the entry under the cursor when nothing is marked.
+    var selectedItems: [FileItem] {
+        let marked = listView.items.filter { listView.marked.contains($0.name) }
+        if !marked.isEmpty { return marked }
+        if let current = listView.currentItem, !current.isParent { return [current] }
+        return []
+    }
+
     func focus() {
         panelView.window?.makeFirstResponder(listView)
     }
@@ -160,21 +168,12 @@ final class FilePanelController: NSViewController {
 
     private func askForMask(marking: Bool) {
         guard let window = view.window else { return }
-        let field = NSTextField(string: lastMask)
-        field.frame = NSRect(x: 0, y: 0, width: 280, height: 22)
-
-        let alert = NSAlert()
-        alert.messageText = marking ? "Select files" : "Unselect files"
-        alert.informativeText = "File mask, e.g. *.txt;*.md"
-        alert.accessoryView = field
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Cancel")
-        alert.window.initialFirstResponder = field
-        alert.beginSheetModal(for: window) { [weak self] response in
-            guard let self, response == .alertFirstButtonReturn else { return }
-            lastMask = field.stringValue
+        Prompt.text(marking ? "Select files" : "Unselect files", message: "File mask, e.g. *.txt;*.md",
+                    initial: lastMask, in: window) { [weak self] mask in
+            guard let self else { return }
+            lastMask = mask
             let names = listView.items
-                .filter { !$0.isParent && !$0.isFolder && FileMask.matches($0.name, field.stringValue) }
+                .filter { !$0.isParent && !$0.isFolder && FileMask.matches($0.name, mask) }
                 .map(\.name)
             listView.setMarked(marking ? listView.marked.union(names) : listView.marked.subtracting(names))
         }
@@ -191,14 +190,7 @@ final class FilePanelController: NSViewController {
     }
 
     private func present(_ error: Error, reading directory: URL) {
-        let alert = NSAlert()
-        alert.messageText = "Cannot read folder \u{201C}\(directory.path)\u{201D}"
-        alert.informativeText = error.localizedDescription
-        if let window = panelView.window {
-            alert.beginSheetModal(for: window)
-        } else {
-            alert.runModal()
-        }
+        Prompt.error("Cannot read folder \u{201C}\(directory.path)\u{201D}", error, in: view.window)
     }
 }
 
@@ -218,6 +210,85 @@ extension FilePanelController: NSMenuItemValidation {
     @objc(cm_GoToRoot:)
     func goToRootCommand(_ sender: Any?) {
         goToRoot()
+    }
+
+    /// F7: asks for a name (prefilled with the entry under the cursor, as TC does).
+    @objc(cm_MkDir:)
+    func mkDir(_ sender: Any?) {
+        guard let window = view.window else { return }
+        let initial = listView.currentItem.flatMap { $0.isParent ? nil : $0.name } ?? ""
+        Prompt.text("New folder", message: "Folder name (use / for nested folders):",
+                    initial: initial, okTitle: "Create", in: window) { [weak self] name in
+            guard let self, !name.isEmpty else { return }
+            do {
+                _ = try FileOperations.createDirectory(named: name, in: directory)
+                let topLevel = name.split(separator: "/").first.map(String.init) ?? name
+                load(directory, selecting: topLevel)
+            } catch {
+                Prompt.error("Cannot create folder \u{201C}\(name)\u{201D}", error, in: view.window)
+            }
+        }
+    }
+
+    /// F8 / Del / ⌘⌫: moves the selection to the Trash after confirmation.
+    @objc(cm_Delete:)
+    func delete(_ sender: Any?) {
+        confirmDelete(permanently: false)
+    }
+
+    /// ⇧F8 / ⇧Del: deletes the selection permanently after confirmation.
+    @objc(cm_DeletePermanently:)
+    func deletePermanently(_ sender: Any?) {
+        confirmDelete(permanently: true)
+    }
+
+    /// ⇧F6: renames the entry under the cursor in place.
+    @objc(cm_RenameOnly:)
+    func renameOnly(_ sender: Any?) {
+        guard let item = listView.currentItem, !item.isParent else {
+            NSSound.beep()
+            return
+        }
+        focus()
+        listView.beginRenaming()
+    }
+
+    private func confirmDelete(permanently: Bool) {
+        let items = selectedItems
+        guard !items.isEmpty, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let what = items.count == 1
+            ? "\u{201C}\(items[0].name)\u{201D}"
+            : "the selected \(items.count) files/folders"
+        if permanently {
+            Prompt.confirm("Do you really want to permanently delete \(what)?", message: "This cannot be undone.",
+                           okTitle: "Delete", destructive: true, in: window) { [weak self] in
+                self?.performDelete(items.map(\.url), permanently: true)
+            }
+        } else {
+            Prompt.confirm("Do you really want to move \(what) to the Trash?",
+                           okTitle: "Move to Trash", in: window) { [weak self] in
+                self?.performDelete(items.map(\.url), permanently: false)
+            }
+        }
+    }
+
+    private func performDelete(_ urls: [URL], permanently: Bool) {
+        Task {
+            do {
+                if permanently {
+                    try await FileOperations.deletePermanently(urls)
+                } else {
+                    try await FileOperations.moveToTrash(urls)
+                }
+            } catch {
+                Prompt.error("Cannot delete", error, in: view.window)
+            }
+            // The cursor stays at the same row, i.e. on the next remaining entry.
+            reread()
+        }
     }
 
     @objc(cm_SrcByName:)
@@ -286,6 +357,16 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileListSwitchPanel(_ list: FileListView) {
         delegate?.filePanelSwitchPanel(self)
+    }
+
+    func fileList(_ list: FileListView, rename item: FileItem, to newName: String) {
+        guard newName != item.name else { return }
+        do {
+            let url = try FileOperations.rename(item.url, to: newName)
+            load(directory, selecting: url.lastPathComponent)
+        } catch {
+            Prompt.error("Cannot rename \u{201C}\(item.name)\u{201D}", error, in: view.window)
+        }
     }
 
     func fileListMarksDidChange(_ list: FileListView) {
