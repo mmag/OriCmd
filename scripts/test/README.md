@@ -11,6 +11,9 @@ folders in `build/testdata` only — never on real files.
   Modifiers: `cmd+`, `shift+`, `alt+`, `ctrl+`, `num+`; `ru+` types the key as the
   Russian layout would (`ru+ctrl+d` sends "в" with the D key code).
 - `regress.sh` — plays the main file operations and checks the results on disk.
+- `../screenshots.sh` — regenerates the README screenshots (`docs/screenshots`) on demo
+  folders from `../mkdemo.sh`; `ORICMD_DEMO=1` hides all volumes but the startup disk.
+  Test runs never use or change the saved window frames.
 - `loc.py [translations.json]` — lists localization keys missing from the catalog,
   or adds Russian translations from a JSON file.
 

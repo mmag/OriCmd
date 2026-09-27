@@ -42,7 +42,7 @@ final class FindFilesWindowController: NSWindowController {
         )
         window.title = String(localized: "Find Files")
         window.center()
-        window.setFrameAutosaveName("FindFiles")
+        window.rememberFrame(as: "FindFiles")
         super.init(window: window)
         buildContent()
     }

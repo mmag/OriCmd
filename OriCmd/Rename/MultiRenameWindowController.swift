@@ -41,7 +41,7 @@ final class MultiRenameWindowController: NSWindowController {
                               backing: .buffered, defer: false)
         window.title = String(localized: "Multi-Rename Tool")
         window.center()
-        window.setFrameAutosaveName("MultiRename")
+        window.rememberFrame(as: "MultiRename")
         super.init(window: window)
         buildContent()
     }

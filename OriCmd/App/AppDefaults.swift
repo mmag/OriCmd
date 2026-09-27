@@ -36,3 +36,16 @@ enum AppDefaults {
         return .general
     }()
 }
+
+extension NSWindow {
+    /// Restores the frame saved under `name` and keeps saving it — except in
+    /// test runs, which must neither use nor change the user's window frames.
+    /// Returns whether a saved frame was applied.
+    @discardableResult
+    func rememberFrame(as name: String) -> Bool {
+        guard !AppDefaults.isTestRun else { return false }
+        let restored = setFrameUsingName(name)
+        setFrameAutosaveName(name)
+        return restored
+    }
+}

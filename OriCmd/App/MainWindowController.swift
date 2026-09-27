@@ -18,10 +18,9 @@ final class MainWindowController: NSWindowController {
         window.titleVisibility = .hidden
         window.contentViewController = MainViewController()
         window.minSize = NSSize(width: 640, height: 400)
-        if !window.setFrameUsingName(Self.frameAutosaveName) {
+        if !window.rememberFrame(as: Self.frameAutosaveName) {
             window.center()
         }
-        window.setFrameAutosaveName(Self.frameAutosaveName)
         super.init(window: window)
     }
 

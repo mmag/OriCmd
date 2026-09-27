@@ -299,7 +299,7 @@ private final class ColorsPane: SettingsPane {
 
         section(String(localized: "File colors"))
         row(nil, button(String(localized: "File Colors…"), #selector(showFileColors(_:))))
-        note(String(localized: "Colors by file mask — archives, pictures, scripts — like \u{201C}Define colors by file type\u{201D} in Total Commander."))
+        note(String(localized: "Colors by file mask: archives, pictures, scripts and so on."))
         refresh()
     }
 
@@ -394,11 +394,11 @@ private final class KeyboardPane: SettingsPane {
         popUp.target = self
         popUp.action = #selector(quickSearchChanged(_:))
         row(String(localized: "Search file names with:"), popUp)
-        note(String(localized: "As in Total Commander, Alt (Option) with letters jumps to a file; plain letters type into the command line."))
+        note(String(localized: "Option with letters jumps to a file by its name; plain letters type into the command line."))
 
         section(String(localized: "Shortcuts"))
         row(nil, button(String(localized: "Keyboard Shortcuts…"), #selector(showKeys(_:))))
-        note(String(localized: "Any cm_ command can get its own keys; shortcuts from Total Commander's wincmd.ini can be imported. Keys work on any keyboard layout."))
+        note(String(localized: "Any cm_ command can get its own keys; shortcuts can be imported from wincmd.ini. Keys work on any keyboard layout."))
 
         section(String(localized: "Function keys"))
         note(String(localized: "On a Mac F1–F12 control brightness and sound by default. Hold fn, or turn on \u{201C}Use F1, F2, etc. keys as standard function keys\u{201D}."))

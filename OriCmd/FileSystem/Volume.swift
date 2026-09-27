@@ -11,6 +11,12 @@ nonisolated struct Volume: Hashable, Sendable {
             includingResourceValuesForKeys: keys,
             options: [.skipHiddenVolumes]
         ) ?? []
+        #if DEBUG
+        // Screenshots (scripts/screenshots.sh) show only the startup volume.
+        if ProcessInfo.processInfo.environment["ORICMD_DEMO"] != nil {
+            return urls.filter { $0.path == "/" }.map { Volume(url: $0, name: "Macintosh HD") }
+        }
+        #endif
         return urls.map { url in
             let name = (try? url.resourceValues(forKeys: Set(keys)))?.volumeLocalizedName
             return Volume(url: url, name: name ?? url.lastPathComponent)

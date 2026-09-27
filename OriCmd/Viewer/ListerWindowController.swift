@@ -45,7 +45,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         )
         window.title = "Lister - [\(url.path)]"
         window.center()
-        window.setFrameAutosaveName("Lister")
+        window.rememberFrame(as: "Lister")
         super.init(window: window)
         window.delegate = self
 

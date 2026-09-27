@@ -49,7 +49,7 @@ final class CompareWindowController: NSWindowController, NSWindowDelegate {
                                    styleMask: [.titled, .closable, .miniaturizable, .resizable],
                                    backing: .buffered, defer: false)
         window.title = String(localized: "Compare: \(left.lastPathComponent) — \(right.lastPathComponent)")
-        window.setFrameAutosaveName("Compare")
+        window.rememberFrame(as: "Compare")
         window.center()
         super.init(window: window)
         window.delegate = self

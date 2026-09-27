@@ -361,12 +361,12 @@
         }
       }
     },
-    "Any cm_ command can get its own keys; shortcuts from Total Commander's wincmd.ini can be imported. Keys work on any keyboard layout.": {
+    "Any cm_ command can get its own keys; shortcuts can be imported from wincmd.ini. Keys work on any keyboard layout.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Любой команде cm_ можно назначить свои клавиши; сочетания из wincmd.ini Total Commander можно импортировать. Клавиши работают на любой раскладке."
+            "value": "Любой команде cm_ можно назначить свои клавиши; сочетания можно импортировать из wincmd.ini. Клавиши работают на любой раскладке."
           }
         }
       }
@@ -387,16 +387,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Применить"
-          }
-        }
-      }
-    },
-    "As in Total Commander, Alt (Option) with letters jumps to a file; plain letters type into the command line.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Как в Total Commander: Alt (Option) с буквами переходит к файлу, просто буквы набираются в командной строке."
           }
         }
       }
@@ -911,12 +901,12 @@
         }
       }
     },
-    "Colors by file mask — archives, pictures, scripts — like “Define colors by file type” in Total Commander.": {
+    "Colors by file mask: archives, pictures, scripts and so on.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Цвета по маске файлов — архивы, картинки, скрипты, — как «Цвета по типу файла» в Total Commander."
+            "value": "Цвета по маске файлов: архивы, картинки, скрипты и т. д."
           }
         }
       }
@@ -2947,6 +2937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Операции"
+          }
+        }
+      }
+    },
+    "Option with letters jumps to a file by its name; plain letters type into the command line.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option с буквами переходит к файлу по имени, просто буквы набираются в командной строке."
           }
         }
       }

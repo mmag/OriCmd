@@ -44,7 +44,7 @@ final class SyncWindowController: NSWindowController {
                               backing: .buffered, defer: false)
         window.title = String(localized: "Synchronize Directories")
         window.center()
-        window.setFrameAutosaveName("SyncDirectories")
+        window.rememberFrame(as: "SyncDirectories")
         super.init(window: window)
         buildContent()
     }
