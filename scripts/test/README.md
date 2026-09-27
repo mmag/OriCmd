@@ -8,6 +8,8 @@ folders in `build/testdata` only — never on real files.
 - `run.sh <name> "<keys>"` — launches the Debug app on the test folders, plays the
   keys (e.g. `"down space f5 wait enter"`, `cmd:cm_SyncDirs`, `click:Background`)
   and writes `build/shots/<name>.png` (plus sheets and other windows).
+  Modifiers: `cmd+`, `shift+`, `alt+`, `ctrl+`, `num+`; `ru+` types the key as the
+  Russian layout would (`ru+ctrl+d` sends "в" with the D key code).
 - `regress.sh` — plays the main file operations and checks the results on disk.
 - `loc.py [translations.json]` — lists localization keys missing from the catalog,
   or adds Russian translations from a JSON file.

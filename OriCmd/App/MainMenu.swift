@@ -6,7 +6,7 @@ import AppKit
 /// Total Commander style menus are added here as their commands appear.
 enum MainMenu {
     static func make() -> NSMenu {
-        let mainMenu = NSMenu()
+        let mainMenu = ShortcutMenu()
 
         mainMenu.addItem(container(for: appMenu()))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Files"), [

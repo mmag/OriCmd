@@ -97,7 +97,7 @@ extension Shortcut {
             self.init(String(UnicodeScalar(UInt32(code))!), modifiers)
             return
         }
-        guard let characters = event.charactersIgnoringModifiers?.lowercased(), characters.count == 1 else { return nil }
+        guard let characters = event.shortcutCharacters, characters.count == 1 else { return nil }
         self.init(characters, modifiers)
     }
 }

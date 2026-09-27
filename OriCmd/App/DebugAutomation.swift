@@ -137,7 +137,9 @@ enum DebugAutomation {
                 if !isReturn || target.firstResponder is NSTextView,
                    target.performKeyEquivalent(with: event) { break }
                 if target.attachedSheet == nil, target.sheetParent == nil,
-                   performMenuShortcut(stroke, in: target) { break }
+                   performMenuShortcut(event, in: target) || event.latinized.map({ performMenuShortcut($0, in: target) }) == true {
+                    break
+                }
             }
             target.sendEvent(event)
         }
@@ -180,12 +182,12 @@ enum DebugAutomation {
     /// Finds the menu item for `stroke` and sends its action along the window's
     /// responder chain. Unlike `NSMenu.performKeyEquivalent`, this also works
     /// while the app is inactive (e.g. the screen is locked during a test run).
-    private static func performMenuShortcut(_ stroke: KeyStroke, in window: NSWindow) -> Bool {
-        let modifiers = stroke.modifiers.subtracting(.function)
+    private static func performMenuShortcut(_ event: NSEvent, in window: NSWindow) -> Bool {
+        let modifiers = event.modifierFlags.subtracting(.function)
         func find(in menu: NSMenu) -> NSMenuItem? {
             for item in menu.items {
                 if let submenu = item.submenu, let found = find(in: submenu) { return found }
-                if item.keyEquivalent == stroke.charactersIgnoringModifiers,
+                if item.keyEquivalent == event.charactersIgnoringModifiers,
                    item.keyEquivalentModifierMask == modifiers,
                    !item.isHidden || item.allowsKeyEquivalentWhenHidden {
                     return item
@@ -256,10 +258,16 @@ private struct KeyStroke {
         "'": 39, "k": 40, ";": 41, "\\": 42, ",": 43, "/": 44, "n": 45, "m": 46, ".": 47, "`": 50,
     ]
 
+    /// The Russian (PC) layout on the keys of the US one.
+    private static let russian: [Character: Character] = Dictionary(uniqueKeysWithValues: zip(
+        "qwertyuiop[]asdfghjkl;'zxcvbnm,.`", "йцукенгшщзхъфывапролджэячсмитьбюё"
+    ))
+
     init?(_ token: String) {
         var parts = token.lowercased().split(separator: "+").map(String.init)
         guard let key = parts.popLast() else { return nil }
         var modifiers: NSEvent.ModifierFlags = []
+        var russian = false
         for part in parts {
             switch part {
             case "cmd": modifiers.insert(.command)
@@ -267,6 +275,7 @@ private struct KeyStroke {
             case "alt", "opt": modifiers.insert(.option)
             case "ctrl": modifiers.insert(.control)
             case "num": modifiers.insert(.numericPad)
+            case "ru": russian = true
             default: return nil
             }
         }
@@ -277,6 +286,11 @@ private struct KeyStroke {
             }
         } else if key.count == 1 {
             self.init(characters: key, keyCode: Self.keyCodes[Character(key)] ?? 0)
+            // "ru+ctrl+d": the same key typed with the Russian layout active ("в").
+            if russian, let letter = Self.russian[Character(key)] {
+                characters = String(letter)
+                charactersIgnoringModifiers = String(letter)
+            }
         } else {
             return nil
         }

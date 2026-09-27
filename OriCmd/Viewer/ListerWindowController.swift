@@ -69,7 +69,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
 
     private func handleKey(_ event: NSEvent) -> Bool {
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
-        if modifiers == .command, event.charactersIgnoringModifiers == "f" {
+        if modifiers == .command, event.shortcutCharacters == "f" {
             find(.showFindInterface)
             return true
         }
@@ -81,7 +81,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
             // Plain keys only when the find bar is not being typed into.
             guard modifiers.isEmpty || modifiers == .shift, !(window?.firstResponder is NSTextView
                   && window?.firstResponder !== textView) else { return false }
-            switch event.charactersIgnoringModifiers?.lowercased() {
+            switch event.shortcutCharacters {
             case "\u{1b}": window?.close()
             case "1": show(.text)
             case "3": show(.hex)
