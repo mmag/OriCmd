@@ -151,7 +151,7 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
         let meter = TransferMeter(files: files, progress: progress)
         for (index, file) in files.enumerated() {
             meter.start(index)
-            _ = try await curl(["-o", file.target, url(for: file.source, directory: false)], progress: progress) {
+            _ = try await curl(["-R", "-o", file.target, url(for: file.source, directory: false)], progress: progress) {
                 meter.advance(index, to: Int64(Double(file.size) * $0 / 100))
             }
         }
