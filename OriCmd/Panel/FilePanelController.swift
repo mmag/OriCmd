@@ -89,6 +89,7 @@ final class FilePanelController: NSViewController {
         panelView.onVolumeSelected = { [weak self] volume in self?.load(volume.url) }
         panelView.tabBar.onSelect = { [weak self] index in self?.selectTab(index) }
         panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
+        panelView.quickSearchField.delegate = self
 
         load(directory)
         updateTabBar()
@@ -586,6 +587,81 @@ extension FilePanelController: NSMenuItemValidation {
     }
 }
 
+// MARK: - Quick search
+
+extension FilePanelController: NSTextFieldDelegate {
+    func beginQuickSearch(_ text: String) {
+        let field = panelView.quickSearchField
+        field.stringValue = text
+        field.isHidden = false
+        panelView.statusLabel.isHidden = true
+        view.window?.makeFirstResponder(field)
+        field.currentEditor()?.selectedRange = NSRange(location: (text as NSString).length, length: 0)
+        jumpToMatch(from: 0, forward: true)
+    }
+
+    private func endQuickSearch(openingItem: Bool) {
+        let field = panelView.quickSearchField
+        guard !field.isHidden else { return }
+        field.isHidden = true
+        panelView.statusLabel.isHidden = false
+        focus()
+        if openingItem {
+            fileList(listView, openItemAt: listView.cursor)
+        }
+    }
+
+    /// Names starting with the typed text match; a leading "*" matches anywhere.
+    private func matches(_ item: FileItem, _ text: String) -> Bool {
+        guard !item.isParent, !text.isEmpty else { return false }
+        if text.hasPrefix("*") {
+            let rest = String(text.dropFirst())
+            return rest.isEmpty || item.name.localizedCaseInsensitiveContains(rest)
+        }
+        return item.name.range(of: text, options: [.caseInsensitive, .anchored, .diacriticInsensitive]) != nil
+    }
+
+    private func jumpToMatch(from start: Int, forward: Bool) {
+        let text = panelView.quickSearchField.stringValue
+        let items = listView.items
+        guard !items.isEmpty else { return }
+        for step in 0..<items.count {
+            let index = forward
+                ? (start + step) % items.count
+                : (start - step + items.count) % items.count
+            if matches(items[index], text) {
+                listView.moveCursor(to: index)
+                return
+            }
+        }
+        NSSound.beep()
+    }
+
+    func controlTextDidChange(_ notification: Notification) {
+        jumpToMatch(from: listView.cursor, forward: true)
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        switch selector {
+        case #selector(NSResponder.moveDown(_:)):
+            jumpToMatch(from: listView.cursor + 1, forward: true)
+        case #selector(NSResponder.moveUp(_:)):
+            jumpToMatch(from: listView.cursor - 1 + listView.items.count, forward: false)
+        case #selector(NSResponder.insertNewline(_:)):
+            endQuickSearch(openingItem: true)
+        case #selector(NSResponder.cancelOperation(_:)), #selector(NSResponder.insertTab(_:)):
+            endQuickSearch(openingItem: false)
+        default:
+            return false
+        }
+        return true
+    }
+
+    func controlTextDidEndEditing(_ notification: Notification) {
+        endQuickSearch(openingItem: false)
+    }
+}
+
 extension FilePanelController: FileListViewDelegate {
     func fileListDidBecomeActive(_ list: FileListView) {
         delegate?.filePanelDidBecomeActive(self)
@@ -625,6 +701,10 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileListCursorDidMove(_ list: FileListView) {
         delegate?.filePanelCursorDidMove(self)
+    }
+
+    func fileList(_ list: FileListView, beginQuickSearchWith text: String) {
+        beginQuickSearch(text)
     }
 
     func fileList(_ list: FileListView, interceptKey event: NSEvent) -> Bool {

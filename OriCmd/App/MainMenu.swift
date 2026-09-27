@@ -21,7 +21,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: commandMenu("Commands", [
             [.rereadSource, .exchange],
             [.openNewTab, .openDirInNewTab, .closeCurrentTab, .switchToNextTab, .switchToPreviousTab],
-            [.directoryHotlist],
+            [.searchFor, .directoryHotlist],
             [.goToPrevDir, .goToNextDir, .directoryHistory, .goToParent, .goToRoot],
             [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],

@@ -17,6 +17,8 @@ protocol FileListViewDelegate: AnyObject {
     func fileList(_ list: FileListView, markGroup mark: Bool)
     /// Lets the command line take typed characters first. Returns true if consumed.
     func fileList(_ list: FileListView, interceptKey event: NSEvent) -> Bool
+    /// ⌥/⌃⌥ + letter: starts quick search with `text`.
+    func fileList(_ list: FileListView, beginQuickSearchWith text: String)
 }
 
 /// Full view file list: one row per entry, a cursor bar that is filled
@@ -378,6 +380,13 @@ final class FileListView: NSView {
             tryToPerform(Command.directoryHistory.selector, with: self)
         case (.upArrow?, [.control]), (.upArrow?, [.command, .option]):
             tryToPerform(Command.openDirInNewTab.selector, with: self)
+        case (nil, [.option]), (nil, [.control, .option]):
+            if let text = event.charactersIgnoringModifiers, !text.isEmpty,
+               text.unicodeScalars.allSatisfy({ $0.value >= 0x20 && $0.value != 0x7F }) {
+                delegate?.fileList(self, beginQuickSearchWith: text)
+            } else {
+                super.keyDown(with: event)
+            }
         case (nil, [.control]) where event.charactersIgnoringModifiers == "d":
             tryToPerform(Command.directoryHotlist.selector, with: self)
         case (.leftArrow?, [.control]), (.leftArrow?, [.command, .option]):

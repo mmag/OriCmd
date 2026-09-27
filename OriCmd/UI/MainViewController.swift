@@ -263,6 +263,17 @@ extension MainViewController: NSMenuItemValidation {
         rightPanel.panelView.volumeButton.performClick(nil)
     }
 
+    /// Alt+F7: find files; the chosen result is shown in the active panel.
+    @objc(cm_SearchFor:)
+    func searchFor(_ sender: Any?) {
+        FindFilesWindowController.show(searchingIn: activePanel.directory) { [weak self] url in
+            guard let self else { return }
+            activePanel.load(url.deletingLastPathComponent(), selecting: url.lastPathComponent)
+            view.window?.makeKeyAndOrderFront(nil)
+            activePanel.focus()
+        }
+    }
+
     /// Opens Terminal in the active panel's folder.
     @objc(cm_ExecuteDOS:)
     func executeDOS(_ sender: Any?) {

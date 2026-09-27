@@ -13,6 +13,8 @@ final class PanelView: NSView {
     let scrollView = NSScrollView()
     let listView = FileListView()
     let statusLabel = NSTextField(labelWithString: "")
+    /// Quick search box shown over the status line.
+    let quickSearchField = NSTextField()
 
     var onVolumeSelected: ((Volume) -> Void)?
     var onGoToRoot: (() -> Void)?
@@ -59,7 +61,12 @@ final class PanelView: NSView {
         statusLabel.lineBreakMode = .byTruncatingTail
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let views: [NSView] = [volumeButton, freeSpaceLabel, rootButton, parentButton, tabBar, pathBar, headerView, scrollView, statusLabel]
+        quickSearchField.font = Theme.chromeFont
+        quickSearchField.placeholderString = "Quick search"
+        quickSearchField.isHidden = true
+
+        let views: [NSView] = [volumeButton, freeSpaceLabel, rootButton, parentButton, tabBar, pathBar, headerView,
+                               scrollView, statusLabel, quickSearchField]
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -104,6 +111,10 @@ final class PanelView: NSView {
             statusLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
             statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4),
             statusLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -3),
+
+            quickSearchField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            quickSearchField.widthAnchor.constraint(equalToConstant: 200),
+            quickSearchField.centerYAnchor.constraint(equalTo: statusLabel.centerYAnchor),
         ])
     }
 

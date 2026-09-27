@@ -104,7 +104,11 @@ enum DebugAutomation {
                     button.performClick(nil)
                     break
                 }
-                if target.performKeyEquivalent(with: event) { break }
+                // Return reaches the focused view first unless a text field is being
+                // edited, in which case the default button takes it (as in AppKit).
+                let isReturn = stroke.characters == "\r"
+                if !isReturn || target.firstResponder is NSTextView,
+                   target.performKeyEquivalent(with: event) { break }
                 if target.attachedSheet == nil, target.sheetParent == nil,
                    performMenuShortcut(stroke, in: target) { break }
             }
