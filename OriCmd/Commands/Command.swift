@@ -38,6 +38,12 @@ enum Command: String, CaseIterable {
     case transferRight = "cm_TransferRight"
     case leftOpenDrives = "cm_LeftOpenDrives"
     case rightOpenDrives = "cm_RightOpenDrives"
+    case openNewTab = "cm_OpenNewTab"
+    case openDirInNewTab = "cm_OpenDirInNewTab"
+    case closeCurrentTab = "cm_CloseCurrentTab"
+    case switchToNextTab = "cm_SwitchToNextTab"
+    case switchToPreviousTab = "cm_SwitchToPreviousTab"
+    case directoryHotlist = "cm_DirectoryHotlist"
 
     // Show
     case srcQuickView = "cm_SrcQuickview"
@@ -81,6 +87,12 @@ enum Command: String, CaseIterable {
         case .transferRight: "Show in Right Panel"
         case .leftOpenDrives: "Left Volume List"
         case .rightOpenDrives: "Right Volume List"
+        case .openNewTab: "New Tab"
+        case .openDirInNewTab: "Open Folder in New Tab"
+        case .closeCurrentTab: "Close Tab"
+        case .switchToNextTab: "Next Tab"
+        case .switchToPreviousTab: "Previous Tab"
+        case .directoryHotlist: "Directory Hotlist…"
         case .srcQuickView: "Quick View"
         case .sortByName: "Sort by Name"
         case .sortByExt: "Sort by Extension"
@@ -117,6 +129,11 @@ enum Command: String, CaseIterable {
         case .goToNextDir: .cmd("]")
         case .leftOpenDrives: .f(1, .option)
         case .rightOpenDrives: .f(2, .option)
+        case .openNewTab: .cmd("t")
+        case .closeCurrentTab: .cmd("w")
+        case .switchToNextTab: .ctrl("\t")
+        case .switchToPreviousTab: .ctrl("\t", .shift)
+        case .directoryHotlist: .cmd("d")
         default: nil
         }
     }
@@ -130,6 +147,8 @@ enum Command: String, CaseIterable {
         case .sortByExt: [.cmd("2", [.control, .option])]
         case .sortByDateTime: [.cmd("3", [.control, .option])]
         case .sortBySize: [.cmd("4", [.control, .option])]
+        case .switchToNextTab: [.cmd("}")]
+        case .switchToPreviousTab: [.cmd("{")]
         default: []
         }
     }

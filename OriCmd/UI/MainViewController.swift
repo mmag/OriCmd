@@ -16,11 +16,13 @@ final class MainViewController: NSViewController {
     private var quickViewReplaces: FilePanelController?
 
     private static let showHiddenKey = "ShowHiddenFiles"
+    private static let leftPanelKey = "LeftPanel"
+    private static let rightPanelKey = "RightPanel"
 
     /// Hidden files are shown or hidden in both panels at once, as in Total Commander.
-    private var showsHidden = UserDefaults.standard.bool(forKey: showHiddenKey) {
+    private var showsHidden = AppDefaults.store.bool(forKey: showHiddenKey) {
         didSet {
-            UserDefaults.standard.set(showsHidden, forKey: Self.showHiddenKey)
+            AppDefaults.store.set(showsHidden, forKey: Self.showHiddenKey)
             leftPanel.showsHidden = showsHidden
             rightPanel.showsHidden = showsHidden
         }
@@ -29,15 +31,14 @@ final class MainViewController: NSViewController {
     private(set) var activePanel: FilePanelController
 
     init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        var left = home
-        var right = home
+        var leftOverride: URL?
+        var rightOverride: URL?
         #if DEBUG
-        left = DebugAutomation.initialDirectory(left: true) ?? left
-        right = DebugAutomation.initialDirectory(left: false) ?? right
+        leftOverride = DebugAutomation.initialDirectory(left: true)
+        rightOverride = DebugAutomation.initialDirectory(left: false)
         #endif
-        leftPanel = FilePanelController(directory: left)
-        rightPanel = FilePanelController(directory: right)
+        leftPanel = Self.restoredPanel(Self.leftPanelKey, override: leftOverride)
+        rightPanel = Self.restoredPanel(Self.rightPanelKey, override: rightOverride)
         activePanel = leftPanel
         super.init(nibName: nil, bundle: nil)
         addChild(leftPanel)
@@ -103,6 +104,30 @@ final class MainViewController: NSViewController {
             didAppear = true
             splitView.setPosition(splitView.bounds.width / 2, ofDividerAt: 0)
             activePanel.focus()
+        }
+    }
+
+    /// Recreates a panel with the tabs saved at the last launch (skipping vanished folders).
+    private static func restoredPanel(_ key: String, override: URL?) -> FilePanelController {
+        if let override {
+            return FilePanelController(tabDirectories: [override])
+        }
+        let state = AppDefaults.store.dictionary(forKey: key)
+        let paths = state?["tabs"] as? [String] ?? []
+        let active = state?["active"] as? Int ?? 0
+        var directories: [URL] = []
+        var activeIndex = 0
+        for (index, path) in paths.enumerated() where FileManager.default.fileExists(atPath: path) {
+            if index == active { activeIndex = directories.count }
+            directories.append(URL(filePath: path))
+        }
+        return FilePanelController(tabDirectories: directories, activeTab: activeIndex)
+    }
+
+    private func savePanels() {
+        for (panel, key) in [(leftPanel, Self.leftPanelKey), (rightPanel, Self.rightPanelKey)] {
+            let state = panel.tabState
+            AppDefaults.store.set(["tabs": state.directories, "active": state.active], forKey: key)
         }
     }
 
@@ -320,6 +345,10 @@ extension MainViewController: FilePanelControllerDelegate {
     }
 
     func filePanelDidChangeDirectory(_ panel: FilePanelController) {
+        savePanels()
+        let showTabs = leftPanel.tabs.count > 1 || rightPanel.tabs.count > 1
+        leftPanel.alwaysShowsTabBar = showTabs
+        rightPanel.alwaysShowsTabBar = showTabs
         if panel === activePanel {
             commandLine.view.directory = panel.directory
         }

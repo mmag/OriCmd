@@ -22,14 +22,36 @@ final class FilePanelController: NSViewController {
     private var lastMask = "*.*"
     private var watcher: DirectoryWatcher?
 
-    private struct HistoryEntry {
+    struct HistoryEntry {
         let directory: URL
         let selectedName: String?
+    }
+
+    /// A folder tab: everything that differs between tabs of one panel.
+    struct Tab {
+        var directory: URL
+        var selectedName: String?
+        var sortOrder: SortOrder
+        var backHistory: [HistoryEntry] = []
+        var forwardHistory: [HistoryEntry] = []
+
+        var title: String {
+            directory.path == "/" ? "/" : directory.lastPathComponent
+        }
     }
 
     private static let historyLimit = 50
     private var backHistory: [HistoryEntry] = []
     private var forwardHistory: [HistoryEntry] = []
+
+    private(set) var tabs: [Tab]
+    private(set) var activeTabIndex: Int
+
+    /// Shows the tab bar even for a single tab, so both panels line up
+    /// when the other one has tabs.
+    var alwaysShowsTabBar = false {
+        didSet { if alwaysShowsTabBar != oldValue { updateTabBar() } }
+    }
 
     var sortOrder = SortOrder() {
         didSet {
@@ -49,8 +71,13 @@ final class FilePanelController: NSViewController {
         set { panelView.isActive = newValue }
     }
 
-    init(directory: URL) {
-        self.directory = directory
+    /// Creates a panel with a tab for each directory.
+    init(tabDirectories: [URL], activeTab: Int = 0) {
+        let directories = tabDirectories.isEmpty ? [FileManager.default.homeDirectoryForCurrentUser] : tabDirectories
+        let active = min(max(activeTab, 0), directories.count - 1)
+        directory = directories[active]
+        tabs = directories.map { Tab(directory: $0, sortOrder: SortOrder()) }
+        activeTabIndex = active
         super.init(nibName: nil, bundle: nil)
 
         listView.delegate = self
@@ -60,8 +87,11 @@ final class FilePanelController: NSViewController {
         panelView.onGoToRoot = { [weak self] in self?.goToRoot() }
         panelView.onGoToParent = { [weak self] in self?.goToParent() }
         panelView.onVolumeSelected = { [weak self] volume in self?.load(volume.url) }
+        panelView.tabBar.onSelect = { [weak self] index in self?.selectTab(index) }
+        panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
 
         load(directory)
+        updateTabBar()
     }
 
     @available(*, unavailable)
@@ -113,7 +143,68 @@ final class FilePanelController: NSViewController {
         }
         panelView.show(directory: directory, volumes: Volume.mounted())
         refreshList(selecting: name, fallback: isNewDirectory ? 0 : listView.cursor)
+        if tabs[activeTabIndex].directory != directory {
+            tabs[activeTabIndex].directory = directory
+            updateTabBar()
+        }
         delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    // MARK: - Tabs
+
+    /// Tab directories and the active tab, for saving the panel between launches.
+    var tabState: (directories: [String], active: Int) {
+        (tabs.map(\.directory.path), activeTabIndex)
+    }
+
+    func openTab(_ directory: URL) {
+        tabs[activeTabIndex] = currentTab()
+        tabs.insert(Tab(directory: directory, sortOrder: sortOrder), at: activeTabIndex + 1)
+        activateTab(at: activeTabIndex + 1)
+    }
+
+    func selectTab(_ index: Int) {
+        guard tabs.indices.contains(index), index != activeTabIndex else { return }
+        tabs[activeTabIndex] = currentTab()
+        activateTab(at: index)
+    }
+
+    /// The last tab is never closed, as in Total Commander.
+    func closeTab(_ index: Int) {
+        guard tabs.count > 1, tabs.indices.contains(index) else {
+            NSSound.beep()
+            return
+        }
+        tabs.remove(at: index)
+        if index == activeTabIndex {
+            activateTab(at: min(index, tabs.count - 1))
+        } else {
+            if index < activeTabIndex { activeTabIndex -= 1 }
+            updateTabBar()
+            delegate?.filePanelDidChangeDirectory(self)
+        }
+    }
+
+    private func currentTab() -> Tab {
+        Tab(directory: directory, selectedName: listView.currentItem?.name, sortOrder: sortOrder,
+            backHistory: backHistory, forwardHistory: forwardHistory)
+    }
+
+    private func activateTab(at index: Int) {
+        activeTabIndex = index
+        let tab = tabs[index]
+        backHistory = tab.backHistory
+        forwardHistory = tab.forwardHistory
+        if sortOrder != tab.sortOrder {
+            sortOrder = tab.sortOrder
+        }
+        load(tab.directory, selecting: tab.selectedName, recordingHistory: false)
+        updateTabBar()
+        delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    private func updateTabBar() {
+        panelView.setTabs(tabs.map(\.title), selected: activeTabIndex, visible: tabs.count > 1 || alwaysShowsTabBar)
     }
 
     func goBack() {
@@ -250,6 +341,65 @@ extension FilePanelController: NSMenuItemValidation {
     @objc(cm_GoToRoot:)
     func goToRootCommand(_ sender: Any?) {
         goToRoot()
+    }
+
+    @objc(cm_OpenNewTab:)
+    func openNewTab(_ sender: Any?) {
+        openTab(directory)
+    }
+
+    /// Ctrl+Up: opens the folder under the cursor in a new tab.
+    @objc(cm_OpenDirInNewTab:)
+    func openDirInNewTab(_ sender: Any?) {
+        guard let item = listView.currentItem, item.isFolder else {
+            openTab(directory)
+            return
+        }
+        openTab(item.isParent ? directory.deletingLastPathComponent() : item.url)
+    }
+
+    @objc(cm_CloseCurrentTab:)
+    func closeCurrentTab(_ sender: Any?) {
+        closeTab(activeTabIndex)
+    }
+
+    @objc(cm_SwitchToNextTab:)
+    func switchToNextTab(_ sender: Any?) {
+        selectTab((activeTabIndex + 1) % tabs.count)
+    }
+
+    @objc(cm_SwitchToPreviousTab:)
+    func switchToPreviousTab(_ sender: Any?) {
+        selectTab((activeTabIndex + tabs.count - 1) % tabs.count)
+    }
+
+    /// Ctrl+D: pops up the favourite folders, with add/remove for the current one.
+    @objc(cm_DirectoryHotlist:)
+    func directoryHotlist(_ sender: Any?) {
+        let menu = NSMenu()
+        for path in Hotlist.directories {
+            let item = NSMenuItem(title: (path as NSString).abbreviatingWithTildeInPath,
+                                  action: #selector(historyItemChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = URL(filePath: path)
+            menu.addItem(item)
+        }
+        if !menu.items.isEmpty {
+            menu.addItem(.separator())
+        }
+        let current = directory.path
+        let isListed = Hotlist.directories.contains(current)
+        let name = tabs[activeTabIndex].title
+        let toggle = NSMenuItem(title: isListed ? "Remove \u{201C}\(name)\u{201D}" : "Add \u{201C}\(name)\u{201D}",
+                                action: #selector(toggleHotlistEntry(_:)), keyEquivalent: "")
+        toggle.target = self
+        menu.addItem(toggle)
+        let bar = panelView.pathBar
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bar.bounds.maxY), in: bar)
+    }
+
+    @objc private func toggleHotlistEntry(_ sender: NSMenuItem) {
+        Hotlist.toggle(directory.path)
     }
 
     @objc(cm_GoToPrevDir:)
@@ -429,6 +579,8 @@ extension FilePanelController: NSMenuItemValidation {
             menuItem.state = sortOrder.ascending ? .off : .on
         } else if command == .goToParent {
             return directory.path != "/"
+        } else if [.closeCurrentTab, .switchToNextTab, .switchToPreviousTab].contains(command) {
+            return tabs.count > 1
         }
         return true
     }

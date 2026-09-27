@@ -30,7 +30,7 @@ final class CommandLineController: NSObject {
     override init() {
         super.init()
         field.delegate = self
-        field.addItems(withObjectValues: UserDefaults.standard.stringArray(forKey: Self.historyKey) ?? [])
+        field.addItems(withObjectValues: AppDefaults.store.stringArray(forKey: Self.historyKey) ?? [])
     }
 
     // MARK: - Keys typed in a panel
@@ -149,11 +149,11 @@ final class CommandLineController: NSObject {
     }
 
     private func remember(_ command: String) {
-        var history = UserDefaults.standard.stringArray(forKey: Self.historyKey) ?? []
+        var history = AppDefaults.store.stringArray(forKey: Self.historyKey) ?? []
         history.removeAll { $0 == command }
         history.insert(command, at: 0)
         history = Array(history.prefix(Self.historyLimit))
-        UserDefaults.standard.set(history, forKey: Self.historyKey)
+        AppDefaults.store.set(history, forKey: Self.historyKey)
         field.removeAllItems()
         field.addItems(withObjectValues: history)
     }

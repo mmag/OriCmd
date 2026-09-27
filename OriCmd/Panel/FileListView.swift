@@ -376,6 +376,10 @@ final class FileListView: NSView {
             tryToPerform(Command.goToNextDir.selector, with: self)
         case (.downArrow?, [.option]):
             tryToPerform(Command.directoryHistory.selector, with: self)
+        case (.upArrow?, [.control]), (.upArrow?, [.command, .option]):
+            tryToPerform(Command.openDirInNewTab.selector, with: self)
+        case (nil, [.control]) where event.charactersIgnoringModifiers == "d":
+            tryToPerform(Command.directoryHotlist.selector, with: self)
         case (.leftArrow?, [.control]), (.leftArrow?, [.command, .option]):
             tryToPerform(Command.transferLeft.selector, with: self)
         case (.rightArrow?, [.control]), (.rightArrow?, [.command, .option]):

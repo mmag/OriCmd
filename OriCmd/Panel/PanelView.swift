@@ -7,6 +7,7 @@ final class PanelView: NSView {
     let freeSpaceLabel = NSTextField(labelWithString: "")
     let rootButton = NSButton(title: "/", target: nil, action: nil)
     let parentButton = NSButton(title: "..", target: nil, action: nil)
+    let tabBar = FolderTabBar()
     let pathBar = PathBar()
     let headerView = FileListHeaderView()
     let scrollView = NSScrollView()
@@ -25,6 +26,7 @@ final class PanelView: NSView {
     }
 
     private var volumes: [Volume] = []
+    private var tabBarHeight: NSLayoutConstraint!
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -57,12 +59,14 @@ final class PanelView: NSView {
         statusLabel.lineBreakMode = .byTruncatingTail
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let views: [NSView] = [volumeButton, freeSpaceLabel, rootButton, parentButton, pathBar, headerView, scrollView, statusLabel]
+        let views: [NSView] = [volumeButton, freeSpaceLabel, rootButton, parentButton, tabBar, pathBar, headerView, scrollView, statusLabel]
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
 
+        tabBarHeight = tabBar.heightAnchor.constraint(equalToConstant: 0)
+        tabBar.isHidden = true
         NSLayoutConstraint.activate([
             volumeButton.topAnchor.constraint(equalTo: topAnchor, constant: 3),
             volumeButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
@@ -79,7 +83,12 @@ final class PanelView: NSView {
             rootButton.trailingAnchor.constraint(equalTo: parentButton.leadingAnchor, constant: -2),
             rootButton.widthAnchor.constraint(equalToConstant: 24),
 
-            pathBar.topAnchor.constraint(equalTo: volumeButton.bottomAnchor, constant: 3),
+            tabBar.topAnchor.constraint(equalTo: volumeButton.bottomAnchor, constant: 3),
+            tabBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            tabBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            tabBarHeight,
+
+            pathBar.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
             pathBar.leadingAnchor.constraint(equalTo: leadingAnchor),
             pathBar.trailingAnchor.constraint(equalTo: trailingAnchor),
 
@@ -101,6 +110,14 @@ final class PanelView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) is not supported")
+    }
+
+    /// Shows the folder tabs (the bar is hidden when `visible` is false).
+    func setTabs(_ titles: [String], selected: Int, visible: Bool) {
+        tabBar.titles = titles
+        tabBar.selectedIndex = selected
+        tabBar.isHidden = !visible
+        tabBarHeight.constant = visible ? FolderTabBar.height : 0
     }
 
     /// Updates the header for `directory`: path, current volume and free space.
