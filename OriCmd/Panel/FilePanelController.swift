@@ -6,6 +6,7 @@ protocol FilePanelControllerDelegate: AnyObject {
     func filePanelSwitchPanel(_ panel: FilePanelController)
     func filePanelDidChangeDirectory(_ panel: FilePanelController)
     func filePanelCursorDidMove(_ panel: FilePanelController)
+    func filePanel(_ panel: FilePanelController, interceptKey event: NSEvent) -> Bool
 }
 
 /// Owns one panel: its current directory, listing, sort order and view.
@@ -400,6 +401,10 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileListCursorDidMove(_ list: FileListView) {
         delegate?.filePanelCursorDidMove(self)
+    }
+
+    func fileList(_ list: FileListView, interceptKey event: NSEvent) -> Bool {
+        delegate?.filePanel(self, interceptKey: event) ?? false
     }
 
     func fileList(_ list: FileListView, markGroup mark: Bool) {

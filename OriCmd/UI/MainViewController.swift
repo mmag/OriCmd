@@ -6,7 +6,7 @@ final class MainViewController: NSViewController {
     private let leftPanel: FilePanelController
     private let rightPanel: FilePanelController
     private let splitView = NSSplitView()
-    private let commandLine = CommandLineView()
+    private let commandLine = CommandLineController()
     private let functionKeyBar = FunctionKeyBar()
 
     private var didAppear = false
@@ -44,6 +44,7 @@ final class MainViewController: NSViewController {
         addChild(rightPanel)
         leftPanel.delegate = self
         rightPanel.delegate = self
+        commandLine.delegate = self
         leftPanel.showsHidden = showsHidden
         rightPanel.showsHidden = showsHidden
 
@@ -70,7 +71,7 @@ final class MainViewController: NSViewController {
         splitView.addArrangedSubview(rightPanel.view)
 
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 1100, height: 720))
-        for view in [splitView, commandLine, functionKeyBar] {
+        for view in [splitView, commandLine.view, functionKeyBar] {
             view.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(view)
         }
@@ -79,11 +80,11 @@ final class MainViewController: NSViewController {
             splitView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             splitView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
 
-            commandLine.topAnchor.constraint(equalTo: splitView.bottomAnchor),
-            commandLine.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            commandLine.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            commandLine.view.topAnchor.constraint(equalTo: splitView.bottomAnchor),
+            commandLine.view.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            commandLine.view.trailingAnchor.constraint(equalTo: root.trailingAnchor),
 
-            functionKeyBar.topAnchor.constraint(equalTo: commandLine.bottomAnchor),
+            functionKeyBar.topAnchor.constraint(equalTo: commandLine.view.bottomAnchor),
             functionKeyBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             functionKeyBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             functionKeyBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -121,7 +122,7 @@ final class MainViewController: NSViewController {
         activePanel = panel
         leftPanel.isActive = panel === leftPanel
         rightPanel.isActive = panel === rightPanel
-        commandLine.directory = panel.directory
+        commandLine.view.directory = panel.directory
     }
 }
 
@@ -202,6 +203,12 @@ extension MainViewController: NSMenuItemValidation {
         return (url.deletingLastPathComponent(), url.lastPathComponent)
     }
 
+    /// Opens Terminal in the active panel's folder.
+    @objc(cm_ExecuteDOS:)
+    func executeDOS(_ sender: Any?) {
+        ShellRunner.openTerminal(in: activePanel.directory)
+    }
+
     /// Ctrl+Q: turns the other panel into a preview of the entry under the cursor.
     @objc(cm_SrcQuickview:)
     func srcQuickView(_ sender: Any?) {
@@ -267,6 +274,10 @@ extension MainViewController: FilePanelControllerDelegate {
         (panel === leftPanel ? rightPanel : leftPanel).focus()
     }
 
+    func filePanel(_ panel: FilePanelController, interceptKey event: NSEvent) -> Bool {
+        commandLine.handlePanelKey(event)
+    }
+
     func filePanelCursorDidMove(_ panel: FilePanelController) {
         if panel === activePanel {
             updateQuickView()
@@ -275,7 +286,21 @@ extension MainViewController: FilePanelControllerDelegate {
 
     func filePanelDidChangeDirectory(_ panel: FilePanelController) {
         if panel === activePanel {
-            commandLine.directory = panel.directory
+            commandLine.view.directory = panel.directory
         }
+    }
+}
+
+extension MainViewController: CommandLineControllerDelegate {
+    var commandLineDirectory: URL { activePanel.directory }
+
+    var commandLineCurrentItem: FileItem? { activePanel.listView.currentItem }
+
+    func commandLine(_ controller: CommandLineController, changeDirectoryTo url: URL) {
+        activePanel.load(url)
+    }
+
+    func commandLineDidEndEditing(_ controller: CommandLineController) {
+        activePanel.focus()
     }
 }

@@ -21,6 +21,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: commandMenu("Commands", [
             [.rereadSource, .exchange],
             [.goToParent, .goToRoot],
+            [.executeDOS],
         ])))
         mainMenu.addItem(container(for: commandMenu("Show", [
             [.srcQuickView],

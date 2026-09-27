@@ -30,6 +30,7 @@ enum Command: String, CaseIterable {
     case exchange = "cm_Exchange"
     case goToRoot = "cm_GoToRoot"
     case goToParent = "cm_GoToParent"
+    case executeDOS = "cm_ExecuteDOS"
 
     // Show
     case srcQuickView = "cm_SrcQuickview"
@@ -65,6 +66,7 @@ enum Command: String, CaseIterable {
         case .exchange: "Swap Panels"
         case .goToRoot: "Go to Root"
         case .goToParent: "Go to Parent"
+        case .executeDOS: "Open Terminal Here"
         case .srcQuickView: "Quick View"
         case .sortByName: "Sort by Name"
         case .sortByExt: "Sort by Extension"

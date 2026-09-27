@@ -15,6 +15,8 @@ protocol FileListViewDelegate: AnyObject {
     func fileListCursorDidMove(_ list: FileListView)
     /// Num+ / Num−: ask for a mask, then mark or unmark matching files.
     func fileList(_ list: FileListView, markGroup mark: Bool)
+    /// Lets the command line take typed characters first. Returns true if consumed.
+    func fileList(_ list: FileListView, interceptKey event: NSEvent) -> Bool
 }
 
 /// Full view file list: one row per entry, a cursor bar that is filled
@@ -341,6 +343,7 @@ final class FileListView: NSView {
     // MARK: - Keyboard
 
     override func keyDown(with event: NSEvent) {
+        if delegate?.fileList(self, interceptKey: event) == true { return }
         let modifiers = event.modifierFlags
             .intersection(.deviceIndependentFlagsMask)
             .subtracting([.function, .numericPad, .capsLock])
