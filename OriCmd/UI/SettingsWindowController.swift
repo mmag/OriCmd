@@ -58,6 +58,8 @@ final class SettingsWindowController: NSWindowController {
             [NSGridCell.emptyContentView, functionKeysBox],
             [NSGridCell.emptyContentView, driveButtonsBox],
             [NSTextField(labelWithString: String(localized: "Delete:")), confirmTrashBox],
+            [NSTextField(labelWithString: String(localized: "Keyboard:")),
+             NSButton(title: String(localized: "Keyboard Shortcuts…"), target: self, action: #selector(showKeys(_:)))],
         ])
         grid.column(at: 0).xPlacement = .trailing
         grid.rowAlignment = .firstBaseline
@@ -84,6 +86,10 @@ final class SettingsWindowController: NSWindowController {
         functionKeysBox.state = Settings.showsFunctionKeys ? .on : .off
         driveButtonsBox.state = Settings.showsDriveButtons ? .on : .off
         confirmTrashBox.state = Settings.confirmsMoveToTrash ? .on : .off
+    }
+
+    @objc private func showKeys(_ sender: Any?) {
+        KeyBindingsWindowController.shared.showWindow(sender)
     }
 
     @objc private func chooseFont(_ sender: Any?) {

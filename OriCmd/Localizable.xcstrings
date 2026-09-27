@@ -401,6 +401,16 @@
         }
       }
     },
+    "Cannot read “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся прочитать «%@»"
+          }
+        }
+      }
+    },
     "Cannot rename": {
       "localizations": {
         "ru": {
@@ -511,6 +521,16 @@
         }
       }
     },
+    "Change…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить…"
+          }
+        }
+      }
+    },
     "Changing attributes": {
       "localizations": {
         "ru": {
@@ -521,12 +541,32 @@
         }
       }
     },
+    "Choose Total Commander's wincmd.ini": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите wincmd.ini из Total Commander"
+          }
+        }
+      }
+    },
     "Choose…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Выбрать…"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить"
           }
         }
       }
@@ -547,6 +587,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закрыть вкладку"
+          }
+        }
+      }
+    },
+    "Command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команда"
           }
         }
       }
@@ -1321,6 +1371,26 @@
         }
       }
     },
+    "Import wincmd.ini…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Импорт wincmd.ini…"
+          }
+        }
+      }
+    },
+    "Imported %lld keys, skipped %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Импортировано клавиш: %1$lld, пропущено: %2$lld"
+          }
+        }
+      }
+    },
     "Include subfolders": {
       "localizations": {
         "ru": {
@@ -1337,6 +1407,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Инвертировать выделение  (*)"
+          }
+        }
+      }
+    },
+    "Keyboard Shortcuts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Горячие клавиши"
+          }
+        }
+      }
+    },
+    "Keyboard Shortcuts…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Горячие клавиши…"
+          }
+        }
+      }
+    },
+    "Keyboard:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиатура:"
+          }
+        }
+      }
+    },
+    "Keys": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиши"
           }
         }
       }
@@ -1871,6 +1981,16 @@
         }
       }
     },
+    "Press the new keys for “%@” (Esc cancels)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите новые клавиши для «%@» (Esc — отмена)"
+          }
+        }
+      }
+    },
     "Previous Tab": {
       "localizations": {
         "ru": {
@@ -1991,6 +2111,16 @@
         }
       }
     },
+    "Removed from: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снято с команд: %@"
+          }
+        }
+      }
+    },
     "Rename": {
       "localizations": {
         "ru": {
@@ -2027,6 +2157,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заменить на:"
+          }
+        }
+      }
+    },
+    "Reset All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить всё"
           }
         }
       }
@@ -2087,6 +2227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Справа:"
+          }
+        }
+      }
+    },
+    "Search commands": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск команд"
           }
         }
       }

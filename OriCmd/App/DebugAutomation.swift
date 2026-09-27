@@ -45,6 +45,8 @@ enum DebugAutomation {
                 } else if token.hasPrefix("drop:"), let list = window.firstResponder as? FileListView {
                     // Simulates dropping a file onto the focused panel.
                     _ = list.delegate?.fileList(list, drop: [URL(filePath: String(token.dropFirst(5)))], into: nil, moving: false)
+                } else if token.hasPrefix("importini:") {
+                    _ = try? KeyBindings.importTotalCommanderShortcuts(from: URL(filePath: String(token.dropFirst(10))))
                 } else if token.hasPrefix("click:") {
                     // Presses the button with that title in the topmost window.
                     let title = String(token.dropFirst(6)).replacingOccurrences(of: "_", with: " ")

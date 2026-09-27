@@ -159,9 +159,15 @@ enum Command: String, CaseIterable {
         }
     }
 
+    /// The key shown in the menu: the user's own binding (Settings → Keys),
+    /// or the default one.
+    var shortcut: Shortcut? {
+        KeyBindings.shortcut(for: self)
+    }
+
     /// The Total Commander key, shown in the menu. Keys that edit text
     /// (Del, Backspace, arrows) are handled by the file list instead.
-    var shortcut: Shortcut? {
+    var defaultShortcut: Shortcut? {
         switch self {
         case .list: .f(3)
         case .edit: .f(4)

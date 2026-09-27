@@ -107,7 +107,7 @@ enum MainMenu {
             for command in group {
                 let shortcut = command.shortcut
                 menu.addItem(item(command.title, command.selector, shortcut?.key ?? "", shortcut?.modifiers ?? []))
-                for alias in command.aliases {
+                for alias in command.aliases + KeyBindings.extras(for: command) where alias != shortcut {
                     let hidden = item(command.title, command.selector, alias.key, alias.modifiers)
                     hidden.isHidden = true
                     hidden.allowsKeyEquivalentWhenHidden = true
@@ -123,14 +123,14 @@ enum MainMenu {
         [
             .separator(),
             item(String(localized: "mark.selectAll", defaultValue: "Select All"), #selector(NSText.selectAll(_:))),
-            item(Command.clearAll.title, Command.clearAll.selector, "a", [.command, .option]),
+            commandItem(.clearAll),
             item(Command.exchangeSelection.title, Command.exchangeSelection.selector),
             item(Command.restoreSelection.title, Command.restoreSelection.selector),
             item(Command.selectCurrentExtension.title, Command.selectCurrentExtension.selector),
             item(Command.unselectCurrentExtension.title, Command.unselectCurrentExtension.selector),
             .separator(),
             item(Command.copyNamesToClip.title, Command.copyNamesToClip.selector),
-            item(Command.copyFullNamesToClip.title, Command.copyFullNamesToClip.selector, "c", [.command, .option]),
+            commandItem(.copyFullNamesToClip),
         ]
     }
 
@@ -141,6 +141,11 @@ enum MainMenu {
         menu.addItem(.separator())
         menu.addItem(item(String(localized: "Bring All to Front"), #selector(NSApplication.arrangeInFront(_:))))
         return menu
+    }
+
+    private static func commandItem(_ command: Command) -> NSMenuItem {
+        let shortcut = command.shortcut
+        return item(command.title, command.selector, shortcut?.key ?? "", shortcut?.modifiers ?? [])
     }
 
     private static func container(for submenu: NSMenu) -> NSMenuItem {

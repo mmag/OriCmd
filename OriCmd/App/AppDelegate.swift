@@ -5,6 +5,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.make()
+        NotificationCenter.default.addObserver(forName: KeyBindings.didChange, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { NSApp.mainMenu = MainMenu.make() }
+        }
 
         let controller = MainWindowController()
         controller.showWindow(nil)
