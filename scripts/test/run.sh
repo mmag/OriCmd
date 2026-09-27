@@ -6,6 +6,7 @@ mkdir -p build/shots
 name=$1; keys=$2
 rm -f build/shots/$name.png build/shots/$name-sheet*.png
 open -W -n --env ORICMD_LEFT=$PWD/build/testdata/left --env ORICMD_RIGHT=$PWD/build/testdata/right \
+  --env ORICMD_SSH_CONFIG=$PWD/build/sshtest/ssh_config \
   --env "ORICMD_KEYS=$keys" --env ORICMD_SNAPSHOT=$PWD/build/shots/$name.png --env ORICMD_QUIT=1 \
   build/DerivedData/Build/Products/Debug/OriCmd.app
 for f in build/shots/$name*.png; do

@@ -49,6 +49,7 @@ enum Command: String, CaseIterable {
     case goToRoot = "cm_GoToRoot"
     case goToParent = "cm_GoToParent"
     case executeDOS = "cm_ExecuteDOS"
+    case ftpDisconnect = "cm_FtpDisconnect"
     case goToPrevDir = "cm_GoToPrevDir"
     case goToNextDir = "cm_GoToNextDir"
     case directoryHistory = "cm_DirectoryHistory"
@@ -127,6 +128,7 @@ enum Command: String, CaseIterable {
         case .goToRoot: String(localized: "Go to Root")
         case .goToParent: String(localized: "Go to Parent")
         case .executeDOS: String(localized: "Open Terminal Here")
+        case .ftpDisconnect: String(localized: "Disconnect")
         case .goToPrevDir: String(localized: "Back")
         case .goToNextDir: String(localized: "Forward")
         case .directoryHistory: String(localized: "Folder History…")

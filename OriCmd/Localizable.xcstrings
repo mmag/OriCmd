@@ -821,6 +821,16 @@
         }
       }
     },
+    "Copy between a server and a local folder.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать можно между сервером и локальной папкой."
+          }
+        }
+      }
+    },
     "Copy in Same Folder…": {
       "localizations": {
         "ru": {
@@ -1001,6 +1011,16 @@
         }
       }
     },
+    "Delete %@ from the server?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить %@ с сервера?"
+          }
+        }
+      }
+    },
     "Delete Permanently": {
       "localizations": {
         "ru": {
@@ -1051,6 +1071,16 @@
         }
       }
     },
+    "Disconnect": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключиться"
+          }
+        }
+      }
+    },
     "Do you really want to move %@ to the Trash?": {
       "localizations": {
         "ru": {
@@ -1077,6 +1107,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Готово: %@"
+          }
+        }
+      }
+    },
+    "Download": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать"
+          }
+        }
+      }
+    },
+    "Download %@ to:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать %@ в:"
+          }
+        }
+      }
+    },
+    "Download and delete": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать и удалить"
+          }
+        }
+      }
+    },
+    "Download failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка скачивания"
+          }
+        }
+      }
+    },
+    "Download the files first (F5).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала скачайте файлы (F5)."
+          }
+        }
+      }
+    },
+    "Downloading": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачивание"
           }
         }
       }
@@ -1761,6 +1851,16 @@
         }
       }
     },
+    "Move %@ to %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить %1$@ в %2$@?"
+          }
+        }
+      }
+    },
     "Move Down": {
       "localizations": {
         "ru": {
@@ -1947,6 +2047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Внутри архивов это не поддерживается"
+          }
+        }
+      }
+    },
+    "Not supported on servers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На сервере это не поддерживается"
           }
         }
       }
@@ -2551,6 +2661,16 @@
         }
       }
     },
+    "Server address (sftp://, smb://, afp://, nfs://, https:// for WebDAV):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес сервера (sftp://, smb://, afp://, nfs://, https:// для WebDAV):"
+          }
+        }
+      }
+    },
     "Server address (smb://, afp://, nfs://, https:// for WebDAV):": {
       "localizations": {
         "ru": {
@@ -2971,6 +3091,16 @@
         }
       }
     },
+    "The server reported an error": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер сообщил об ошибке"
+          }
+        }
+      }
+    },
     "This archive is read-only": {
       "localizations": {
         "ru": {
@@ -3187,6 +3317,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Обновление архива"
+          }
+        }
+      }
+    },
+    "Upload": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закачать"
+          }
+        }
+      }
+    },
+    "Upload %@ to %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закачать %1$@ в %2$@?"
+          }
+        }
+      }
+    },
+    "Upload failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка закачки"
+          }
+        }
+      }
+    },
+    "Uploading": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закачка"
           }
         }
       }

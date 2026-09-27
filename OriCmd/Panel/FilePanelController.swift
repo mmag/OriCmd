@@ -91,6 +91,22 @@ final class FilePanelController: NSViewController {
     /// Find Files → "Feed to Panel": the found files, listed instead of the folder.
     private var searchResults: (title: String, urls: [URL])?
 
+    /// A server (SFTP, FTP) shown in the panel.
+    struct RemoteLocation {
+        let fileSystem: any RemoteFileSystem
+        var path: String
+
+        var displayPath: String { fileSystem.displayName + (path.hasPrefix("/") ? path : "/" + path) }
+
+        func path(of name: String) -> String {
+            RemotePath.join(path, name)
+        }
+    }
+
+    private(set) var remote: RemoteLocation?
+
+    var searchResultsShown: Bool { searchResults != nil }
+
     /// Show → Filter: only files matching this mask are listed (folders always are).
     private var filterMask: String? {
         didSet {
@@ -266,6 +282,11 @@ final class FilePanelController: NSViewController {
             panelView.pathBar.showsMask = true
             listView.setMarked([])
         }
+        if remote != nil {
+            remote = nil
+            panelView.pathBar.showsMask = true
+            listView.setMarked([])
+        }
         if archive != nil {
             archive = nil
             listView.setMarked([])
@@ -294,6 +315,158 @@ final class FilePanelController: NSViewController {
             updateTabBar()
         }
         delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    // MARK: - Servers
+
+    /// Connects to a server and shows its first folder in this panel.
+    func openRemote(_ fileSystem: any RemoteFileSystem) {
+        loadGeneration += 1
+        let generation = loadGeneration
+        loadTask?.cancel()
+        panelView.setLoading(true)
+        loadTask = Task {
+            do {
+                let path = try await fileSystem.connect()
+                guard generation == loadGeneration else { return }
+                listView.setMarked([])
+                remote = RemoteLocation(fileSystem: fileSystem, path: path)
+                loadTask = nil
+                loadRemote(path, selecting: nil)
+            } catch {
+                panelView.setLoading(false)
+                loadTask = nil
+                if !(error is CancellationError) {
+                    Prompt.error(String(localized: "Cannot connect to \u{201C}\(fileSystem.displayName)\u{201D}"), error,
+                                 in: view.window)
+                }
+            }
+        }
+    }
+
+    /// Lists a folder on the server in the background.
+    private func loadRemote(_ path: String, selecting name: String?) {
+        guard let fileSystem = remote?.fileSystem else { return }
+        loadGeneration += 1
+        let generation = loadGeneration
+        loadTask?.cancel()
+        loadTask = Task {
+            let indicator = Task {
+                try? await Task.sleep(for: .milliseconds(200))
+                if !Task.isCancelled && generation == loadGeneration { panelView.setLoading(true) }
+            }
+            defer {
+                indicator.cancel()
+                if generation == loadGeneration {
+                    panelView.setLoading(false)
+                    loadTask = nil
+                }
+            }
+            do {
+                let items = try await fileSystem.list(path)
+                guard generation == loadGeneration, let current = remote, current.fileSystem === fileSystem else { return }
+                let isNewFolder = path != current.path
+                remote?.path = path
+                if isNewFolder {
+                    listView.setMarked([])
+                }
+                entries = items
+                entriesOrder = nil
+                panelView.pathBar.showsMask = false
+                panelView.pathBar.path = remote?.displayPath ?? path
+                refreshList(selecting: name, fallback: isNewFolder ? 0 : listView.cursor)
+                delegate?.filePanelDidChangeDirectory(self)
+            } catch {
+                if !(error is CancellationError) {
+                    Prompt.error(String(localized: "Cannot read \u{201C}\(path)\u{201D}"), error, in: view.window)
+                }
+            }
+        }
+    }
+
+    /// Runs a change on the server, then lists the folder again.
+    private func runOnServer(selecting name: String?, _ change: @escaping @Sendable () async throws -> Void) {
+        guard let remote else { return }
+        Task {
+            do {
+                try await change()
+            } catch {
+                Prompt.error(String(localized: "The server reported an error"), error, in: view.window)
+            }
+            loadRemote(remote.path, selecting: name)
+        }
+    }
+
+    /// Downloads one file of the server into a new temporary folder.
+    private func downloadToTemporaryFolder(_ item: FileItem) async -> URL? {
+        guard let remote, let window = view.window else { return nil }
+        let folder = FileManager.default.temporaryDirectory.appending(path: "OriCmd-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let path = remote.path(of: item.name)
+        let controller = TransferController(title: String(localized: "Downloading"),
+                                            failureTitle: String(localized: "Download failed"), window: window)
+        let done = await controller.run(source: path, target: folder.path) { progress, _ in
+            try await remote.fileSystem.download([path], to: folder, progress: progress)
+            return [folder]
+        }
+        return done.isEmpty ? nil : folder.appending(path: item.name)
+    }
+
+    /// Uploads local files into the server folder shown here (or `folder`);
+    /// moving deletes the originals afterwards.
+    func upload(_ urls: [URL], to folder: String? = nil, moving: Bool) {
+        guard let remote, let window = view.window else { return }
+        let target = folder ?? remote.path
+        Task {
+            let controller = TransferController(title: String(localized: "Uploading"),
+                                                failureTitle: String(localized: "Upload failed"), window: window)
+            let done = await controller.run(source: urls.first?.deletingLastPathComponent().path ?? "",
+                                            target: remote.fileSystem.displayName + target) { progress, _ in
+                try await remote.fileSystem.upload(urls, to: target, progress: progress)
+                if moving {
+                    try await FileOperations.deletePermanently(urls)
+                }
+                return urls
+            }
+            if !done.isEmpty {
+                loadRemote(remote.path, selecting: urls.first?.lastPathComponent)
+            }
+        }
+    }
+
+    /// Downloads entries of the server folder shown here into a local folder;
+    /// moving deletes them on the server afterwards. Returns whether it worked.
+    func download(_ items: [FileItem], to folder: URL, moving: Bool) async -> Bool {
+        guard let remote, let window = view.window else { return false }
+        let paths = items.map { remote.path(of: $0.name) }
+        let controller = TransferController(title: String(localized: "Downloading"),
+                                            failureTitle: String(localized: "Download failed"), window: window)
+        let done = await controller.run(source: remote.displayPath, target: folder.path) { progress, _ in
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try await remote.fileSystem.download(paths, to: folder, progress: progress)
+            if moving {
+                try await remote.fileSystem.delete(items, in: remote.path)
+            }
+            return [folder]
+        }
+        if !done.isEmpty {
+            listView.setMarked(listView.marked.subtracting(items.map(\.name)))
+            if moving {
+                loadRemote(remote.path, selecting: nil)
+            }
+        }
+        return !done.isEmpty
+    }
+
+    /// Net → Disconnect: leaves the server and shows the local folder again.
+    @objc(cm_FtpDisconnect:)
+    func ftpDisconnect(_ sender: Any?) {
+        guard let remote else {
+            NSSound.beep()
+            return
+        }
+        remote.fileSystem.disconnect()
+        load(directory)
     }
 
     // MARK: - Search results
@@ -454,6 +627,11 @@ final class FilePanelController: NSViewController {
 
     /// Refuses operations that are never available inside archives.
     private func refuseInsideArchive() -> Bool {
+        if remote != nil {
+            Prompt.info(String(localized: "Not supported on servers"),
+                        message: String(localized: "Download the files first (F5)."), in: view.window)
+            return true
+        }
         guard archive != nil else { return false }
         Prompt.info(String(localized: "Not supported inside archives"),
                     message: String(localized: "Unpack the files first (F5), or use Alt+F5 to create a new archive."),
@@ -578,6 +756,10 @@ final class FilePanelController: NSViewController {
     /// Reloads the current directory keeping cursor and marks, or moves up
     /// to the nearest existing folder if it has been removed.
     func reread() {
+        if let remote {
+            loadRemote(remote.path, selecting: listView.currentItem?.name)
+            return
+        }
         if let archive {
             reopenArchive(archive)
             return
@@ -604,6 +786,14 @@ final class FilePanelController: NSViewController {
     }
 
     func goToParent() {
+        if let remote {
+            if remote.path == "/" {
+                load(directory)
+            } else {
+                loadRemote(RemotePath.parent(of: remote.path), selecting: (remote.path as NSString).lastPathComponent)
+            }
+            return
+        }
         if archive != nil {
             archiveGoUp()
             return
@@ -617,6 +807,10 @@ final class FilePanelController: NSViewController {
     }
 
     func goToRoot() {
+        if remote != nil {
+            loadRemote("/", selecting: nil)
+            return
+        }
         if archive != nil {
             archive?.folder = ""
             showArchiveFolder(selecting: nil)
@@ -646,7 +840,7 @@ final class FilePanelController: NSViewController {
         if let quickFilter {
             items = items.filter { $0.name.localizedCaseInsensitiveContains(quickFilter) }
         }
-        if archive != nil || searchResults != nil || directory.path != "/" {
+        if archive != nil || searchResults != nil || remote != nil || directory.path != "/" {
             items.insert(.parent(of: directory), at: 0)
         }
         let cursor = name.flatMap { name in items.firstIndex { $0.name == name } } ?? fallback
@@ -692,7 +886,19 @@ final class FilePanelController: NSViewController {
     }
 
     private func open(_ item: FileItem, enteringPackages: Bool) {
-        if archive != nil {
+        if let remote {
+            if item.isParent {
+                goToParent()
+            } else if item.isDirectory || item.isSymlink {
+                loadRemote(remote.path(of: item.name), selecting: nil)
+            } else {
+                Task {
+                    if let url = await downloadToTemporaryFolder(item) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
+        } else if archive != nil {
             openInArchive(item)
         } else if item.isParent {
             goToParent()
@@ -1090,7 +1296,7 @@ extension FilePanelController: NSMenuItemValidation {
 
     private func writeSelectionToClipboard(cut: Bool) {
         let urls = selectedItems.map(\.url)
-        guard archive == nil, !urls.isEmpty else {
+        guard archive == nil, remote == nil, !urls.isEmpty else {
             NSSound.beep()
             return
         }
@@ -1115,6 +1321,10 @@ extension FilePanelController: NSMenuItemValidation {
         let moving = forceMove || Self.cutClipboard?.changeCount == pasteboard.changeCount
         if moving { Self.cutClipboard = nil }
 
+        if remote != nil {
+            upload(urls, moving: moving)
+            return
+        }
         if let archive {
             guard !refuseReadOnlyArchive() else { return }
             applyArchiveEdit(.add(urls, folder: archive.folder), selecting: urls.first?.lastPathComponent) { succeeded in
@@ -1291,7 +1501,7 @@ extension FilePanelController: NSMenuItemValidation {
 
     /// Calculates folder sizes in the background and shows them as they arrive.
     private func calculateSizes(of folders: [FileItem]) {
-        guard archive == nil else { return }
+        guard archive == nil, remote == nil else { return }
         let directory = directory
         for folder in folders {
             let url = folder.url
@@ -1367,10 +1577,13 @@ extension FilePanelController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
-        if archive != nil {
+        if archive != nil || remote != nil {
+            let title = remote.map { $0.displayPath + "/" + item.name }
+                ?? archive.map { $0.displayPath + "/" + item.name }
             Task {
-                if let url = await extractToTemporaryFolder(item) {
-                    ListerWindowController.show(url)
+                let url = remote != nil ? await downloadToTemporaryFolder(item) : await extractToTemporaryFolder(item)
+                if let url {
+                    ListerWindowController.show(url, title: title)
                 }
             }
             return
@@ -1393,13 +1606,17 @@ extension FilePanelController: NSMenuItemValidation {
     /// F7: asks for a name (prefilled with the entry under the cursor, as TC does).
     @objc(cm_MkDir:)
     func mkDir(_ sender: Any?) {
-        guard !refuseReadOnlyArchive() else { return }
+        guard remote != nil || !refuseReadOnlyArchive() else { return }
         guard let window = view.window else { return }
         let initial = listView.currentItem.flatMap { $0.isParent ? nil : $0.name } ?? ""
         Prompt.text(String(localized: "New folder"), message: String(localized: "Folder name (use / for nested folders):"),
                     initial: initial, okTitle: String(localized: "Create"), in: window) { [weak self] name in
             guard let self, !name.isEmpty else { return }
             let topLevel = name.split(separator: "/").first.map(String.init) ?? name
+            if let remote {
+                runOnServer(selecting: topLevel) { try await remote.fileSystem.makeDirectory(remote.path(of: name)) }
+                return
+            }
             if let archive {
                 applyArchiveEdit(.makeFolder(archive.path(of: name)), selecting: topLevel)
                 return
@@ -1448,7 +1665,13 @@ extension FilePanelController: NSMenuItemValidation {
         let what = items.count == 1
             ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
             : String(localized: "the selected \(items.count) files/folders")
-        if let archive {
+        if let remote {
+            Prompt.confirm(String(localized: "Delete \(what) from the server?"),
+                           message: String(localized: "This cannot be undone."),
+                           okTitle: String(localized: "Delete"), destructive: true, in: window) { [weak self] in
+                self?.runOnServer(selecting: nil) { try await remote.fileSystem.delete(items, in: remote.path) }
+            }
+        } else if let archive {
             Prompt.confirm(String(localized: "Delete \(what) from the archive?"),
                            message: String(localized: "This cannot be undone."),
                            okTitle: String(localized: "Delete"), destructive: true, in: window) { [weak self] in
@@ -1679,6 +1902,12 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileList(_ list: FileListView, rename item: FileItem, to newName: String) {
         guard newName != item.name else { return }
+        if let remote {
+            runOnServer(selecting: newName) {
+                try await remote.fileSystem.rename(remote.path(of: item.name), to: remote.path(of: newName))
+            }
+            return
+        }
         if let archive {
             applyArchiveEdit(.rename(archive.path(of: item.name), to: newName), selecting: newName)
             return
@@ -1711,10 +1940,15 @@ extension FilePanelController: FileListViewDelegate {
     }
 
     func fileListCanDragItems(_ list: FileListView) -> Bool {
-        archive == nil
+        archive == nil && remote == nil
     }
 
     func fileList(_ list: FileListView, drop urls: [URL], into folder: FileItem?, moving: Bool) -> Bool {
+        if let remote {
+            let target = folder.map { $0.isParent ? RemotePath.parent(of: remote.path) : remote.path(of: $0.name) }
+            upload(urls, to: target, moving: moving)
+            return true
+        }
         if let archive, !(folder?.isParent == true && archive.folder.isEmpty) {
             guard !refuseReadOnlyArchive() else { return false }
             let target: String

@@ -224,6 +224,10 @@ extension MainViewController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
+        if source.remote != nil || inactivePanel.remote != nil {
+            askForServerTransfer(items, kind: kind, from: source, to: inactivePanel)
+            return
+        }
         if let target = inactivePanel.archive, source.archive == nil, ArchiveEditor.isWritable(target.url) {
             askForPacking(items, kind: kind, from: source, into: target)
             return
@@ -267,6 +271,45 @@ extension MainViewController: NSMenuItemValidation {
             TransferQueue.shared.add(operation)
         } else {
             Task { await operation() }
+        }
+    }
+
+    // MARK: - Servers
+
+    /// F5/F6 with a server in one panel: downloads to, or uploads from, the other panel.
+    private func askForServerTransfer(_ items: [FileItem], kind: TransferJob.Kind, from source: FilePanelController,
+                                      to target: FilePanelController) {
+        guard let window = view.window else { return }
+        guard (source.remote == nil) != (target.remote == nil), source.archive == nil, target.archive == nil,
+              target.searchResultsShown == false else {
+            Prompt.info(String(localized: "Not supported on servers"),
+                        message: String(localized: "Copy between a server and a local folder."), in: window)
+            return
+        }
+        let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
+            : String(localized: "\(items.count) files/folders")
+        if source.remote != nil {
+            Prompt.text(kind == .copy ? String(localized: "Download") : String(localized: "Download and delete"),
+                        message: String(localized: "Download \(what) to:"),
+                        initial: Self.folderText(target.directory),
+                        okTitle: String(localized: "Download"), in: window) { text in
+                guard !text.isEmpty else { return }
+                let folder = Self.resolveFolder(text, base: target.directory)
+                Task {
+                    if await source.download(items, to: folder, moving: kind == .move) {
+                        target.reread()
+                    }
+                }
+            }
+        } else if let remote = target.remote {
+            Prompt.confirm(kind == .copy ? String(localized: "Upload \(what) to \(remote.displayPath)?")
+                                         : String(localized: "Move \(what) to \(remote.displayPath)?"),
+                           okTitle: String(localized: "Upload"), in: window) {
+                target.upload(items.map(\.url), moving: kind == .move)
+                if kind == .move {
+                    source.listView.setMarked([])
+                }
+            }
         }
     }
 
@@ -657,7 +700,7 @@ extension MainViewController: NSMenuItemValidation {
         guard let window = view.window else { return }
         let key = "LastServerAddress"
         Prompt.text(String(localized: "Connect to Server"),
-                    message: String(localized: "Server address (smb://, afp://, nfs://, https:// for WebDAV):"),
+                    message: String(localized: "Server address (sftp://, smb://, afp://, nfs://, https:// for WebDAV):"),
                     initial: AppDefaults.store.string(forKey: key) ?? "smb://",
                     okTitle: String(localized: "Connect"), in: window) { [weak self] address in
             guard let url = URL(string: address.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
@@ -665,6 +708,10 @@ extension MainViewController: NSMenuItemValidation {
                 return
             }
             AppDefaults.store.set(address, forKey: key)
+            if let fileSystem = SFTPFileSystem(url: url, password: nil) {
+                self?.activePanel.openRemote(fileSystem)
+                return
+            }
             Task {
                 do {
                     let mountPoint = try await NetworkConnection.mount(url)

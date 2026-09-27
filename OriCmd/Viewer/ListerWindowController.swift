@@ -25,8 +25,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
     private var preview: QLPreviewView?
 
     /// Shows `url`; N / P step through `siblings` (the other files of its folder).
-    static func show(_ url: URL, siblings: [URL] = []) {
+    /// `title` replaces the path in the window title (for files from servers and archives).
+    static func show(_ url: URL, siblings: [URL] = [], title: String? = nil) {
         let controller = ListerWindowController(url: url, siblings: siblings)
+        if let title {
+            controller.window?.title = "Lister - [\(title)]"
+        }
         openControllers.append(controller)
         controller.showWindow(nil)
     }
