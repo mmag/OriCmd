@@ -9,6 +9,9 @@ protocol FileListViewDelegate: AnyObject {
     func fileList(_ list: FileListView, enterItemAt index: Int)
     func fileListGoToParent(_ list: FileListView)
     func fileListSwitchPanel(_ list: FileListView)
+    func fileListMarksDidChange(_ list: FileListView)
+    /// Num+ / Num−: ask for a mask, then mark or unmark matching files.
+    func fileList(_ list: FileListView, markGroup mark: Bool)
 }
 
 /// Full view file list: one row per entry, a cursor bar that is filled
@@ -18,6 +21,8 @@ final class FileListView: NSView {
 
     private(set) var items: [FileItem] = []
     private(set) var cursor = 0
+    /// Names of marked entries, drawn in red.
+    private(set) var marked: Set<String> = []
 
     var isActive = false {
         didSet { if isActive != oldValue { needsDisplay = true } }
@@ -42,8 +47,10 @@ final class FileListView: NSView {
 
     // MARK: - Content
 
+    /// Replaces the entries; marks survive for names that are still present.
     func reload(items: [FileItem], cursor: Int) {
         self.items = items
+        marked.formIntersection(items.map(\.name))
         self.cursor = items.isEmpty ? 0 : min(max(cursor, 0), items.count - 1)
         updateFrameSize()
         needsDisplay = true
@@ -62,6 +69,68 @@ final class FileListView: NSView {
         cursor = clamped
         setNeedsDisplay(rowRect(cursor))
         scrollCursorToVisible()
+    }
+
+    // MARK: - Marking
+
+    func setMarked(_ names: Set<String>) {
+        marked = names
+        needsDisplay = true
+        delegate?.fileListMarksDidChange(self)
+    }
+
+    private func toggleMark(at row: Int) {
+        guard items.indices.contains(row), !items[row].isParent else { return }
+        let name = items[row].name
+        if marked.remove(name) == nil {
+            marked.insert(name)
+        }
+        setNeedsDisplay(rowRect(row))
+        delegate?.fileListMarksDidChange(self)
+    }
+
+    private func markRange(from start: Int, to end: Int) {
+        guard !items.isEmpty else { return }
+        let lower = max(min(start, end), 0)
+        let upper = min(max(start, end), items.count - 1)
+        guard lower <= upper else { return }
+        setMarked(marked.union(items[lower...upper].filter { !$0.isParent }.map(\.name)))
+    }
+
+    private func toggleMarkAndMove(by offset: Int) {
+        toggleMark(at: cursor)
+        moveCursor(to: cursor + offset)
+    }
+
+    private func markRangeAndMove(to target: Int) {
+        markRange(from: cursor, to: target)
+        moveCursor(to: target)
+    }
+
+    override func selectAll(_ sender: Any?) {
+        setMarked(Set(items.filter { !$0.isParent }.map(\.name)))
+    }
+
+    @objc(cm_ClearAll:)
+    func clearAll(_ sender: Any?) {
+        setMarked([])
+    }
+
+    /// Inverts the marks of files; marked folders stay marked.
+    @objc(cm_ExchangeSelection:)
+    func exchangeSelection(_ sender: Any?) {
+        let files = Set(items.filter { !$0.isParent && !$0.isFolder }.map(\.name))
+        setMarked(marked.subtracting(files).union(files.subtracting(marked)))
+    }
+
+    @objc(cm_SpreadSelection:)
+    func spreadSelection(_ sender: Any?) {
+        delegate?.fileList(self, markGroup: true)
+    }
+
+    @objc(cm_ShrinkSelection:)
+    func shrinkSelection(_ sender: Any?) {
+        delegate?.fileList(self, markGroup: false)
     }
 
     private var visibleRowCount: Int {
@@ -129,7 +198,13 @@ final class FileListView: NSView {
             rect.fill()
         }
 
-        let color = filled ? Theme.cursorText : Theme.panelText
+        let isMarked = marked.contains(item.name)
+        let color = switch (filled, isMarked) {
+        case (true, true): Theme.markedCursorText
+        case (true, false): Theme.cursorText
+        case (false, true): Theme.markedText
+        case (false, false): Theme.panelText
+        }
         let y = rect.minY
 
         let nameRect = layout.rect(for: .name, y: y, height: rowHeight)
@@ -194,6 +269,15 @@ final class FileListView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         let row = Int(point.y / rowHeight)
         guard items.indices.contains(row) else { return }
+        if event.modifierFlags.contains(.command) {
+            toggleMark(at: row)
+            moveCursor(to: row)
+            return
+        }
+        if event.modifierFlags.contains(.shift) {
+            markRangeAndMove(to: row)
+            return
+        }
         moveCursor(to: row)
         if event.clickCount == 2 {
             delegate?.fileList(self, openItemAt: row)
@@ -228,8 +312,35 @@ final class FileListView: NSView {
             delegate?.fileListGoToParent(self)
         case (.tab?, []), (.tab?, [.shift]), (.backTab?, _):
             delegate?.fileListSwitchPanel(self)
+        case (.insert?, []), (.help?, []):
+            toggleMarkAndMove(by: 1)
+        case (.upArrow?, [.shift]):
+            toggleMarkAndMove(by: -1)
+        case (.downArrow?, [.shift]):
+            toggleMarkAndMove(by: 1)
+        case (.pageUp?, [.shift]):
+            markRangeAndMove(to: max(cursor - (visibleRowCount - 1), 0))
+        case (.pageDown?, [.shift]):
+            markRangeAndMove(to: min(cursor + (visibleRowCount - 1), items.count - 1))
+        case (.home?, [.shift]):
+            markRangeAndMove(to: 0)
+        case (.end?, [.shift]):
+            markRangeAndMove(to: items.count - 1)
+        case (nil, []), (nil, [.shift]):
+            handleCharacter(event)
         default:
             super.keyDown(with: event)
+        }
+    }
+
+    /// Space marks like Insert; "+", "-", "*" work like the numpad keys in Total Commander.
+    private func handleCharacter(_ event: NSEvent) {
+        switch event.charactersIgnoringModifiers {
+        case " ": toggleMarkAndMove(by: 1)
+        case "+": spreadSelection(nil)
+        case "-": shrinkSelection(nil)
+        case "*": exchangeSelection(nil)
+        default: super.keyDown(with: event)
         }
     }
 }

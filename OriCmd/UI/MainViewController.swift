@@ -15,10 +15,18 @@ final class MainViewController: NSViewController {
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        leftPanel = FilePanelController(directory: home)
-        rightPanel = FilePanelController(directory: home)
+        var left = home
+        var right = home
+        #if DEBUG
+        left = DebugAutomation.initialDirectory(left: true) ?? left
+        right = DebugAutomation.initialDirectory(left: false) ?? right
+        #endif
+        leftPanel = FilePanelController(directory: left)
+        rightPanel = FilePanelController(directory: right)
         activePanel = leftPanel
         super.init(nibName: nil, bundle: nil)
+        addChild(leftPanel)
+        addChild(rightPanel)
         leftPanel.delegate = self
         rightPanel.delegate = self
     }

@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.showWindow(nil)
         mainWindowController = controller
         #if DEBUG
-        if let window = controller.window { DebugSnapshot.scheduleIfRequested(for: window) }
+        if let window = controller.window { DebugAutomation.run(in: window) }
         #endif
 
         NSApp.activate()

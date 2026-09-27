@@ -10,6 +10,7 @@ enum MainMenu {
 
         mainMenu.addItem(container(for: appMenu()))
         mainMenu.addItem(container(for: editMenu()))
+        mainMenu.addItem(container(for: markMenu()))
 
         let windowMenu = windowMenu()
         mainMenu.addItem(container(for: windowMenu))
@@ -54,6 +55,17 @@ enum MainMenu {
         menu.addItem(item("Copy", #selector(NSText.copy(_:)), "c"))
         menu.addItem(item("Paste", #selector(NSText.paste(_:)), "v"))
         menu.addItem(item("Select All", #selector(NSText.selectAll(_:)), "a"))
+        return menu
+    }
+
+    /// Total Commander's "Mark" menu.
+    private static func markMenu() -> NSMenu {
+        let menu = NSMenu(title: "Mark")
+        menu.addItem(item("Select Group…  (+)", Command.spreadSelection.selector))
+        menu.addItem(item("Unselect Group…  (−)", Command.shrinkSelection.selector))
+        menu.addItem(item("Select All", #selector(NSText.selectAll(_:))))
+        menu.addItem(item("Unselect All", Command.clearAll.selector, "a", [.command, .option]))
+        menu.addItem(item("Invert Selection  (*)", Command.exchangeSelection.selector))
         return menu
     }
 

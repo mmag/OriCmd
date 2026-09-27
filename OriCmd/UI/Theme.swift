@@ -15,6 +15,7 @@ enum Theme {
         light: NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1),
         dark: NSColor(srgbRed: 1, green: 0.4, blue: 0.4, alpha: 1)
     )
+    static let markedCursorText = NSColor.systemYellow
     static let cursorBackground = NSColor.selectedContentBackgroundColor
     static let cursorText = NSColor.alternateSelectedControlTextColor
     static let inactiveCursorFrame = NSColor.secondaryLabelColor

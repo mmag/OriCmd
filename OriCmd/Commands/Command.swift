@@ -13,6 +13,10 @@ enum Command: String, CaseIterable {
     case mkDir = "cm_MkDir"
     case delete = "cm_Delete"
     case exit = "cm_Exit"
+    case spreadSelection = "cm_SpreadSelection"
+    case shrinkSelection = "cm_ShrinkSelection"
+    case clearAll = "cm_ClearAll"
+    case exchangeSelection = "cm_ExchangeSelection"
 
     var selector: Selector { Selector(rawValue + ":") }
 
