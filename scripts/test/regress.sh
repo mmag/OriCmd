@@ -43,7 +43,7 @@ run crc "alt+n wait text:otes escape cmd:cm_CRCcreate wait enter wait wait"
 check "checksum file verifies with shasum" "(cd $L && shasum -a 256 -c notes.md.sha256 >/dev/null 2>&1)"
 
 scripts/test/mkdata.sh
-run mrt "plus wait cmd+a text:*.txt enter wait ctrl+m wait text:doc_[C] enter wait wait"
+run mrt "plus wait cmd+a text:*.txt enter wait ctrl+m wait wait text:doc_[C] enter wait wait wait"
 check "Multi-Rename renames" "[ -f $L/doc_4.txt ] && [ ! -f $L/readme.txt ]"
 
 # F5 dialog options
