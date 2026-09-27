@@ -16,6 +16,10 @@ final class MainViewController: NSViewController {
 
     /// Ctrl+Q preview shown in place of `quickViewReplaces`' view.
     private var quickView: QuickViewPanel?
+    /// Total Commander's synchronous directory changes: entering a subfolder or
+    /// going up in one panel does the same in the other.
+    private var syncsDirectoryChanges = false
+    private var lastDirectories: [ObjectIdentifier: URL] = [:]
     private var quickViewReplaces: FilePanelController?
 
     /// Ctrl+F8 folder tree shown in place of `treeReplaces`' view.
@@ -911,6 +915,43 @@ extension MainViewController: NSMenuItemValidation {
         quickView.show(item.flatMap { $0.isParent ? nil : $0.url })
     }
 
+    @objc(cm_SyncChangeDir:)
+    func toggleSyncChangeDir(_ sender: Any?) {
+        syncsDirectoryChanges.toggle()
+    }
+
+    /// Repeats a step into subfolders or up to a parent of `panel` in the other panel.
+    private func followDirectoryChange(of panel: FilePanelController, from previous: URL) {
+        let other = panel === leftPanel ? rightPanel : leftPanel
+        guard panel.remote == nil, panel.archive == nil, other.remote == nil, other.archive == nil else { return }
+        let old = previous.standardizedFileURL.pathComponents
+        let new = panel.directory.standardizedFileURL.pathComponents
+        var target = other.directory
+        var selecting: String?
+        if new.count > old.count, Array(new.prefix(old.count)) == old {
+            for name in new.dropFirst(old.count) {
+                target.append(path: name, directoryHint: .isDirectory)
+            }
+        } else if old.count > new.count, Array(old.prefix(new.count)) == new {
+            for _ in new.count..<old.count {
+                guard target.path != "/" else {
+                    NSSound.beep()
+                    return
+                }
+                selecting = target.lastPathComponent
+                target.deleteLastPathComponent()
+            }
+        } else {
+            return
+        }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: target.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            NSSound.beep()
+            return
+        }
+        other.load(target, selecting: selecting)
+    }
+
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == Command.switchHidSys.selector {
             menuItem.state = showsHidden ? .on : .off
@@ -920,6 +961,8 @@ extension MainViewController: NSMenuItemValidation {
             return ejectableVolume != nil
         } else if menuItem.action == Command.srcTree.selector {
             menuItem.state = treePanel == nil ? .off : .on
+        } else if menuItem.action == Command.syncChangeDir.selector {
+            menuItem.state = syncsDirectoryChanges ? .on : .off
         }
         return true
     }
@@ -951,6 +994,10 @@ extension MainViewController: FilePanelControllerDelegate {
     }
 
     func filePanelDidChangeDirectory(_ panel: FilePanelController) {
+        let previous = lastDirectories.updateValue(panel.directory, forKey: ObjectIdentifier(panel))
+        if syncsDirectoryChanges, panel === activePanel, let previous, previous != panel.directory {
+            followDirectoryChange(of: panel, from: previous)
+        }
         savePanels()
         let showTabs = leftPanel.tabs.count > 1 || rightPanel.tabs.count > 1
         leftPanel.alwaysShowsTabBar = showTabs

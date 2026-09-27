@@ -68,6 +68,7 @@ enum Command: String, CaseIterable {
     case searchFor = "cm_SearchFor"
     case compareDirs = "cm_CompareDirs"
     case syncDirs = "cm_SyncDirs"
+    case syncChangeDir = "cm_SyncChangeDir"
 
     // Show
     case branchView = "cm_BranchView"
@@ -149,6 +150,7 @@ enum Command: String, CaseIterable {
         case .searchFor: String(localized: "Find Files…")
         case .compareDirs: String(localized: "Compare Directories")
         case .syncDirs: String(localized: "Synchronize Directories…")
+        case .syncChangeDir: String(localized: "Synchronous Directory Changes")
         case .branchView: String(localized: "Branch View (All Files in Subfolders)")
         case .quickFilter: String(localized: "Quick Filter…")
         case .srcAllFiles: String(localized: "All Files")

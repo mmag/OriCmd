@@ -3231,6 +3231,16 @@
         }
       }
     },
+    "Synchronous Directory Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронная смена каталогов"
+          }
+        }
+      }
+    },
     "Tags": {
       "localizations": {
         "ru": {

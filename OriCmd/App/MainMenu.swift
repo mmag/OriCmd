@@ -26,7 +26,7 @@ enum MainMenu {
             [.rereadSource, .exchange, .leftEqualRight, .rightEqualLeft],
             [.openNewTab, .openDirInNewTab, .closeCurrentTab, .switchToNextTab, .switchToPreviousTab],
             [.searchFor, .directoryHotlist],
-            [.compareDirs, .syncDirs],
+            [.compareDirs, .syncDirs, .syncChangeDir],
             [.goToPrevDir, .goToNextDir, .directoryHistory, .goToParent, .goToRoot],
             [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],
