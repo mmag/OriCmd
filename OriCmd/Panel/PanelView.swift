@@ -137,9 +137,9 @@ final class PanelView: NSView {
     /// Full view shows column headers and scrolls vertically; Brief view has
     /// no headers and scrolls horizontally.
     func setViewMode(_ mode: FileListView.ViewMode) {
-        headerView.isHidden = mode == .brief
-        headerHeight.constant = mode == .brief ? 0 : headerView.intrinsicContentSize.height
-        scrollView.hasVerticalScroller = mode == .full
+        headerView.isHidden = mode != .full
+        headerHeight.constant = mode == .full ? headerView.intrinsicContentSize.height : 0
+        scrollView.hasVerticalScroller = mode != .brief
         scrollView.hasHorizontalScroller = mode == .brief
         listView.viewMode = mode
     }

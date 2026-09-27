@@ -7,6 +7,7 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
         (.rereadSource, "arrow.clockwise"),
         (.srcShort, "square.grid.3x3"),
         (.srcLong, "list.bullet"),
+        (.srcThumbs, "photo.on.rectangle"),
         (.srcTree, "list.bullet.indent"),
         (.srcQuickView, "eye"),
         (.goToPrevDir, "chevron.backward"),

@@ -562,6 +562,13 @@ extension FilePanelController: NSMenuItemValidation {
         delegate?.filePanelDidChangeDirectory(self)
     }
 
+    /// Thumbnails view: Quick Look previews in a grid.
+    @objc(cm_SrcThumbs:)
+    func srcThumbs(_ sender: Any?) {
+        viewMode = .thumbnails
+        delegate?.filePanelDidChangeDirectory(self)
+    }
+
     /// Full view: one row per entry with size, date and attributes.
     @objc(cm_SrcLong:)
     func srcLong(_ sender: Any?) {
@@ -1349,8 +1356,9 @@ extension FilePanelController: NSMenuItemValidation {
             menuItem.state = isBranchView ? .on : .off
         } else if command == .srcAllFiles || command == .srcUserSpec {
             menuItem.state = (filterMask == nil) == (command == .srcAllFiles) ? .on : .off
-        } else if command == .srcShort || command == .srcLong {
-            menuItem.state = (viewMode == .brief) == (command == .srcShort) ? .on : .off
+        } else if command == .srcShort || command == .srcLong || command == .srcThumbs {
+            let mode: FileListView.ViewMode = command == .srcShort ? .brief : (command == .srcLong ? .full : .thumbnails)
+            menuItem.state = viewMode == mode ? .on : .off
         } else if [.closeCurrentTab, .switchToNextTab, .switchToPreviousTab].contains(command) {
             return tabs.count > 1
         }

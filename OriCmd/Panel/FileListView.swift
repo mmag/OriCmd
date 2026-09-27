@@ -34,7 +34,7 @@ protocol FileListViewDelegate: AnyObject {
 /// filled in the active panel and outlined in the inactive one.
 final class FileListView: NSView {
     enum ViewMode: String {
-        case full, brief
+        case full, brief, thumbnails
     }
 
     weak var delegate: FileListViewDelegate?
@@ -157,8 +157,12 @@ final class FileListView: NSView {
             let layout = ColumnLayout(width: bounds.width)
             frame.size.width = layout.rect(for: .ext, y: 0, height: 0).maxX
         }
-        frame.origin.x += 20
-        frame.size.width -= 20
+        if viewMode == .thumbnails {
+            frame = NSRect(x: row.minX, y: row.minY + Self.thumbnailSize + 8, width: row.width, height: rowHeight + 2)
+        } else {
+            frame.origin.x += 20
+            frame.size.width -= 20
+        }
         let field = NSTextField(frame: frame)
         field.stringValue = item.name
         field.font = Theme.panelFont
@@ -250,14 +254,26 @@ final class FileListView: NSView {
         delegate?.fileList(self, markGroup: false)
     }
 
-    /// Entries per page: visible rows (Full) or visible columns × rows (Brief).
+    /// Entries per page: visible rows (Full) or visible columns × rows (Brief, Thumbnails).
     private var visibleRowCount: Int {
         switch viewMode {
         case .full:
             max(Int(visibleRect.height / rowHeight), 1)
         case .brief:
             max(Int(visibleRect.width / briefColumnWidth), 1) * briefRowsPerColumn
+        case .thumbnails:
+            max(Int(visibleRect.height / thumbnailCell.height), 1) * thumbnailColumns
         }
+    }
+
+    static let thumbnailSize: CGFloat = 112
+
+    private var thumbnailCell: NSSize {
+        NSSize(width: Self.thumbnailSize + 20, height: Self.thumbnailSize + rowHeight + 14)
+    }
+
+    private var thumbnailColumns: Int {
+        max(Int((superview?.bounds.width ?? bounds.width) / thumbnailCell.width), 1)
     }
 
     private var briefRowsPerColumn: Int {
@@ -272,6 +288,11 @@ final class FileListView: NSView {
             let rows = briefRowsPerColumn
             return NSRect(x: CGFloat(row / rows) * briefColumnWidth, y: CGFloat(row % rows) * rowHeight,
                           width: briefColumnWidth, height: rowHeight)
+        case .thumbnails:
+            let cell = thumbnailCell
+            let columns = thumbnailColumns
+            return NSRect(x: CGFloat(row % columns) * cell.width, y: CGFloat(row / columns) * cell.height,
+                          width: cell.width, height: cell.height)
         }
     }
 
@@ -284,6 +305,10 @@ final class FileListView: NSView {
         case .brief:
             guard row < briefRowsPerColumn else { return nil }
             index = Int(point.x / briefColumnWidth) * briefRowsPerColumn + row
+        case .thumbnails:
+            let column = Int(point.x / thumbnailCell.width)
+            guard column < thumbnailColumns else { return nil }
+            index = Int(point.y / thumbnailCell.height) * thumbnailColumns + column
         }
         return items.indices.contains(index) ? index : nil
     }
@@ -335,6 +360,11 @@ final class FileListView: NSView {
             size = NSSize(width: max(CGFloat(columns) * briefColumnWidth, superview.bounds.width),
                           height: superview.bounds.height)
             needsDisplay = true
+        case .thumbnails:
+            let rows = (items.count + thumbnailColumns - 1) / thumbnailColumns
+            size = NSSize(width: superview.bounds.width,
+                          height: max(CGFloat(rows) * thumbnailCell.height, superview.bounds.height))
+            needsDisplay = true
         }
         if frame.size != size { setFrameSize(size) }
     }
@@ -355,6 +385,9 @@ final class FileListView: NSView {
         case .brief:
             first = Int(dirtyRect.minX / briefColumnWidth) * briefRowsPerColumn
             last = (Int(dirtyRect.maxX / briefColumnWidth) + 1) * briefRowsPerColumn - 1
+        case .thumbnails:
+            first = Int(dirtyRect.minY / thumbnailCell.height) * thumbnailColumns
+            last = (Int(dirtyRect.maxY / thumbnailCell.height) + 1) * thumbnailColumns - 1
         }
         let range = max(first, 0)...min(last, items.count - 1)
         guard !range.isEmpty, range.lowerBound <= range.upperBound else { return }
@@ -363,6 +396,7 @@ final class FileListView: NSView {
             switch viewMode {
             case .full: drawRow(row, layout: layout)
             case .brief: drawBriefCell(row)
+            case .thumbnails: drawThumbnailCell(row)
             }
         }
         if let dropTargetRow, items.indices.contains(dropTargetRow) {
@@ -413,6 +447,49 @@ final class FileListView: NSView {
         drawText(displayName(item), in: rect.divided(atDistance: 20, from: .minXEdge).remainder,
                  font: Theme.panelFont, color: color)
         drawInactiveCursorFrame(row, in: rect)
+    }
+
+    /// A thumbnail with the name underneath; the cursor is a rounded highlight.
+    private func drawThumbnailCell(_ row: Int) {
+        let item = items[row]
+        let rect = rowRect(row)
+        let size = Self.thumbnailSize
+        if row == cursor {
+            let highlight = NSBezierPath(roundedRect: rect.insetBy(dx: 3, dy: 3), xRadius: 6, yRadius: 6)
+            if isActive {
+                Theme.cursorBackground.withAlphaComponent(0.3).setFill()
+                highlight.fill()
+            } else {
+                Theme.inactiveCursorFrame.setStroke()
+                highlight.setLineDash([2, 2], count: 2, phase: 0)
+                highlight.stroke()
+            }
+        }
+        let imageArea = NSRect(x: rect.minX + (rect.width - size) / 2, y: rect.minY + 6, width: size, height: size)
+        let image: NSImage
+        if item.isParent || item.isFolder {
+            image = item.isParent ? FileIcons.icon(for: item) : NSWorkspace.shared.icon(for: .folder)
+        } else {
+            image = ThumbnailCache.shared.thumbnail(for: item.url, size: size) { [weak self] in
+                self?.setNeedsDisplay(rect)
+            } ?? NSWorkspace.shared.icon(forFile: item.url.path)
+        }
+        let scale = min(size / max(image.size.width, 1), size / max(image.size.height, 1), item.isParent ? 1 : 8)
+        let drawn = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+        image.draw(in: NSRect(x: imageArea.midX - drawn.width / 2, y: imageArea.maxY - drawn.height,
+                              width: drawn.width, height: drawn.height),
+                   from: .zero, operation: .sourceOver, fraction: item.isHidden ? 0.5 : 1,
+                   respectFlipped: true, hints: nil)
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineBreakMode = .byTruncatingMiddle
+        let color = marked.contains(item.name) ? Theme.markedText : Theme.panelText
+        (displayName(item) as NSString).draw(
+            with: NSRect(x: rect.minX + 4, y: imageArea.maxY + 4, width: rect.width - 8, height: rowHeight),
+            options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+            attributes: [.font: Theme.panelFont, .foregroundColor: color, .paragraphStyle: paragraph]
+        )
     }
 
     private func drawRow(_ row: Int, layout: ColumnLayout) {
@@ -501,6 +578,14 @@ final class FileListView: NSView {
             .subtracting([.function, .numericPad, .capsLock])
 
         switch (event.specialKey, modifiers) {
+        case (.upArrow?, []) where viewMode == .thumbnails:
+            moveCursor(to: cursor - thumbnailColumns)
+        case (.downArrow?, []) where viewMode == .thumbnails:
+            moveCursor(to: min(cursor + thumbnailColumns, items.count - 1))
+        case (.leftArrow?, []) where viewMode == .thumbnails:
+            moveCursor(to: cursor - 1)
+        case (.rightArrow?, []) where viewMode == .thumbnails:
+            moveCursor(to: cursor + 1)
         case (.upArrow?, []):
             moveCursor(to: cursor - 1)
         case (.downArrow?, []):

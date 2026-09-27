@@ -67,6 +67,7 @@ enum Command: String, CaseIterable {
     case srcUserSpec = "cm_SrcUserSpec"
     case srcShort = "cm_SrcShort"
     case srcLong = "cm_SrcLong"
+    case srcThumbs = "cm_SrcThumbs"
     case srcTree = "cm_SrcTree"
     case srcQuickView = "cm_SrcQuickview"
     case sortByName = "cm_SrcByName"
@@ -136,6 +137,7 @@ enum Command: String, CaseIterable {
         case .srcUserSpec: String(localized: "Filter…")
         case .srcShort: String(localized: "Brief")
         case .srcLong: String(localized: "Full")
+        case .srcThumbs: String(localized: "Thumbnails")
         case .srcTree: String(localized: "Tree")
         case .srcQuickView: String(localized: "Quick View")
         case .sortByName: String(localized: "Sort by Name")
@@ -192,6 +194,7 @@ enum Command: String, CaseIterable {
         case .srcShort: .cmd("1")
         case .srcLong: .cmd("2")
         case .srcTree: .cmd("3")
+        case .srcThumbs: .cmd("4")
         default: nil
         }
     }
@@ -211,6 +214,7 @@ enum Command: String, CaseIterable {
         case .srcShort: [.f(1, .control)]
         case .srcLong: [.f(2, .control)]
         case .srcTree: [.f(8, .control)]
+        case .srcThumbs: [.f(1, [.control, .shift])]
         default: []
         }
     }

@@ -2271,6 +2271,16 @@
         }
       }
     },
+    "Thumbnails": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эскизы"
+          }
+        }
+      }
+    },
     "To: %@": {
       "localizations": {
         "ru": {

@@ -31,7 +31,7 @@ enum MainMenu {
             [.executeDOS],
         ])))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
-            [.srcShort, .srcLong, .srcTree, .srcQuickView],
+            [.srcShort, .srcLong, .srcThumbs, .srcTree, .srcQuickView],
             [.srcAllFiles, .srcUserSpec, .branchView],
             [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
