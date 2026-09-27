@@ -590,7 +590,7 @@ extension MainViewController: NSMenuItemValidation {
     }
 
     /// Compares two files: the two marked in the active panel, or the files under
-    /// the cursors of both panels. Different text files open in FileMerge.
+    /// the cursors of both panels. Different files open in the compare window.
     @objc(cm_CompareFilesByContent:)
     func compareFilesByContent(_ sender: Any?) {
         let marked = activePanel.selectedItems.filter { !$0.isFolder }
@@ -603,30 +603,18 @@ extension MainViewController: NSMenuItemValidation {
         } else {
             pair = []
         }
-        guard pair.count == 2, leftPanel.archive == nil, rightPanel.archive == nil, let window = view.window else {
+        guard pair.count == 2, leftPanel.archive == nil, rightPanel.archive == nil,
+              leftPanel.remote == nil, rightPanel.remote == nil, let window = view.window else {
             NSSound.beep()
             return
         }
         let (a, b) = (pair[0].url, pair[1].url)
         Task {
-            let difference = await Self.firstDifference(a, b)
-            guard let difference else {
+            guard await Self.firstDifference(a, b) != nil else {
                 Prompt.info(String(localized: "The files are identical."), message: "\(a.path)\n\(b.path)", in: window)
                 return
             }
-            let opendiff = URL(filePath: "/usr/bin/opendiff")
-            if ListerWindowController.defaultMode(for: a) == .text, ListerWindowController.defaultMode(for: b) == .text,
-               FileManager.default.isExecutableFile(atPath: opendiff.path) {
-                let process = Process()
-                process.executableURL = opendiff
-                process.arguments = [a.path, b.path]
-                process.standardOutput = FileHandle.nullDevice
-                process.standardError = FileHandle.nullDevice
-                try? process.run()
-            } else {
-                Prompt.info(String(localized: "The files differ."),
-                            message: String(localized: "First difference at byte \(difference)."), in: window)
-            }
+            CompareWindowController.show(a, b)
         }
     }
 

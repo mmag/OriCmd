@@ -177,21 +177,9 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         !head(of: url, limit: 8192).data.contains(0)
     }
 
-    /// Decodes UTF-8, falling back to encoding detection (Windows-1251, KOI8-R, …).
     private static func text(of url: URL) -> String {
         let (data, size) = head(of: url, limit: textLimit)
-        var text = String(data: data, encoding: .utf8)
-        if text == nil {
-            var converted: NSString?
-            let koi8 = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(
-                CFStringEncoding(CFStringEncodings.KOI8_R.rawValue)))
-            _ = NSString.stringEncoding(for: data, encodingOptions: [
-                .suggestedEncodingsKey: [String.Encoding.windowsCP1251.rawValue, koi8.rawValue],
-                .allowLossyKey: true,
-            ], convertedString: &converted, usedLossyConversion: nil)
-            text = converted as String?
-        }
-        var result = text ?? String(decoding: data, as: UTF8.self)
+        var result = TextDecoding.string(from: data)
         if size > data.count {
             result += "\n\n" + truncationNote(shown: data.count, of: size)
         }

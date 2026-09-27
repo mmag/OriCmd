@@ -751,6 +751,16 @@
         }
       }
     },
+    "Compare: %@ — %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сравнение: %1$@ — %2$@"
+          }
+        }
+      }
+    },
     "Comparing…": {
       "localizations": {
         "ru": {
@@ -1087,6 +1097,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Удаление:"
+          }
+        }
+      }
+    },
+    "Difference %lld of %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Различие %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "Differences: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Различий: %lld"
           }
         }
       }
@@ -1671,6 +1701,16 @@
         }
       }
     },
+    "Ignore whitespace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Игнорировать пробелы"
+          }
+        }
+      }
+    },
     "Import wincmd.ini…": {
       "localizations": {
         "ru": {
@@ -2141,12 +2181,32 @@
         }
       }
     },
+    "Next Difference": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующее различие"
+          }
+        }
+      }
+    },
     "Next Tab": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Следующая вкладка"
+          }
+        }
+      }
+    },
+    "No differences": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Различий нет"
           }
         }
       }
@@ -2437,6 +2497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите новые клавиши для «%@» (Esc — отмена)"
+          }
+        }
+      }
+    },
+    "Previous Difference": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущее различие"
           }
         }
       }
@@ -3671,6 +3741,16 @@
         }
       }
     },
+    "binary comparison": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "двоичное сравнение"
+          }
+        }
+      }
+    },
     "characters": {
       "localizations": {
         "ru": {
@@ -3991,6 +4071,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "имя"
+          }
+        }
+      }
+    },
+    "only the first 64 MB are compared": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сравниваются только первые 64 МБ"
           }
         }
       }
