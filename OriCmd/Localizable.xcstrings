@@ -171,6 +171,16 @@
         }
       }
     },
+    "Apply": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применить"
+          }
+        }
+      }
+    },
     "Attr": {
       "localizations": {
         "ru": {
@@ -247,6 +257,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отмена"
+          }
+        }
+      }
+    },
+    "Cannot change attributes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся изменить атрибуты"
           }
         }
       }
@@ -407,6 +427,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Регистр:"
+          }
+        }
+      }
+    },
+    "Change Attributes…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить атрибуты…"
+          }
+        }
+      }
+    },
+    "Change attributes of %lld files/folders": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить атрибуты объектов (%lld)"
+          }
+        }
+      }
+    },
+    "Change attributes of “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить атрибуты «%@»"
+          }
+        }
+      }
+    },
+    "Changing attributes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменение атрибутов"
           }
         }
       }
@@ -761,6 +821,16 @@
         }
       }
     },
+    "Execute": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполнение"
+          }
+        }
+      }
+    },
     "Existing files in the target folders are replaced.": {
       "localizations": {
         "ru": {
@@ -1011,12 +1081,32 @@
         }
       }
     },
+    "Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Группа"
+          }
+        }
+      }
+    },
     "Help": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Справка"
+          }
+        }
+      }
+    },
+    "Hidden": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрытый"
           }
         }
       }
@@ -1037,6 +1127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Скрыть остальные"
+          }
+        }
+      }
+    },
+    "Include subfolders": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включая подкаталоги"
           }
         }
       }
@@ -1091,6 +1191,16 @@
         }
       }
     },
+    "Locked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Защищённый"
+          }
+        }
+      }
+    },
     "Mark": {
       "localizations": {
         "ru": {
@@ -1127,6 +1237,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отсутствует: %@"
+          }
+        }
+      }
+    },
+    "Modification date:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дата изменения:"
           }
         }
       }
@@ -1371,6 +1491,16 @@
         }
       }
     },
+    "Others": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остальные"
+          }
+        }
+      }
+    },
     "Overwrite": {
       "localizations": {
         "ru": {
@@ -1397,6 +1527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заменить:\n%1$@\n\nфайлом:\n%2$@"
+          }
+        }
+      }
+    },
+    "Owner": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Владелец"
           }
         }
       }
@@ -1547,6 +1687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Завершить %@"
+          }
+        }
+      }
+    },
+    "Read": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтение"
           }
         }
       }
@@ -2307,6 +2457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Окно"
+          }
+        }
+      }
+    },
+    "Write": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись"
           }
         }
       }

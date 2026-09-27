@@ -665,6 +665,95 @@ extension FilePanelController: NSMenuItemValidation {
         MultiRenameWindowController.show(for: items) { [weak self] in self?.reread() }
     }
 
+    // MARK: - Attributes
+
+    /// ⌘I: changes permissions, hidden/locked flags and the date of the selection.
+    /// Only what the user changes in the dialog is applied.
+    @objc(cm_SetAttrib:)
+    func setAttrib(_ sender: Any?) {
+        guard !refuseInsideArchive(), let window = view.window else { return }
+        let items = selectedItems
+        guard !items.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let infos: [stat] = items.map { item in
+            var info = stat()
+            lstat(item.url.path, &info)
+            return info
+        }
+        func initialState(_ test: (stat) -> Bool) -> NSControl.StateValue {
+            let values = Set(infos.map(test))
+            return values.count > 1 ? .mixed : (values.first == true ? .on : .off)
+        }
+        func checkbox(_ title: String, _ state: NSControl.StateValue) -> NSButton {
+            let box = NSButton(checkboxWithTitle: title, target: nil, action: nil)
+            box.allowsMixedState = true
+            box.state = state
+            return box
+        }
+
+        let bits = AttributeChange.permissionBits
+        let permissionBoxes = bits.map { bit in checkbox("", initialState { $0.st_mode & bit != 0 }) }
+        let hiddenBox = checkbox(String(localized: "Hidden"), initialState { $0.st_flags & UInt32(UF_HIDDEN) != 0 })
+        let lockedBox = checkbox(String(localized: "Locked"), initialState { $0.st_flags & UInt32(UF_IMMUTABLE) != 0 })
+        let dateBox = NSButton(checkboxWithTitle: String(localized: "Modification date:"), target: nil, action: nil)
+        let datePicker = NSDatePicker()
+        datePicker.datePickerElements = [.yearMonthDay, .hourMinuteSecond]
+        datePicker.dateValue = items[0].modified
+        let subfoldersBox = NSButton(checkboxWithTitle: String(localized: "Include subfolders"), target: nil, action: nil)
+        subfoldersBox.isEnabled = items.contains(where: \.isFolder)
+        let initialStates = permissionBoxes.map(\.state) + [hiddenBox.state, lockedBox.state]
+
+        let columnTitles = [String(localized: "Read"), String(localized: "Write"), String(localized: "Execute")]
+        var rows: [[NSView]] = [[NSGridCell.emptyContentView] + columnTitles.map { NSTextField(labelWithString: $0) }]
+        let rowTitles = [String(localized: "Owner"), String(localized: "Group"), String(localized: "Others")]
+        for (row, title) in rowTitles.enumerated() {
+            let boxes: [NSView] = Array(permissionBoxes[(row * 3)..<(row * 3 + 3)])
+            rows.append([NSTextField(labelWithString: title)] + boxes)
+        }
+        let grid = NSGridView(views: rows)
+        grid.column(at: 0).xPlacement = .trailing
+        for column in 1..<4 { grid.column(at: column).xPlacement = .center }
+        let stack = NSStackView(views: [grid, NSStackView(views: [hiddenBox, lockedBox]),
+                                        NSStackView(views: [dateBox, datePicker]), subfoldersBox])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 12
+        stack.frame.size = stack.fittingSize
+
+        let alert = NSAlert()
+        alert.messageText = items.count == 1
+            ? String(localized: "Change attributes of \u{201C}\(items[0].name)\u{201D}")
+            : String(localized: "Change attributes of \(items.count) files/folders")
+        alert.accessoryView = stack
+        alert.addButton(withTitle: String(localized: "Apply"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            var change = AttributeChange()
+            for (index, box) in permissionBoxes.enumerated() where box.state != initialStates[index] && box.state != .mixed {
+                change.permissions[bits[index]] = box.state == .on
+            }
+            if hiddenBox.state != initialStates[9] && hiddenBox.state != .mixed { change.hidden = hiddenBox.state == .on }
+            if lockedBox.state != initialStates[10] && lockedBox.state != .mixed { change.locked = lockedBox.state == .on }
+            if dateBox.state == .on { change.modified = datePicker.dateValue }
+            change.includesSubfolders = subfoldersBox.state == .on
+            let finalChange = change
+            let urls = items.map(\.url)
+            Task {
+                let controller = TransferController(title: String(localized: "Changing attributes"),
+                                                    failureTitle: String(localized: "Cannot change attributes"),
+                                                    window: window)
+                _ = await controller.run(source: urls[0].path, target: "") { progress, _ in
+                    try await finalChange.apply(to: urls, progress: progress)
+                    return urls
+                }
+                self.reread()
+            }
+        }
+    }
+
     // MARK: - Checksums
 
     /// Creates a checksum file (MD5, SHA-1, SHA-256 or SHA-512) for the selection.
