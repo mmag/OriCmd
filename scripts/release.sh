@@ -17,7 +17,7 @@ gh auth status >/dev/null
 
 PROJECT=OriCmd.xcodeproj/project.pbxproj
 BUILD=$(( $(awk '/CURRENT_PROJECT_VERSION/ { gsub(";", "", $3); print $3; exit }' $PROJECT) + 1 ))
-sed -i '' -e "s/MARKETING_VERSION = [0-9.]*;/MARKETING_VERSION = $VERSION;/" \
+sed -i '' -e "s/MARKETING_VERSION = [0-9A-Za-z.]*;/MARKETING_VERSION = $VERSION;/" \
   -e "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD;/" $PROJECT
 
 scripts/make-dmg.sh
