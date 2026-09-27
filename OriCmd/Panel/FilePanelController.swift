@@ -5,6 +5,7 @@ protocol FilePanelControllerDelegate: AnyObject {
     func filePanelDidBecomeActive(_ panel: FilePanelController)
     func filePanelSwitchPanel(_ panel: FilePanelController)
     func filePanelDidChangeDirectory(_ panel: FilePanelController)
+    func filePanelCursorDidMove(_ panel: FilePanelController)
 }
 
 /// Owns one panel: its current directory, listing, sort order and view.
@@ -212,6 +213,30 @@ extension FilePanelController: NSMenuItemValidation {
         goToRoot()
     }
 
+    /// F3: opens the file under the cursor in the Lister window.
+    @objc(cm_List:)
+    func list(_ sender: Any?) {
+        guard let item = listView.currentItem, !item.isParent, !item.isFolder else {
+            NSSound.beep()
+            return
+        }
+        ListerWindowController.show(item.url)
+    }
+
+    /// F4: opens the file under the cursor in the default text editor.
+    @objc(cm_Edit:)
+    func edit(_ sender: Any?) {
+        guard let item = listView.currentItem, !item.isParent, !item.isFolder else {
+            NSSound.beep()
+            return
+        }
+        if let editor = NSWorkspace.shared.urlForApplication(toOpen: .plainText) {
+            NSWorkspace.shared.open([item.url], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
+        } else {
+            NSWorkspace.shared.open(item.url)
+        }
+    }
+
     /// F7: asks for a name (prefilled with the entry under the cursor, as TC does).
     @objc(cm_MkDir:)
     func mkDir(_ sender: Any?) {
@@ -371,6 +396,10 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileListMarksDidChange(_ list: FileListView) {
         updateStatus()
+    }
+
+    func fileListCursorDidMove(_ list: FileListView) {
+        delegate?.filePanelCursorDidMove(self)
     }
 
     func fileList(_ list: FileListView, markGroup mark: Bool) {

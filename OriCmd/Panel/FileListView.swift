@@ -12,6 +12,7 @@ protocol FileListViewDelegate: AnyObject {
     /// ⇧F6 in-place rename was confirmed with Enter.
     func fileList(_ list: FileListView, rename item: FileItem, to newName: String)
     func fileListMarksDidChange(_ list: FileListView)
+    func fileListCursorDidMove(_ list: FileListView)
     /// Num+ / Num−: ask for a mask, then mark or unmark matching files.
     func fileList(_ list: FileListView, markGroup mark: Bool)
 }
@@ -63,6 +64,7 @@ final class FileListView: NSView {
         updateFrameSize()
         needsDisplay = true
         scrollCursorToVisible()
+        delegate?.fileListCursorDidMove(self)
     }
 
     var currentItem: FileItem? {
@@ -77,6 +79,7 @@ final class FileListView: NSView {
         cursor = clamped
         setNeedsDisplay(rowRect(cursor))
         scrollCursorToVisible()
+        delegate?.fileListCursorDidMove(self)
     }
 
     // MARK: - In-place rename

@@ -50,6 +50,10 @@ enum DebugAutomation {
                     sheet = current.attachedSheet
                     suffix += "2"
                 }
+                let others = NSApp.windows.filter { $0 !== window && $0.isVisible && $0.sheetParent == nil }
+                for (index, other) in others.enumerated() {
+                    save(other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).png"))
+                }
             }
             if environment["ORICMD_QUIT"] != nil {
                 exit(0)
@@ -58,9 +62,10 @@ enum DebugAutomation {
     }
 
     /// Inserts text into the focused text field, or types it into the focused view.
-    /// The window that receives keys: the topmost sheet, or the window itself.
+    /// The window that receives keys: the frontmost window (e.g. a Lister)
+    /// or its topmost sheet.
     private static func topmost(_ window: NSWindow) -> NSWindow {
-        var target = window
+        var target = NSApp.orderedWindows.first { $0.isVisible && $0.sheetParent == nil } ?? window
         while let sheet = target.attachedSheet {
             target = sheet
         }
@@ -91,16 +96,17 @@ enum DebugAutomation {
                 isARepeat: false, keyCode: stroke.keyCode
             ) else { continue }
             if type == .keyDown {
-                if target !== window, stroke.characters == "\r", let cell = target.defaultButtonCell {
+                if target.sheetParent != nil, stroke.characters == "\r", let cell = target.defaultButtonCell {
                     cell.performClick(nil)
                     break
                 }
-                if target !== window, let button = button(for: stroke, in: target.contentView) {
+                if target.sheetParent != nil, let button = button(for: stroke, in: target.contentView) {
                     button.performClick(nil)
                     break
                 }
                 if target.performKeyEquivalent(with: event) { break }
-                if target === window, performMenuShortcut(stroke, in: window) { break }
+                if target.attachedSheet == nil, target.sheetParent == nil,
+                   performMenuShortcut(stroke, in: target) { break }
             }
             target.sendEvent(event)
         }

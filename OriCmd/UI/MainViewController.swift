@@ -11,6 +11,10 @@ final class MainViewController: NSViewController {
 
     private var didAppear = false
 
+    /// Ctrl+Q preview shown in place of `quickViewReplaces`' view.
+    private var quickView: QuickViewPanel?
+    private var quickViewReplaces: FilePanelController?
+
     private static let showHiddenKey = "ShowHiddenFiles"
 
     /// Hidden files are shown or hidden in both panels at once, as in Total Commander.
@@ -198,9 +202,56 @@ extension MainViewController: NSMenuItemValidation {
         return (url.deletingLastPathComponent(), url.lastPathComponent)
     }
 
+    /// Ctrl+Q: turns the other panel into a preview of the entry under the cursor.
+    @objc(cm_SrcQuickview:)
+    func srcQuickView(_ sender: Any?) {
+        if quickView == nil {
+            openQuickView()
+        } else {
+            closeQuickView()
+        }
+    }
+
+    private func openQuickView() {
+        let replaced = inactivePanel
+        guard let index = splitView.arrangedSubviews.firstIndex(of: replaced.view) else { return }
+        let position = splitView.arrangedSubviews[0].frame.width
+        let panel = QuickViewPanel()
+        splitView.removeArrangedSubview(replaced.view)
+        replaced.view.removeFromSuperview()
+        splitView.insertArrangedSubview(panel, at: index)
+        splitView.layoutSubtreeIfNeeded()
+        splitView.setPosition(position, ofDividerAt: 0)
+        quickView = panel
+        quickViewReplaces = replaced
+        updateQuickView()
+    }
+
+    private func closeQuickView() {
+        guard let panel = quickView, let replaced = quickViewReplaces,
+              let index = splitView.arrangedSubviews.firstIndex(of: panel) else { return }
+        let position = splitView.arrangedSubviews[0].frame.width
+        panel.close()
+        splitView.removeArrangedSubview(panel)
+        panel.removeFromSuperview()
+        splitView.insertArrangedSubview(replaced.view, at: index)
+        splitView.layoutSubtreeIfNeeded()
+        splitView.setPosition(position, ofDividerAt: 0)
+        quickView = nil
+        quickViewReplaces = nil
+    }
+
+    private func updateQuickView() {
+        guard let quickView else { return }
+        let item = activePanel.listView.currentItem
+        quickView.show(item.flatMap { $0.isParent ? nil : $0.url })
+    }
+
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == Command.switchHidSys.selector {
             menuItem.state = showsHidden ? .on : .off
+        } else if menuItem.action == Command.srcQuickView.selector {
+            menuItem.state = quickView == nil ? .off : .on
         }
         return true
     }
@@ -212,7 +263,14 @@ extension MainViewController: FilePanelControllerDelegate {
     }
 
     func filePanelSwitchPanel(_ panel: FilePanelController) {
+        closeQuickView()
         (panel === leftPanel ? rightPanel : leftPanel).focus()
+    }
+
+    func filePanelCursorDidMove(_ panel: FilePanelController) {
+        if panel === activePanel {
+            updateQuickView()
+        }
     }
 
     func filePanelDidChangeDirectory(_ panel: FilePanelController) {
