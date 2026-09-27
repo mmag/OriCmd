@@ -16,6 +16,8 @@ final class FolderTabBar: NSView {
 
     var onSelect: ((Int) -> Void)?
     var onClose: ((Int) -> Void)?
+    /// Right click on a tab.
+    var onContextMenu: ((Int) -> NSMenu?)?
 
     override var isFlipped: Bool { true }
 
@@ -57,6 +59,12 @@ final class FolderTabBar: NSView {
         }
         Theme.separator.setFill()
         NSRect(x: 0, y: bounds.height - 1, width: bounds.width, height: 1).fill()
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let point = convert(event.locationInWindow, from: nil)
+        guard let index = tabRects().firstIndex(where: { $0.contains(point) }) else { return nil }
+        return onContextMenu?(index)
     }
 
     override func mouseDown(with event: NSEvent) {

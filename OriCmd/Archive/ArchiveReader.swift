@@ -36,6 +36,15 @@ nonisolated enum ArchiveReader {
         return compoundSuffixes.contains(where: lower.hasSuffix) || extensions.contains((lower as NSString).pathExtension)
     }
 
+    /// The archive's name without its archive suffix ("photos.tar.gz" → "photos").
+    static func baseName(of name: String) -> String {
+        let lower = name.lowercased()
+        if let suffix = compoundSuffixes.first(where: lower.hasSuffix) {
+            return String(name.dropLast(suffix.count))
+        }
+        return (name as NSString).deletingPathExtension
+    }
+
     /// "./a//b/" → "a/b"; nil for paths escaping the archive ("..") .
     static func normalize(_ path: String) -> String? {
         let components = path.split(separator: "/").filter { $0 != "." }

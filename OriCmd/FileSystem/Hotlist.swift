@@ -8,6 +8,10 @@ enum Hotlist {
         AppDefaults.store.stringArray(forKey: key) ?? []
     }
 
+    static func set(_ list: [String]) {
+        AppDefaults.store.set(list, forKey: key)
+    }
+
     /// Adds `path`, or removes it if it is already listed.
     static func toggle(_ path: String) {
         var list = directories

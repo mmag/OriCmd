@@ -531,6 +531,16 @@
         }
       }
     },
+    "Close Other Tabs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть остальные вкладки"
+          }
+        }
+      }
+    },
     "Close Tab": {
       "localizations": {
         "ru": {
@@ -587,6 +597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сравнение…"
+          }
+        }
+      }
+    },
+    "Configure…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настроить…"
           }
         }
       }
@@ -781,6 +801,16 @@
         }
       }
     },
+    "Customize Toolbar…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настроить панель кнопок…"
+          }
+        }
+      }
+    },
     "Cut": {
       "localizations": {
         "ru": {
@@ -851,6 +881,16 @@
         }
       }
     },
+    "Directory Hotlist": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Избранные каталоги"
+          }
+        }
+      }
+    },
     "Directory Hotlist…": {
       "localizations": {
         "ru": {
@@ -887,6 +927,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Готово: %@"
+          }
+        }
+      }
+    },
+    "Duplicate Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дублировать вкладку"
           }
         }
       }
@@ -1117,6 +1167,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Первая буква заглавная"
+          }
+        }
+      }
+    },
+    "Folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каталог"
           }
         }
       }
@@ -1411,12 +1471,32 @@
         }
       }
     },
+    "Move Down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ниже"
+          }
+        }
+      }
+    },
     "Move Items Here": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Переместить сюда"
+          }
+        }
+      }
+    },
+    "Move Up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выше"
           }
         }
       }
@@ -1891,6 +1971,16 @@
         }
       }
     },
+    "Remove": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить"
+          }
+        }
+      }
+    },
     "Remove “%@”": {
       "localizations": {
         "ru": {
@@ -2137,6 +2227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать скрытые файлы"
+          }
+        }
+      }
+    },
+    "Show Toolbar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать панель кнопок"
           }
         }
       }
@@ -2547,6 +2647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Распаковать %@ в:"
+          }
+        }
+      }
+    },
+    "Unpack each archive to a separate folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распаковывать каждый архив в отдельный каталог"
           }
         }
       }

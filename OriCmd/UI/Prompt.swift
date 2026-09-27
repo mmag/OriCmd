@@ -33,6 +33,40 @@ enum Prompt {
         }
     }
 
+    /// Asks for a line of text plus a checkbox option.
+    static func text(
+        _ title: String,
+        message: String,
+        initial: String,
+        option: String,
+        optionIsOn: Bool,
+        okTitle: String,
+        in window: NSWindow,
+        completion: @escaping (String, Bool) -> Void
+    ) {
+        let field = NSTextField(string: initial)
+        field.frame = NSRect(x: 0, y: 30, width: 360, height: 22)
+        let checkbox = NSButton(checkboxWithTitle: option, target: nil, action: nil)
+        checkbox.state = optionIsOn ? .on : .off
+        checkbox.frame = NSRect(x: 0, y: 0, width: 360, height: 22)
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 52))
+        accessory.addSubview(field)
+        accessory.addSubview(checkbox)
+
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.accessoryView = accessory
+        alert.addButton(withTitle: okTitle)
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.window.initialFirstResponder = field
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn {
+                completion(field.stringValue, checkbox.state == .on)
+            }
+        }
+    }
+
     /// Asks to pick one of `options`; the completion gets its index.
     static func choice(
         _ title: String,

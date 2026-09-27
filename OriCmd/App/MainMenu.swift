@@ -42,6 +42,10 @@ enum MainMenu {
             [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
             [.switchHidSys],
+        ], extra: [
+            .separator(),
+            item(String(localized: "Show Toolbar"), #selector(NSWindow.toggleToolbarShown(_:)), "t", [.command, .option]),
+            item(String(localized: "Customize Toolbar…"), #selector(NSWindow.runToolbarCustomizationPalette(_:))),
         ])))
 
         let windowMenu = windowMenu()

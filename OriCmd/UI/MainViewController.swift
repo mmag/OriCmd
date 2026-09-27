@@ -5,7 +5,8 @@ import AppKit
 final class MainViewController: NSViewController {
     private let leftPanel: FilePanelController
     private let rightPanel: FilePanelController
-    private let splitView = NSSplitView()
+    private let splitView = PanelSplitView()
+    private static let splitRatioKey = "PanelSplitRatio"
     private let commandLine = CommandLineController()
     private let functionKeyBar = FunctionKeyBar()
 
@@ -78,6 +79,8 @@ final class MainViewController: NSViewController {
         splitView.dividerStyle = .thin
         splitView.addArrangedSubview(leftPanel.view)
         splitView.addArrangedSubview(rightPanel.view)
+        splitView.delegate = self
+        splitView.onDoubleClickDivider = { [weak self] in self?.splitView.setRatio(0.5) }
 
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 1100, height: 720))
         for view in [splitView, commandLine.view, functionKeyBar] {
@@ -129,7 +132,8 @@ final class MainViewController: NSViewController {
         super.viewDidAppear()
         if !didAppear {
             didAppear = true
-            splitView.setPosition(splitView.bounds.width / 2, ofDividerAt: 0)
+            let saved = AppDefaults.store.double(forKey: Self.splitRatioKey)
+            splitView.setRatio(saved > 0.05 && saved < 0.95 ? saved : 0.5)
             activePanel.focus()
         }
     }
@@ -275,7 +279,7 @@ extension MainViewController: NSMenuItemValidation {
                 .filter { entry in paths.contains { entry.path == $0 || entry.path.hasPrefix($0 + "/") } }
                 .reduce(Int64(0)) { $0 + $1.size }
             confirmOverwriting(items.map(\.name), in: destination) {
-                self.unpack([(archive.url, paths, archive.folder)], to: destination, total: total)
+                self.unpack([(archive.url, paths, archive.folder, destination)], total: total)
             }
         }
     }
@@ -326,11 +330,17 @@ extension MainViewController: NSMenuItemValidation {
         let what = archives.count == 1 ? String(localized: "\u{201C}\(archives[0].name)\u{201D}")
             : String(localized: "\(archives.count) archives")
         Prompt.text(String(localized: "Unpack"), message: String(localized: "Unpack \(what) to:"),
-                    initial: Self.folderText(inactivePanel.directory), okTitle: String(localized: "Unpack"),
-                    in: window) { [weak self] text in
+                    initial: Self.folderText(inactivePanel.directory),
+                    option: String(localized: "Unpack each archive to a separate folder"),
+                    optionIsOn: archives.count > 1, okTitle: String(localized: "Unpack"),
+                    in: window) { [weak self] text, separateFolders in
             guard let self, !text.isEmpty else { return }
             let destination = Self.resolveFolder(text, base: source.directory)
-            unpack(archives.map { ($0.url, [], "") }, to: destination, total: nil)
+            unpack(archives.map { archive in
+                let folder = separateFolders
+                    ? destination.appending(path: ArchiveReader.baseName(of: archive.name)) : destination
+                return (archive.url, [], "", folder)
+            }, total: nil)
         }
     }
 
@@ -376,8 +386,8 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
-    private func unpack(_ archives: [(url: URL, paths: [String], base: String)], to destination: URL, total: Int64?) {
-        guard let window = view.window else { return }
+    private func unpack(_ archives: [(url: URL, paths: [String], base: String, destination: URL)], total: Int64?) {
+        guard let window = view.window, let destination = archives.first?.destination else { return }
         Task {
             let controller = TransferController(title: String(localized: "Unpacking"),
                                                 failureTitle: String(localized: "Unpacking failed"), window: window)
@@ -386,10 +396,10 @@ extension MainViewController: NSMenuItemValidation {
                     try sum + ArchiveReader.entries(of: archive.url).reduce(Int64(0)) { $0 + $1.size }
                 }
                 progress.update { $0.totalBytes = size }
-                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
                 for archive in archives {
+                    try FileManager.default.createDirectory(at: archive.destination, withIntermediateDirectories: true)
                     try await ArchiveReader.extract(archive.url, paths: archive.paths, base: archive.base,
-                                                    to: destination, progress: progress)
+                                                    to: archive.destination, progress: progress)
                 }
                 return archives.map(\.url)
             }
@@ -830,5 +840,13 @@ extension MainViewController: CommandLineControllerDelegate {
 
     func commandLineDidEndEditing(_ controller: CommandLineController) {
         activePanel.focus()
+    }
+}
+
+extension MainViewController: NSSplitViewDelegate {
+    /// Remembers where the user put the splitter (as a share of the width).
+    func splitViewDidResizeSubviews(_ notification: Notification) {
+        guard didAppear, splitView.bounds.width > 0 else { return }
+        AppDefaults.store.set(Double(splitView.ratio), forKey: Self.splitRatioKey)
     }
 }

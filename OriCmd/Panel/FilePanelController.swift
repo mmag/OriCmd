@@ -124,6 +124,7 @@ final class FilePanelController: NSViewController {
         panelView.setDriveBarVisible(Settings.showsDriveButtons)
         panelView.tabBar.onSelect = { [weak self] index in self?.selectTab(index) }
         panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
+        panelView.tabBar.onContextMenu = { [weak self] index in self?.tabMenu(for: index) }
         panelView.quickSearchField.delegate = self
 
         load(directory)
@@ -369,6 +370,39 @@ final class FilePanelController: NSViewController {
             updateTabBar()
             delegate?.filePanelDidChangeDirectory(self)
         }
+    }
+
+    private func tabMenu(for index: Int) -> NSMenu {
+        let menu = NSMenu()
+        for (title, action) in [(String(localized: "Close Tab"), #selector(closeTabFromMenu(_:))),
+                                (String(localized: "Close Other Tabs"), #selector(closeOtherTabs(_:))),
+                                (String(localized: "Duplicate Tab"), #selector(duplicateTab(_:)))] {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            item.isEnabled = tabs.count > 1 || action == #selector(duplicateTab(_:))
+            menu.addItem(item)
+        }
+        menu.autoenablesItems = false
+        return menu
+    }
+
+    @objc private func closeTabFromMenu(_ sender: NSMenuItem) {
+        closeTab(sender.tag)
+    }
+
+    @objc private func closeOtherTabs(_ sender: NSMenuItem) {
+        selectTab(sender.tag)
+        let keep = tabs[activeTabIndex]
+        tabs = [keep]
+        activeTabIndex = 0
+        updateTabBar()
+        delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    @objc private func duplicateTab(_ sender: NSMenuItem) {
+        selectTab(sender.tag)
+        openTab(directory)
     }
 
     private func currentTab() -> Tab {
@@ -627,8 +661,16 @@ extension FilePanelController: NSMenuItemValidation {
                                 action: #selector(toggleHotlistEntry(_:)), keyEquivalent: "")
         toggle.target = self
         menu.addItem(toggle)
+        let configure = NSMenuItem(title: String(localized: "Configure…"), action: #selector(configureHotlist(_:)),
+                                   keyEquivalent: "")
+        configure.target = self
+        menu.addItem(configure)
         let bar = panelView.pathBar
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bar.bounds.maxY), in: bar)
+    }
+
+    @objc private func configureHotlist(_ sender: Any?) {
+        HotlistWindowController.shared.showWindow(sender)
     }
 
     @objc private func toggleHotlistEntry(_ sender: NSMenuItem) {
