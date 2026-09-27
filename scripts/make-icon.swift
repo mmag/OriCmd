@@ -1,10 +1,10 @@
 // Draws the OriCmd app icon and writes the AppIcon.appiconset PNGs.
-// Usage: swift scripts/make-icon.swift [arrow|classic|origami] [output folder]
+// Usage: swift scripts/make-icon.swift [classic|arrow|origami] [output folder]
 //        swift scripts/make-icon.swift preview [output.png]   — all variants side by side
 import AppKit
 
 let arguments = Array(CommandLine.arguments.dropFirst())
-let variant = arguments.first ?? "arrow"
+let variant = arguments.first ?? "classic"
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
     NSColor(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255,
@@ -143,53 +143,104 @@ func drawArrow() {
     }
 }
 
-// MARK: - B: the classic blue commander
+// MARK: - B: the classic blue commander, as a Mac window
+
+func roundedFont(_ size: CGFloat, _ weight: NSFont.Weight) -> NSFont {
+    let font = NSFont.systemFont(ofSize: size, weight: weight)
+    return font.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: size) } ?? font
+}
+
+func glowing(_ glow: NSColor, blur: CGFloat, _ draw: () -> Void) {
+    NSGraphicsContext.saveGraphicsState()
+    let shadow = NSShadow()
+    shadow.shadowOffset = .zero
+    shadow.shadowBlurRadius = blur
+    shadow.shadowColor = glow
+    shadow.set()
+    draw()
+    NSGraphicsContext.restoreGraphicsState()
+}
 
 func drawClassic() {
-    let shape = background(color(0x2350D8), color(0x0A1A66))
-    clipped(shape) {
-        // Menu bar and function key bar, as in Norton / Total Commander.
-        color(0x3EC6D8).setFill()
-        NSRect(x: body.minX, y: body.maxY - 150, width: body.width, height: 46).fill()
-        color(0x061038).setFill()
-        NSRect(x: body.minX, y: body.minY, width: body.width, height: 190).fill()
+    background(color(0x3A78FF), color(0x0B1D63))
+
+    // The window: a dark screen with a title bar and traffic lights.
+    let window = NSRect(x: 158, y: 282, width: 708, height: 548)
+    let windowShape = rounded(window, 46)
+    withShadow(offset: 14, blur: 28, alpha: 0.45) {
+        color(0x071342).setFill()
+        windowShape.fill()
     }
-    let keyFont = NSFont.monospacedSystemFont(ofSize: 46, weight: .heavy)
-    for key in 0..<5 {
-        let x = 170 + CGFloat(key) * 142
-        (NSString(string: "\(key + 3)")).draw(at: NSPoint(x: x, y: 214),
-                                              withAttributes: [.font: keyFont, .foregroundColor: color(0xFFFFFF)])
-        color(0x3EC6D8).setFill()
-        rounded(NSRect(x: x + 38, y: 218, width: 82, height: 44), 6).fill()
+    NSGradient(starting: color(0x0D1F66), ending: color(0x050D33))!.draw(in: windowShape, angle: -90)
+    clipped(windowShape) {
+        NSGradient(starting: color(0xFFFFFF, 0.14), ending: color(0xFFFFFF, 0.04))!
+            .draw(in: NSRect(x: window.minX, y: window.maxY - 64, width: window.width, height: 64), angle: -90)
+    }
+    color(0xFFFFFF, 0.22).setStroke()
+    let bezel = rounded(window.insetBy(dx: 1.5, dy: 1.5), 45)
+    bezel.lineWidth = 3
+    bezel.stroke()
+    for (index, hex) in [UInt32(0xFF5F57), 0xFEBC2E, 0x28C840].enumerated() {
+        let center = NSPoint(x: window.minX + 44 + CGFloat(index) * 38, y: window.maxY - 32)
+        color(hex).setFill()
+        NSBezierPath(ovalIn: NSRect(x: center.x - 12, y: center.y - 12, width: 24, height: 24)).fill()
     }
 
-    let panelY: CGFloat = 310
-    let panelHeight: CGFloat = 470
-    for (index, x) in [CGFloat(162), 522].enumerated() {
-        let panel = NSRect(x: x, y: panelY, width: 340, height: panelHeight)
-        color(0x0B2B9E).setFill()
-        rounded(panel, 18).fill()
-        // Double frame.
-        color(0x7FE3F0).setStroke()
-        for inset in [CGFloat(14), 34] {
-            let frame = rounded(panel.insetBy(dx: inset, dy: inset), 10)
-            frame.lineWidth = 9
-            frame.stroke()
+    // Two panels with the double frame, glowing like the old screens.
+    let panelBottom = window.minY + 22
+    let panelHeight = window.height - 64 - 22 - 14
+    for (index, x) in [window.minX + 22, window.midX + 8].enumerated() {
+        let panel = NSRect(x: x, y: panelBottom, width: window.width / 2 - 30, height: panelHeight)
+        let shape = rounded(panel, 26)
+        NSGradient(starting: color(0x1747D0), ending: color(0x0C2B96))!.draw(in: shape, angle: -90)
+        let cyan = color(0x7DEBFA)
+        glowing(color(0x38D6F5, 0.9), blur: 14) {
+            cyan.withAlphaComponent(0.75).setStroke()
+            let outer = rounded(panel.insetBy(dx: 12, dy: 12), 17)
+            outer.lineWidth = 5
+            outer.stroke()
+            cyan.setStroke()
+            let inner = rounded(panel.insetBy(dx: 26, dy: 26), 10)
+            inner.lineWidth = 5
+            inner.stroke()
         }
-        clipped(rounded(panel.insetBy(dx: 44, dy: 44), 6)) {
+        clipped(rounded(panel.insetBy(dx: 34, dy: 34), 6)) {
             let widths: [CGFloat] = [0.70, 0.52, 0.80, 0.46, 0.64, 0.58]
             for row in 0..<6 {
-                let y = panel.maxY - 90 - CGFloat(row) * 58
+                let y = panel.maxY - 74 - CGFloat(row) * 60
                 let isCursor = index == 0 && row == 2
                 if isCursor {
-                    color(0x3EC6D8).setFill()
-                    NSRect(x: panel.minX, y: y - 14, width: panel.width, height: 50).fill()
+                    let bar = rounded(NSRect(x: panel.minX + 40, y: y - 15, width: panel.width - 80, height: 52), 12)
+                    NSGradient(starting: color(0x8CF3FF), ending: color(0x2CC6E8))!.draw(in: bar, angle: -90)
                 }
                 let isMarked = index == 0 && (row == 4 || row == 5)
-                let fill = isCursor ? color(0x061038) : isMarked ? color(0xFFE14D) : color(0x7FE3F0)
+                let fill = isCursor ? color(0x06103A) : isMarked ? color(0xFFD84D) : cyan.withAlphaComponent(0.85)
                 line(panel.minX + 58, y, (panel.width - 116) * widths[(row + index * 3) % widths.count], 22, fill)
             }
         }
+    }
+
+    // Function keys as keycaps; F5 (copy) is lit.
+    let keyFont = roundedFont(40, .bold)
+    for (index, label) in ["F5", "F6", "F7", "F8"].enumerated() {
+        let key = NSRect(x: window.minX + CGFloat(index) * 182, y: 168, width: 162, height: 82)
+        let shape = rounded(key, 24)
+        let lit = index == 0
+        withShadow(offset: 6, blur: 10, alpha: 0.40) {
+            (lit ? color(0x2CC6E8) : color(0x1B2E78)).setFill()
+            shape.fill()
+        }
+        NSGradient(starting: lit ? color(0x9AF5FF) : color(0x3452B0),
+                   ending: lit ? color(0x22B8DD) : color(0x16266A))!.draw(in: shape, angle: -90)
+        color(0xFFFFFF, lit ? 0.6 : 0.25).setStroke()
+        let edge = rounded(key.insetBy(dx: 1.5, dy: 1.5), 23)
+        edge.lineWidth = 3
+        edge.stroke()
+        let text = NSAttributedString(string: label, attributes: [
+            .font: keyFont, .foregroundColor: lit ? color(0x06103A) : color(0xFFFFFF, 0.9),
+        ])
+        let size = text.size()
+        text.draw(at: NSPoint(x: key.midX - size.width / 2, y: key.midY - size.height / 2 + 1))
     }
 }
 
@@ -261,9 +312,9 @@ func drawOrigami() {
 
 func drawIcon() {
     switch variant {
-    case "classic": drawClassic()
+    case "arrow": drawArrow()
     case "origami": drawOrigami()
-    default: drawArrow()
+    default: drawClassic()
     }
 }
 
@@ -290,7 +341,7 @@ func png(_ rep: NSBitmapImageRep) -> Data {
 if variant == "preview" {
     // Each variant large, then at Dock / Finder sizes, on light and dark backgrounds.
     let output = URL(filePath: arguments.count > 1 ? arguments[1] : "build/icon-preview.png")
-    let variants = ["arrow", "classic", "origami"]
+    let variants = ["classic", "arrow", "origami"]
     let width = 1500, height = 1020
     let sheet = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
                                  samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
@@ -334,9 +385,9 @@ if variant == "preview" {
 func renderVariant(_ name: String, pixels: Int) -> NSBitmapImageRep {
     image(pixels: pixels) {
         switch name {
-        case "classic": drawClassic()
+        case "arrow": drawArrow()
         case "origami": drawOrigami()
-        default: drawArrow()
+        default: drawClassic()
         }
     }
 }
