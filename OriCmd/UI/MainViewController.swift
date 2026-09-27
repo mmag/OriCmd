@@ -140,6 +140,64 @@ extension MainViewController: NSMenuItemValidation {
         rightPanel.load(left.0, selecting: left.1)
     }
 
+    /// F5: copies the selection of the active panel, by default into the other panel.
+    @objc(cm_Copy:)
+    func copyFiles(_ sender: Any?) {
+        askForTransfer(.copy)
+    }
+
+    /// F6: moves or renames the selection of the active panel.
+    @objc(cm_RenMov:)
+    func moveFiles(_ sender: Any?) {
+        askForTransfer(.move)
+    }
+
+    private func askForTransfer(_ kind: TransferJob.Kind) {
+        let source = activePanel
+        let items = source.selectedItems
+        guard !items.isEmpty, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let what = items.count == 1 ? "\u{201C}\(items[0].name)\u{201D}" : "\(items.count) files/folders"
+        let targetPath = inactivePanel.directory.path
+        let initial = targetPath.hasSuffix("/") ? targetPath : targetPath + "/"
+        Prompt.text(kind == .copy ? "Copy" : "Move/Rename",
+                    message: kind == .copy ? "Copy \(what) to:" : "Rename/move \(what) to:",
+                    initial: initial, okTitle: kind == .copy ? "Copy" : "Move", in: window) { [weak self] text in
+            self?.transfer(kind, items: items, from: source, to: text)
+        }
+    }
+
+    private func transfer(_ kind: TransferJob.Kind, items: [FileItem], from source: FilePanelController, to text: String) {
+        guard let window = view.window, !text.isEmpty else { return }
+        let (destination, newName) = Self.resolveTarget(text, itemCount: items.count, base: source.directory)
+        let job = TransferJob(kind: kind, sources: items.map(\.url), destination: destination, newName: newName)
+        Task {
+            let done = await TransferController(job: job, window: window).run()
+            source.listView.setMarked(source.listView.marked.subtracting(done.map(\.lastPathComponent)))
+            leftPanel.reread()
+            rightPanel.reread()
+        }
+    }
+
+    /// Interprets the target typed in the copy/move dialog: an existing folder or a
+    /// path ending in "/" receives the items; otherwise a single item gets that name.
+    /// Relative paths are relative to the source folder.
+    static func resolveTarget(_ text: String, itemCount: Int, base: URL) -> (destination: URL, newName: String?) {
+        var path = (text as NSString).expandingTildeInPath
+        if !path.hasPrefix("/") {
+            path = base.appending(path: path).path
+        }
+        let url = URL(filePath: path).standardizedFileURL
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        if text.hasSuffix("/") || (exists && isDirectory.boolValue) || itemCount > 1 {
+            return (url, nil)
+        }
+        return (url.deletingLastPathComponent(), url.lastPathComponent)
+    }
+
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == Command.switchHidSys.selector {
             menuItem.state = showsHidden ? .on : .off

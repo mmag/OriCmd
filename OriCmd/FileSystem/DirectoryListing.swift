@@ -5,20 +5,9 @@ enum DirectoryListing {
     /// which is considerably faster than `FileManager` on large directories.
     nonisolated static func items(in directory: URL) throws -> [FileItem] {
         let directoryPath = directory.path
-        guard let stream = opendir(directoryPath) else {
-            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-        }
-        defer { closedir(stream) }
-
         let prefix = directoryPath.hasSuffix("/") ? directoryPath : directoryPath + "/"
         var result: [FileItem] = []
-        while let entry = readdir(stream) {
-            let length = Int(entry.pointee.d_namlen)
-            let name = withUnsafeBytes(of: &entry.pointee.d_name) { bytes in
-                String(decoding: bytes.prefix(length), as: UTF8.self)
-            }
-            if name == "." || name == ".." { continue }
-
+        for name in try names(in: directory) {
             let path = prefix + name
             var info = stat()
             guard lstat(path, &info) == 0 else { continue }
@@ -51,5 +40,25 @@ enum DirectoryListing {
             ))
         }
         return result
+    }
+
+    /// Entry names of `directory`, without "." and "..".
+    nonisolated static func names(in directory: URL) throws -> [String] {
+        guard let stream = opendir(directory.path) else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        defer { closedir(stream) }
+
+        var names: [String] = []
+        while let entry = readdir(stream) {
+            let length = Int(entry.pointee.d_namlen)
+            let name = withUnsafeBytes(of: &entry.pointee.d_name) { bytes in
+                String(decoding: bytes.prefix(length), as: UTF8.self)
+            }
+            if name != "." && name != ".." {
+                names.append(name)
+            }
+        }
+        return names
     }
 }

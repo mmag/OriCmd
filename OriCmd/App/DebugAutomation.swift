@@ -43,8 +43,12 @@ enum DebugAutomation {
             try? await Task.sleep(for: .milliseconds(400))
             if let snapshot {
                 save(window, to: snapshot)
-                if let sheet = window.attachedSheet {
-                    save(sheet, to: snapshot.replacingOccurrences(of: ".png", with: "-sheet.png"))
+                var sheet = window.attachedSheet
+                var suffix = "-sheet"
+                while let current = sheet {
+                    save(current, to: snapshot.replacingOccurrences(of: ".png", with: "\(suffix).png"))
+                    sheet = current.attachedSheet
+                    suffix += "2"
                 }
             }
             if environment["ORICMD_QUIT"] != nil {
@@ -54,8 +58,17 @@ enum DebugAutomation {
     }
 
     /// Inserts text into the focused text field, or types it into the focused view.
+    /// The window that receives keys: the topmost sheet, or the window itself.
+    private static func topmost(_ window: NSWindow) -> NSWindow {
+        var target = window
+        while let sheet = target.attachedSheet {
+            target = sheet
+        }
+        return target
+    }
+
     private static func type(_ text: String, in window: NSWindow) {
-        let target = window.attachedSheet ?? window
+        let target = topmost(window)
         if let editor = target.firstResponder as? NSTextView {
             editor.insertText(text, replacementRange: editor.selectedRange())
         } else {
@@ -68,7 +81,7 @@ enum DebugAutomation {
     /// Delivers a keystroke the way AppKit does: window key equivalents
     /// (default buttons), then menu key equivalents, then `keyDown`.
     private static func play(_ stroke: KeyStroke, in window: NSWindow) {
-        let target = window.attachedSheet ?? window
+        let target = topmost(window)
         for type in [NSEvent.EventType.keyDown, .keyUp] {
             guard let event = NSEvent.keyEvent(
                 with: type, location: .zero, modifierFlags: stroke.modifiers,

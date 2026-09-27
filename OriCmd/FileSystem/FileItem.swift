@@ -1,7 +1,7 @@
 import Foundation
 
 /// A single entry in a directory listing.
-struct FileItem: Hashable, Sendable {
+nonisolated struct FileItem: Hashable, Sendable {
     let name: String
     let url: URL
     /// True for directories and symlinks to directories.
