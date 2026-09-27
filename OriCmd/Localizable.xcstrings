@@ -1171,6 +1171,16 @@
         }
       }
     },
+    "Feed to Panel": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В панель"
+          }
+        }
+      }
+    },
     "File Colors": {
       "localizations": {
         "ru": {
@@ -2417,6 +2427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Место поиска:"
+          }
+        }
+      }
+    },
+    "Search results: %@ in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Результаты поиска: %1$@ в %2$@"
           }
         }
       }

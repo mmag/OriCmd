@@ -9,38 +9,44 @@ enum DirectoryListing {
         var result: [FileItem] = []
         for (index, name) in try names(in: directory).enumerated() {
             if index % 1000 == 999, Task.isCancelled { throw CancellationError() }
-            let path = prefix + name
-            var info = stat()
-            guard lstat(path, &info) == 0 else { continue }
-
-            let isSymlink = info.st_mode & S_IFMT == S_IFLNK
-            var isDirectory = info.st_mode & S_IFMT == S_IFDIR
-            if isSymlink {
-                var target = stat()
-                if stat(path, &target) == 0 {
-                    isDirectory = target.st_mode & S_IFMT == S_IFDIR
-                }
+            if let item = item(atPath: prefix + name, named: name) {
+                result.append(item)
             }
-            let isPackage = isDirectory && name.contains(".")
-                && (try? URL(filePath: path).resourceValues(forKeys: [.isPackageKey]).isPackage) == true
-            let modified = Date(
-                timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)
-                    + TimeInterval(info.st_mtimespec.tv_nsec) / 1_000_000_000
-            )
-
-            result.append(FileItem(
-                name: name,
-                url: URL(filePath: path, directoryHint: isDirectory ? .isDirectory : .notDirectory),
-                isDirectory: isDirectory,
-                isPackage: isPackage,
-                isSymlink: isSymlink,
-                isHidden: name.hasPrefix(".") || info.st_flags & UInt32(UF_HIDDEN) != 0,
-                size: Int64(info.st_size),
-                modified: modified,
-                mode: info.st_mode
-            ))
         }
         return result
+    }
+
+    /// The entry at `path`, shown as `name` (a plain name or a relative path).
+    nonisolated static func item(atPath path: String, named name: String) -> FileItem? {
+        var info = stat()
+        guard lstat(path, &info) == 0 else { return nil }
+        let fileName = (path as NSString).lastPathComponent
+        let isSymlink = info.st_mode & S_IFMT == S_IFLNK
+        var isDirectory = info.st_mode & S_IFMT == S_IFDIR
+        if isSymlink {
+            var target = stat()
+            if stat(path, &target) == 0 {
+                isDirectory = target.st_mode & S_IFMT == S_IFDIR
+            }
+        }
+        let isPackage = isDirectory && fileName.contains(".")
+            && (try? URL(filePath: path).resourceValues(forKeys: [.isPackageKey]).isPackage) == true
+        let modified = Date(
+            timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)
+                + TimeInterval(info.st_mtimespec.tv_nsec) / 1_000_000_000
+        )
+
+        return FileItem(
+            name: name,
+            url: URL(filePath: path, directoryHint: isDirectory ? .isDirectory : .notDirectory),
+            isDirectory: isDirectory,
+            isPackage: isPackage,
+            isSymlink: isSymlink,
+            isHidden: fileName.hasPrefix(".") || info.st_flags & UInt32(UF_HIDDEN) != 0,
+            size: Int64(info.st_size),
+            modified: modified,
+            mode: info.st_mode
+        )
     }
 
     /// All files below `directory` (not folders, not following symlinked folders),

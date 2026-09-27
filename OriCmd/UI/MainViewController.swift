@@ -255,7 +255,9 @@ extension MainViewController: NSMenuItemValidation {
         let job = TransferJob(kind: kind, sources: items.map(\.url), destination: destination, newName: newName)
         Task {
             let done = await TransferController.run(job, in: window)
-            source.listView.setMarked(source.listView.marked.subtracting(done.map(\.lastPathComponent)))
+            let transferred = Set(done)
+            source.listView.setMarked(source.listView.marked.subtracting(
+                items.filter { transferred.contains($0.url) }.map(\.name)))
             leftPanel.reread()
             rightPanel.reread()
         }
@@ -486,12 +488,17 @@ extension MainViewController: NSMenuItemValidation {
     /// Alt+F7: find files; the chosen result is shown in the active panel.
     @objc(cm_SearchFor:)
     func searchFor(_ sender: Any?) {
-        FindFilesWindowController.show(searchingIn: activePanel.directory) { [weak self] url in
+        FindFilesWindowController.show(searchingIn: activePanel.directory, goTo: { [weak self] url in
             guard let self else { return }
             activePanel.load(url.deletingLastPathComponent(), selecting: url.lastPathComponent)
             view.window?.makeKeyAndOrderFront(nil)
             activePanel.focus()
-        }
+        }, feed: { [weak self] results, root, title in
+            guard let self else { return }
+            activePanel.showSearchResults(results, root: root, title: title)
+            view.window?.makeKeyAndOrderFront(nil)
+            activePanel.focus()
+        })
     }
 
     /// Shift+F2: marks the files that are missing from, or newer than, the other panel.

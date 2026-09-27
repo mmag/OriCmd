@@ -10,6 +10,7 @@ final class FindFilesWindowController: NSWindowController {
     private let caseSensitiveBox = NSButton(checkboxWithTitle: String(localized: "Case sensitive"), target: nil, action: nil)
     private let startButton = NSButton(title: String(localized: "Start Search"), target: nil, action: nil)
     private let goToButton = NSButton(title: String(localized: "Go to File"), target: nil, action: nil)
+    private let feedButton = NSButton(title: String(localized: "Feed to Panel"), target: nil, action: nil)
     private let statusLabel = NSTextField(labelWithString: "")
     private let resultsTable = ResultsTableView()
 
@@ -17,12 +18,15 @@ final class FindFilesWindowController: NSWindowController {
     private var search: FileSearch?
     private var timer: Timer?
     private var onGoTo: ((URL) -> Void)?
+    private var onFeed: ((_ results: [URL], _ root: URL, _ title: String) -> Void)?
 
     /// Shows the dialog searching in `directory`; `goTo` receives the chosen result.
-    static func show(searchingIn directory: URL, goTo: @escaping (URL) -> Void) {
+    static func show(searchingIn directory: URL, goTo: @escaping (URL) -> Void,
+                     feed: @escaping (_ results: [URL], _ root: URL, _ title: String) -> Void) {
         let controller = shared ?? FindFilesWindowController()
         shared = controller
         controller.onGoTo = goTo
+        controller.onFeed = feed
         if controller.search == nil {
             controller.directoryField.stringValue = directory.path
         }
@@ -54,6 +58,8 @@ final class FindFilesWindowController: NSWindowController {
         startButton.keyEquivalent = "\r"
         goToButton.target = self
         goToButton.action = #selector(goToFile(_:))
+        feedButton.target = self
+        feedButton.action = #selector(feedToPanel(_:))
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("path"))
         column.title = String(localized: "Found files")
@@ -78,7 +84,7 @@ final class FindFilesWindowController: NSWindowController {
         grid.column(at: 0).xPlacement = .trailing
         grid.rowSpacing = 6
 
-        let buttons = NSStackView(views: [statusLabel, goToButton, startButton])
+        let buttons = NSStackView(views: [statusLabel, feedButton, goToButton, startButton])
         statusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         statusLabel.lineBreakMode = .byTruncatingTail
 
@@ -140,6 +146,17 @@ final class FindFilesWindowController: NSWindowController {
         } else {
             statusLabel.stringValue = String(localized: "Searching… \(summary)")
         }
+    }
+
+    /// Total Commander's "Feed to listbox": the results become the active panel's listing.
+    @objc private func feedToPanel(_ sender: Any?) {
+        guard let search, !results.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let title = String(localized: "Search results: \(search.query.masks) in \(search.query.root.path)")
+        onFeed?(results, search.query.root, title)
+        window?.close()
     }
 
     @objc private func goToFile(_ sender: Any?) {

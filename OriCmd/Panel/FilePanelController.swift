@@ -88,6 +88,9 @@ final class FilePanelController: NSViewController {
     /// Ctrl+B: lists all files of the folder and its subfolders, with relative names.
     private(set) var isBranchView = false
 
+    /// Find Files → "Feed to Panel": the found files, listed instead of the folder.
+    private var searchResults: (title: String, urls: [URL])?
+
     /// Show → Filter: only files matching this mask are listed (folders always are).
     private var filterMask: String? {
         didSet {
@@ -258,6 +261,11 @@ final class FilePanelController: NSViewController {
     private func show(_ listing: Listing, of directory: URL, selecting name: String?, recordingHistory: Bool) {
         loadTask = nil
         let entries = listing.entries
+        if searchResults != nil {
+            searchResults = nil
+            panelView.pathBar.showsMask = true
+            listView.setMarked([])
+        }
         if archive != nil {
             archive = nil
             listView.setMarked([])
@@ -285,6 +293,39 @@ final class FilePanelController: NSViewController {
             tabs[activeTabIndex].directory = directory
             updateTabBar()
         }
+        delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    // MARK: - Search results
+
+    /// Shows found files (named relative to `root` where possible) as the panel's
+    /// listing; everything works on the real files, [..] returns to `root`.
+    func showSearchResults(_ urls: [URL], root: URL, title: String, selecting name: String? = nil) {
+        loadGeneration += 1
+        loadTask?.cancel()
+        loadTask = nil
+        let rootPath = root.standardizedFileURL.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        let items = urls.compactMap { url -> FileItem? in
+            let path = url.standardizedFileURL.path
+            let shown = path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : path
+            return DirectoryListing.item(atPath: path, named: shown)
+        }
+        if archive != nil {
+            archive = nil
+        }
+        if searchResults == nil || directory != root.standardizedFileURL {
+            listView.setMarked([])
+        }
+        directory = root.standardizedFileURL
+        watcher = nil
+        searchResults = (title, items.map(\.url))
+        entries = items
+        entriesOrder = nil
+        panelView.show(directory: directory, volumes: Volume.mounted())
+        panelView.pathBar.showsMask = false
+        panelView.pathBar.path = title
+        refreshList(selecting: name, fallback: 0)
         delegate?.filePanelDidChangeDirectory(self)
     }
 
@@ -541,6 +582,11 @@ final class FilePanelController: NSViewController {
             reopenArchive(archive)
             return
         }
+        if let searchResults {
+            showSearchResults(searchResults.urls, root: directory, title: searchResults.title,
+                              selecting: listView.currentItem?.name)
+            return
+        }
         var directory = self.directory
         while !FileManager.default.fileExists(atPath: directory.path) && directory.path != "/" {
             directory = directory.deletingLastPathComponent()
@@ -560,6 +606,10 @@ final class FilePanelController: NSViewController {
     func goToParent() {
         if archive != nil {
             archiveGoUp()
+            return
+        }
+        if searchResults != nil {
+            load(directory)
             return
         }
         guard directory.path != "/" else { return }
@@ -596,7 +646,7 @@ final class FilePanelController: NSViewController {
         if let quickFilter {
             items = items.filter { $0.name.localizedCaseInsensitiveContains(quickFilter) }
         }
-        if archive != nil || directory.path != "/" {
+        if archive != nil || searchResults != nil || directory.path != "/" {
             items.insert(.parent(of: directory), at: 0)
         }
         let cursor = name.flatMap { name in items.firstIndex { $0.name == name } } ?? fallback
@@ -1635,6 +1685,13 @@ extension FilePanelController: FileListViewDelegate {
         }
         do {
             let url = try FileOperations.rename(item.url, to: newName)
+            if let results = searchResults {
+                let urls = results.urls.map { $0 == item.url ? url : $0 }
+                let shown = (item.name as NSString).deletingLastPathComponent
+                showSearchResults(urls, root: directory, title: results.title,
+                                  selecting: shown.isEmpty ? newName : shown + "/" + newName)
+                return
+            }
             load(directory, selecting: url.lastPathComponent)
         } catch {
             Prompt.error(String(localized: "Cannot rename \u{201C}\(item.name)\u{201D}"), error, in: view.window)
