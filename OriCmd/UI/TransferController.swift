@@ -17,6 +17,9 @@ final class TransferController {
     private let fileBar = NSProgressIndicator()
     private let totalBar = NSProgressIndicator()
     private var timer: Timer?
+    private let backgroundButton = NSButton(title: String(localized: "Background"), target: nil, action: nil)
+    /// After "Background" the progress is a separate window and the main window stays usable.
+    private var isInBackground = false
 
     init(title: String, failureTitle: String, window: NSWindow) {
         self.title = title
@@ -62,7 +65,11 @@ final class TransferController {
         }
 
         timer?.invalidate()
-        window.endSheet(sheet)
+        if isInBackground {
+            sheet.orderOut(nil)
+        } else {
+            window.endSheet(sheet)
+        }
         switch result {
         case .success(let done):
             return done
@@ -90,8 +97,12 @@ final class TransferController {
         let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancel(_:)))
         cancel.keyEquivalent = "\u{1b}"
 
+        backgroundButton.target = self
+        backgroundButton.action = #selector(moveToBackground(_:))
         let buttonRow = NSStackView()
+        buttonRow.addView(backgroundButton, in: .trailing)
         buttonRow.addView(cancel, in: .trailing)
+        sheet.hidesOnDeactivate = false
 
         let stack = NSStackView(views: [heading, fromLabel, toLabel, fileBar, totalBar, buttonRow])
         stack.orientation = .vertical
@@ -115,6 +126,18 @@ final class TransferController {
         toLabel.stringValue = state.target.isEmpty ? "" : String(localized: "To: \(state.target)")
         fileBar.doubleValue = state.fileBytes > 0 ? Double(state.fileDoneBytes) / Double(state.fileBytes) * 100 : 0
         totalBar.doubleValue = state.totalBytes > 0 ? Double(state.doneBytes) / Double(state.totalBytes) * 100 : 0
+    }
+
+    /// Total Commander's "Background": the operation continues in its own small
+    /// window while the panels can be used.
+    @objc private func moveToBackground(_ sender: Any?) {
+        guard !isInBackground else { return }
+        isInBackground = true
+        backgroundButton.isHidden = true
+        window.endSheet(sheet)
+        sheet.title = title
+        sheet.center()
+        sheet.makeKeyAndOrderFront(nil)
     }
 
     @objc private func cancel(_ sender: Any?) {

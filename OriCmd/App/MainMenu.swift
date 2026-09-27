@@ -21,7 +21,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: commandMenu(String(localized: "Mark"), [
             [.spreadSelection, .shrinkSelection],
         ], extra: markItems())))
-        mainMenu.addItem(container(for: commandMenu(String(localized: "Commands"), [
+        let commands = commandMenu(String(localized: "Commands"), [
             [.rereadSource, .exchange],
             [.openNewTab, .openDirInNewTab, .closeCurrentTab, .switchToNextTab, .switchToPreviousTab],
             [.searchFor, .directoryHotlist],
@@ -29,7 +29,10 @@ enum MainMenu {
             [.goToPrevDir, .goToNextDir, .directoryHistory, .goToParent, .goToRoot],
             [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],
-        ])))
+        ])
+        commands.addItem(.separator())
+        commands.addItem(item(String(localized: "Eject"), #selector(MainViewController.ejectVolume(_:)), "e"))
+        mainMenu.addItem(container(for: commands))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcThumbs, .srcTree, .srcQuickView],
             [.srcAllFiles, .srcUserSpec, .branchView],

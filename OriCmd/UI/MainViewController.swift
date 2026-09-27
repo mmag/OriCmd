@@ -599,6 +599,47 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
+    /// ⌘E: ejects the (removable or network) volume shown in the active panel.
+    @objc func ejectVolume(_ sender: Any?) {
+        guard let volume = ejectableVolume else {
+            NSSound.beep()
+            return
+        }
+        // Leave the volume in both panels first, so nothing keeps it busy.
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        for panel in [leftPanel, rightPanel] where panel.directory.path.hasPrefix(volume.path) {
+            panel.load(home)
+        }
+        let window = view.window
+        Task {
+            if let error = await Self.eject(volume) {
+                Prompt.error(String(localized: "Cannot eject \u{201C}\(volume.lastPathComponent)\u{201D}"), error,
+                             in: window)
+            }
+        }
+    }
+
+    /// The volume of the active panel's folder, if it can be ejected.
+    private var ejectableVolume: URL? {
+        guard let volume = Volume.containing(activePanel.directory, in: Volume.mounted())?.url,
+              volume.path != "/" else { return nil }
+        let values = try? volume.resourceValues(forKeys: [.volumeIsEjectableKey, .volumeIsRemovableKey,
+                                                         .volumeIsLocalKey])
+        let ejectable = values?.volumeIsEjectable == true || values?.volumeIsRemovable == true
+            || values?.volumeIsLocal == false
+        return ejectable ? volume : nil
+    }
+
+    @concurrent
+    private nonisolated static func eject(_ volume: URL) async -> Error? {
+        do {
+            try NSWorkspace.shared.unmountAndEjectDevice(at: volume)
+            return nil
+        } catch {
+            return error
+        }
+    }
+
     /// Opens Terminal in the active panel's folder.
     @objc(cm_ExecuteDOS:)
     func executeDOS(_ sender: Any?) {
@@ -697,6 +738,8 @@ extension MainViewController: NSMenuItemValidation {
             menuItem.state = showsHidden ? .on : .off
         } else if menuItem.action == Command.srcQuickView.selector {
             menuItem.state = quickView == nil ? .off : .on
+        } else if menuItem.action == #selector(ejectVolume(_:)) {
+            return ejectableVolume != nil
         } else if menuItem.action == Command.srcTree.selector {
             menuItem.state = treePanel == nil ? .off : .on
         }

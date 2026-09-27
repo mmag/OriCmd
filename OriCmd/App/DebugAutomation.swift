@@ -6,7 +6,7 @@ import AppKit
 /// - `ORICMD_LEFT`, `ORICMD_RIGHT`: initial panel directories.
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
-///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`. Only played when both panel
+///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `click:Button_Title`. Only played when both panel
 ///   directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
 ///   `<name>-sheet.png`) is rendered there after the keys are played.
@@ -45,6 +45,15 @@ enum DebugAutomation {
                 } else if token.hasPrefix("drop:"), let list = window.firstResponder as? FileListView {
                     // Simulates dropping a file onto the focused panel.
                     _ = list.delegate?.fileList(list, drop: [URL(filePath: String(token.dropFirst(5)))], into: nil, moving: false)
+                } else if token.hasPrefix("click:") {
+                    // Presses the button with that title in the topmost window.
+                    let title = String(token.dropFirst(6)).replacingOccurrences(of: "_", with: " ")
+                    func find(_ view: NSView?) -> NSButton? {
+                        guard let view else { return nil }
+                        if let button = view as? NSButton, button.title == title { return button }
+                        return view.subviews.lazy.compactMap(find).first
+                    }
+                    find(topmost(window).contentView)?.performClick(nil)
                 } else if token.hasPrefix("cmd:") {
                     perform(Selector(String(token.dropFirst(4)) + ":"), in: window)
                 } else if token.hasPrefix("text:") {

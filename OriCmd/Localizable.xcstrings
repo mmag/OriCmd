@@ -201,6 +201,16 @@
         }
       }
     },
+    "Background": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В фоне"
+          }
+        }
+      }
+    },
     "Branch View (All Files in Subfolders)": {
       "localizations": {
         "ru": {
@@ -347,6 +357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся удалить"
+          }
+        }
+      }
+    },
+    "Cannot eject “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся извлечь «%@»"
           }
         }
       }
@@ -857,6 +877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Новый файл"
+          }
+        }
+      }
+    },
+    "Eject": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Извлечь"
           }
         }
       }
