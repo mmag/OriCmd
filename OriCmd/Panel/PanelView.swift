@@ -29,6 +29,7 @@ final class PanelView: NSView {
 
     private var volumes: [Volume] = []
     private var tabBarHeight: NSLayoutConstraint!
+    private var headerHeight: NSLayoutConstraint!
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -72,6 +73,7 @@ final class PanelView: NSView {
             addSubview(view)
         }
 
+        headerHeight = headerView.heightAnchor.constraint(equalToConstant: headerView.intrinsicContentSize.height)
         tabBarHeight = tabBar.heightAnchor.constraint(equalToConstant: 0)
         tabBar.isHidden = true
         NSLayoutConstraint.activate([
@@ -102,6 +104,7 @@ final class PanelView: NSView {
             headerView.topAnchor.constraint(equalTo: pathBar.bottomAnchor),
             headerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            headerHeight,
 
             scrollView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -121,6 +124,16 @@ final class PanelView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) is not supported")
+    }
+
+    /// Full view shows column headers and scrolls vertically; Brief view has
+    /// no headers and scrolls horizontally.
+    func setViewMode(_ mode: FileListView.ViewMode) {
+        headerView.isHidden = mode == .brief
+        headerHeight.constant = mode == .brief ? 0 : headerView.intrinsicContentSize.height
+        scrollView.hasVerticalScroller = mode == .full
+        scrollView.hasHorizontalScroller = mode == .brief
+        listView.viewMode = mode
     }
 
     /// Shows the folder tabs (the bar is hidden when `visible` is false).

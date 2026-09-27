@@ -66,6 +66,11 @@ final class FilePanelController: NSViewController {
 
     var listView: FileListView { panelView.listView }
 
+    var viewMode: FileListView.ViewMode {
+        get { listView.viewMode }
+        set { panelView.setViewMode(newValue) }
+    }
+
     var isActive: Bool {
         get { panelView.isActive }
         set { panelView.isActive = newValue }
@@ -344,6 +349,20 @@ extension FilePanelController: NSMenuItemValidation {
         goToRoot()
     }
 
+    /// Brief view: names only, in columns.
+    @objc(cm_SrcShort:)
+    func srcShort(_ sender: Any?) {
+        viewMode = .brief
+        delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    /// Full view: one row per entry with size, date and attributes.
+    @objc(cm_SrcLong:)
+    func srcLong(_ sender: Any?) {
+        viewMode = .full
+        delegate?.filePanelDidChangeDirectory(self)
+    }
+
     @objc(cm_OpenNewTab:)
     func openNewTab(_ sender: Any?) {
         openTab(directory)
@@ -580,6 +599,8 @@ extension FilePanelController: NSMenuItemValidation {
             menuItem.state = sortOrder.ascending ? .off : .on
         } else if command == .goToParent {
             return directory.path != "/"
+        } else if command == .srcShort || command == .srcLong {
+            menuItem.state = (viewMode == .brief) == (command == .srcShort) ? .on : .off
         } else if [.closeCurrentTab, .switchToNextTab, .switchToPreviousTab].contains(command) {
             return tabs.count > 1
         }

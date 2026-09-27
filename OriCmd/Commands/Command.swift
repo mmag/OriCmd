@@ -47,6 +47,9 @@ enum Command: String, CaseIterable {
     case searchFor = "cm_SearchFor"
 
     // Show
+    case srcShort = "cm_SrcShort"
+    case srcLong = "cm_SrcLong"
+    case srcTree = "cm_SrcTree"
     case srcQuickView = "cm_SrcQuickview"
     case sortByName = "cm_SrcByName"
     case sortByExt = "cm_SrcByExt"
@@ -95,6 +98,9 @@ enum Command: String, CaseIterable {
         case .switchToPreviousTab: "Previous Tab"
         case .directoryHotlist: "Directory Hotlist…"
         case .searchFor: "Find Files…"
+        case .srcShort: "Brief"
+        case .srcLong: "Full"
+        case .srcTree: "Tree"
         case .srcQuickView: "Quick View"
         case .sortByName: "Sort by Name"
         case .sortByExt: "Sort by Extension"
@@ -137,6 +143,9 @@ enum Command: String, CaseIterable {
         case .switchToPreviousTab: .ctrl("\t", .shift)
         case .directoryHotlist: .cmd("d")
         case .searchFor: .f(7, .option)
+        case .srcShort: .cmd("1")
+        case .srcLong: .cmd("2")
+        case .srcTree: .cmd("3")
         default: nil
         }
     }
@@ -153,6 +162,9 @@ enum Command: String, CaseIterable {
         case .switchToNextTab: [.cmd("}")]
         case .switchToPreviousTab: [.cmd("{")]
         case .searchFor: [.cmd("f")]
+        case .srcShort: [.f(1, .control)]
+        case .srcLong: [.f(2, .control)]
+        case .srcTree: [.f(8, .control)]
         default: []
         }
     }

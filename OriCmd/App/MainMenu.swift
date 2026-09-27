@@ -27,7 +27,7 @@ enum MainMenu {
             [.executeDOS],
         ])))
         mainMenu.addItem(container(for: commandMenu("Show", [
-            [.srcQuickView],
+            [.srcShort, .srcLong, .srcTree, .srcQuickView],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
             [.switchHidSys],
         ])))

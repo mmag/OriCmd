@@ -15,6 +15,10 @@ final class MainViewController: NSViewController {
     private var quickView: QuickViewPanel?
     private var quickViewReplaces: FilePanelController?
 
+    /// Ctrl+F8 folder tree shown in place of `treeReplaces`' view.
+    private var treePanel: DirectoryTreePanel?
+    private var treeReplaces: FilePanelController?
+
     private static let showHiddenKey = "ShowHiddenFiles"
     private static let leftPanelKey = "LeftPanel"
     private static let rightPanelKey = "RightPanel"
@@ -113,6 +117,7 @@ final class MainViewController: NSViewController {
             return FilePanelController(tabDirectories: [override])
         }
         let state = AppDefaults.store.dictionary(forKey: key)
+        let viewMode = (state?["view"] as? String).flatMap(FileListView.ViewMode.init(rawValue:)) ?? .full
         let paths = state?["tabs"] as? [String] ?? []
         let active = state?["active"] as? Int ?? 0
         var directories: [URL] = []
@@ -121,13 +126,16 @@ final class MainViewController: NSViewController {
             if index == active { activeIndex = directories.count }
             directories.append(URL(filePath: path))
         }
-        return FilePanelController(tabDirectories: directories, activeTab: activeIndex)
+        let panel = FilePanelController(tabDirectories: directories, activeTab: activeIndex)
+        panel.viewMode = viewMode
+        return panel
     }
 
     private func savePanels() {
         for (panel, key) in [(leftPanel, Self.leftPanelKey), (rightPanel, Self.rightPanelKey)] {
             let state = panel.tabState
-            AppDefaults.store.set(["tabs": state.directories, "active": state.active], forKey: key)
+            AppDefaults.store.set(["tabs": state.directories, "active": state.active,
+                                   "view": panel.viewMode.rawValue], forKey: key)
         }
     }
 
@@ -290,33 +298,75 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
-    private func openQuickView() {
-        let replaced = inactivePanel
-        guard let index = splitView.arrangedSubviews.firstIndex(of: replaced.view) else { return }
+    /// Puts `newView` where `oldView` is in the split view, keeping the divider.
+    private func replaceInSplitView(_ oldView: NSView, with newView: NSView) {
+        guard let index = splitView.arrangedSubviews.firstIndex(of: oldView) else { return }
         let position = splitView.arrangedSubviews[0].frame.width
-        let panel = QuickViewPanel()
-        splitView.removeArrangedSubview(replaced.view)
-        replaced.view.removeFromSuperview()
-        splitView.insertArrangedSubview(panel, at: index)
+        splitView.removeArrangedSubview(oldView)
+        oldView.removeFromSuperview()
+        splitView.insertArrangedSubview(newView, at: index)
         splitView.layoutSubtreeIfNeeded()
         splitView.setPosition(position, ofDividerAt: 0)
+    }
+
+    private func openQuickView() {
+        closeTree()
+        let replaced = inactivePanel
+        let panel = QuickViewPanel()
+        replaceInSplitView(replaced.view, with: panel)
         quickView = panel
         quickViewReplaces = replaced
         updateQuickView()
     }
 
     private func closeQuickView() {
-        guard let panel = quickView, let replaced = quickViewReplaces,
-              let index = splitView.arrangedSubviews.firstIndex(of: panel) else { return }
-        let position = splitView.arrangedSubviews[0].frame.width
+        guard let panel = quickView, let replaced = quickViewReplaces else { return }
         panel.close()
-        splitView.removeArrangedSubview(panel)
-        panel.removeFromSuperview()
-        splitView.insertArrangedSubview(replaced.view, at: index)
-        splitView.layoutSubtreeIfNeeded()
-        splitView.setPosition(position, ofDividerAt: 0)
+        replaceInSplitView(panel, with: replaced.view)
         quickView = nil
         quickViewReplaces = nil
+    }
+
+    /// Ctrl+F8: turns the active panel into a folder tree; the other panel
+    /// follows the selected folder.
+    @objc(cm_SrcTree:)
+    func srcTree(_ sender: Any?) {
+        if treePanel == nil {
+            openTree()
+        } else {
+            closeTree()
+        }
+    }
+
+    private func openTree() {
+        closeQuickView()
+        let replaced = activePanel
+        let target = inactivePanel
+        let tree = DirectoryTreePanel(root: URL(filePath: "/"), showsHidden: showsHidden)
+        replaceInSplitView(replaced.view, with: tree)
+        treePanel = tree
+        treeReplaces = replaced
+        tree.reveal(replaced.directory)
+        tree.onSelect = { url in target.load(url) }
+        tree.onSwitchPanel = { target.focus() }
+        tree.onClose = { [weak self] mode in
+            self?.closeTree()
+            replaced.viewMode = mode
+        }
+        tree.focus()
+    }
+
+    /// Restores the panel, showing the folder selected in the tree.
+    private func closeTree() {
+        guard let tree = treePanel, let replaced = treeReplaces else { return }
+        let selected = tree.selectedURL
+        replaceInSplitView(tree, with: replaced.view)
+        treePanel = nil
+        treeReplaces = nil
+        if let selected {
+            replaced.load(selected)
+        }
+        replaced.focus()
     }
 
     private func updateQuickView() {
@@ -330,6 +380,8 @@ extension MainViewController: NSMenuItemValidation {
             menuItem.state = showsHidden ? .on : .off
         } else if menuItem.action == Command.srcQuickView.selector {
             menuItem.state = quickView == nil ? .off : .on
+        } else if menuItem.action == Command.srcTree.selector {
+            menuItem.state = treePanel == nil ? .off : .on
         }
         return true
     }
@@ -342,7 +394,12 @@ extension MainViewController: FilePanelControllerDelegate {
 
     func filePanelSwitchPanel(_ panel: FilePanelController) {
         closeQuickView()
-        (panel === leftPanel ? rightPanel : leftPanel).focus()
+        let other = panel === leftPanel ? rightPanel : leftPanel
+        if let treePanel, other === treeReplaces {
+            treePanel.focus()
+        } else {
+            other.focus()
+        }
     }
 
     func filePanel(_ panel: FilePanelController, interceptKey event: NSEvent) -> Bool {

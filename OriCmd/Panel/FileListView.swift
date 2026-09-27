@@ -21,10 +21,27 @@ protocol FileListViewDelegate: AnyObject {
     func fileList(_ list: FileListView, beginQuickSearchWith text: String)
 }
 
-/// Full view file list: one row per entry, a cursor bar that is filled
-/// in the active panel and outlined in the inactive one.
+/// The file list of a panel, in Full view (one row per entry with details) or
+/// Brief view (names only, in columns filled top to bottom). The cursor bar is
+/// filled in the active panel and outlined in the inactive one.
 final class FileListView: NSView {
+    enum ViewMode: String {
+        case full, brief
+    }
+
     weak var delegate: FileListViewDelegate?
+
+    var viewMode = ViewMode.full {
+        didSet {
+            guard viewMode != oldValue else { return }
+            updateBriefColumnWidth()
+            updateFrameSize()
+            needsDisplay = true
+            scrollCursorToVisible()
+        }
+    }
+
+    private var briefColumnWidth: CGFloat = 160
 
     private(set) var items: [FileItem] = []
     private(set) var cursor = 0
@@ -64,6 +81,7 @@ final class FileListView: NSView {
         }
         self.items = items
         marked.formIntersection(items.map(\.name))
+        updateBriefColumnWidth()
         self.cursor = items.isEmpty ? 0 : min(max(cursor, 0), items.count - 1)
         updateFrameSize()
         needsDisplay = true
@@ -95,12 +113,15 @@ final class FileListView: NSView {
         endRenaming()
         scrollCursorToVisible()
 
-        let layout = ColumnLayout(width: bounds.width)
         let row = rowRect(cursor)
-        let name = layout.rect(for: .name, y: row.minY, height: rowHeight)
-        let ext = layout.rect(for: .ext, y: row.minY, height: rowHeight)
-        let field = NSTextField(frame: NSRect(x: name.minX + 20, y: row.minY - 1,
-                                              width: ext.maxX - name.minX - 20, height: rowHeight + 2))
+        var frame = row.insetBy(dx: 0, dy: -1)
+        if viewMode == .full {
+            let layout = ColumnLayout(width: bounds.width)
+            frame.size.width = layout.rect(for: .ext, y: 0, height: 0).maxX
+        }
+        frame.origin.x += 20
+        frame.size.width -= 20
+        let field = NSTextField(frame: frame)
         field.stringValue = item.name
         field.font = Theme.panelFont
         field.focusRingType = .none
@@ -191,12 +212,54 @@ final class FileListView: NSView {
         delegate?.fileList(self, markGroup: false)
     }
 
+    /// Entries per page: visible rows (Full) or visible columns × rows (Brief).
     private var visibleRowCount: Int {
-        max(Int(visibleRect.height / rowHeight), 1)
+        switch viewMode {
+        case .full:
+            max(Int(visibleRect.height / rowHeight), 1)
+        case .brief:
+            max(Int(visibleRect.width / briefColumnWidth), 1) * briefRowsPerColumn
+        }
+    }
+
+    private var briefRowsPerColumn: Int {
+        max(Int((superview?.bounds.height ?? rowHeight) / rowHeight), 1)
     }
 
     private func rowRect(_ row: Int) -> NSRect {
-        NSRect(x: 0, y: CGFloat(row) * rowHeight, width: bounds.width, height: rowHeight)
+        switch viewMode {
+        case .full:
+            return NSRect(x: 0, y: CGFloat(row) * rowHeight, width: bounds.width, height: rowHeight)
+        case .brief:
+            let rows = briefRowsPerColumn
+            return NSRect(x: CGFloat(row / rows) * briefColumnWidth, y: CGFloat(row % rows) * rowHeight,
+                          width: briefColumnWidth, height: rowHeight)
+        }
+    }
+
+    private func index(at point: NSPoint) -> Int? {
+        let row = Int(point.y / rowHeight)
+        let index: Int
+        switch viewMode {
+        case .full:
+            index = row
+        case .brief:
+            guard row < briefRowsPerColumn else { return nil }
+            index = Int(point.x / briefColumnWidth) * briefRowsPerColumn + row
+        }
+        return items.indices.contains(index) ? index : nil
+    }
+
+    /// Brief columns are as wide as the longest name (within limits).
+    private func updateBriefColumnWidth() {
+        guard viewMode == .brief else { return }
+        let longest = items.map(displayName).max { $0.count < $1.count } ?? ""
+        let width = (longest as NSString).size(withAttributes: [.font: Theme.panelFont]).width + 36
+        briefColumnWidth = min(max(width, 100), 360).rounded()
+    }
+
+    private func displayName(_ item: FileItem) -> String {
+        item.isFolder ? "[\(item.name)]" : item.name
     }
 
     private func scrollCursorToVisible() {
@@ -224,8 +287,17 @@ final class FileListView: NSView {
 
     private func updateFrameSize() {
         guard let superview else { return }
-        let height = max(CGFloat(items.count) * rowHeight, superview.bounds.height)
-        let size = NSSize(width: superview.bounds.width, height: height)
+        let size: NSSize
+        switch viewMode {
+        case .full:
+            size = NSSize(width: superview.bounds.width,
+                          height: max(CGFloat(items.count) * rowHeight, superview.bounds.height))
+        case .brief:
+            let columns = (items.count + briefRowsPerColumn - 1) / briefRowsPerColumn
+            size = NSSize(width: max(CGFloat(columns) * briefColumnWidth, superview.bounds.width),
+                          height: superview.bounds.height)
+            needsDisplay = true
+        }
         if frame.size != size { setFrameSize(size) }
     }
 
@@ -236,41 +308,77 @@ final class FileListView: NSView {
         dirtyRect.fill()
         guard !items.isEmpty else { return }
 
+        let first: Int
+        let last: Int
+        switch viewMode {
+        case .full:
+            first = Int(dirtyRect.minY / rowHeight)
+            last = Int(dirtyRect.maxY / rowHeight)
+        case .brief:
+            first = Int(dirtyRect.minX / briefColumnWidth) * briefRowsPerColumn
+            last = (Int(dirtyRect.maxX / briefColumnWidth) + 1) * briefRowsPerColumn - 1
+        }
+        let range = max(first, 0)...min(last, items.count - 1)
+        guard !range.isEmpty, range.lowerBound <= range.upperBound else { return }
         let layout = ColumnLayout(width: bounds.width)
-        let first = max(Int(dirtyRect.minY / rowHeight), 0)
-        let last = min(Int(dirtyRect.maxY / rowHeight), items.count - 1)
-        guard first <= last else { return }
-        for row in first...last {
-            drawRow(row, layout: layout)
+        for row in range {
+            switch viewMode {
+            case .full: drawRow(row, layout: layout)
+            case .brief: drawBriefCell(row)
+            }
         }
     }
 
-    private func drawRow(_ row: Int, layout: ColumnLayout) {
-        let item = items[row]
-        let rect = rowRect(row)
-        let isCursor = row == cursor
-        let filled = isCursor && isActive
-
+    /// Fills the cursor bar if needed and returns the text color for the entry.
+    private func prepareCell(_ row: Int, in rect: NSRect) -> NSColor {
+        let filled = row == cursor && isActive
         if filled {
             Theme.cursorBackground.setFill()
             rect.fill()
         }
-
-        let isMarked = marked.contains(item.name)
-        let color = switch (filled, isMarked) {
+        let isMarked = marked.contains(items[row].name)
+        return switch (filled, isMarked) {
         case (true, true): Theme.markedCursorText
         case (true, false): Theme.cursorText
         case (false, true): Theme.markedText
         case (false, false): Theme.panelText
         }
-        let y = rect.minY
+    }
 
-        let nameRect = layout.rect(for: .name, y: y, height: rowHeight)
+    private func drawIcon(for item: FileItem, in rect: NSRect) {
         FileIcons.icon(for: item).draw(
-            in: NSRect(x: nameRect.minX + 3, y: y + (rowHeight - 16) / 2, width: 16, height: 16),
+            in: NSRect(x: rect.minX + 3, y: rect.minY + (rowHeight - 16) / 2, width: 16, height: 16),
             from: .zero, operation: .sourceOver, fraction: item.isHidden ? 0.5 : 1,
             respectFlipped: true, hints: nil
         )
+    }
+
+    private func drawInactiveCursorFrame(_ row: Int, in rect: NSRect) {
+        guard row == cursor, !isActive else { return }
+        Theme.inactiveCursorFrame.setStroke()
+        let frame = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5))
+        frame.setLineDash([1, 1], count: 2, phase: 0)
+        frame.stroke()
+    }
+
+    private func drawBriefCell(_ row: Int) {
+        let item = items[row]
+        let rect = rowRect(row)
+        let color = prepareCell(row, in: rect)
+        drawIcon(for: item, in: rect)
+        drawText(displayName(item), in: rect.divided(atDistance: 20, from: .minXEdge).remainder,
+                 font: Theme.panelFont, color: color)
+        drawInactiveCursorFrame(row, in: rect)
+    }
+
+    private func drawRow(_ row: Int, layout: ColumnLayout) {
+        let item = items[row]
+        let rect = rowRect(row)
+        let color = prepareCell(row, in: rect)
+        let y = rect.minY
+
+        let nameRect = layout.rect(for: .name, y: y, height: rowHeight)
+        drawIcon(for: item, in: nameRect)
         let name = item.isFolder ? "[\(item.baseName)]" : item.baseName
         drawText(name, in: nameRect.divided(atDistance: 20, from: .minXEdge).remainder,
                  font: Theme.panelFont, color: color)
@@ -297,12 +405,7 @@ final class FileListView: NSView {
                      font: Theme.panelNumberFont, color: color)
         }
 
-        if isCursor && !isActive {
-            Theme.inactiveCursorFrame.setStroke()
-            let frame = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5))
-            frame.setLineDash([1, 1], count: 2, phase: 0)
-            frame.stroke()
-        }
+        drawInactiveCursorFrame(row, in: rect)
     }
 
     private func drawText(_ text: String, in rect: NSRect, font: NSFont, color: NSColor,
@@ -325,8 +428,7 @@ final class FileListView: NSView {
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
-        let row = Int(point.y / rowHeight)
-        guard items.indices.contains(row) else { return }
+        guard let row = index(at: point) else { return }
         if event.modifierFlags.contains(.command) {
             toggleMark(at: row)
             moveCursor(to: row)
@@ -363,6 +465,14 @@ final class FileListView: NSView {
             moveCursor(to: 0)
         case (.end?, []):
             moveCursor(to: items.count - 1)
+        case (.leftArrow?, []) where viewMode == .brief:
+            moveCursor(to: cursor - briefRowsPerColumn)
+        case (.rightArrow?, []) where viewMode == .brief:
+            moveCursor(to: min(cursor + briefRowsPerColumn, items.count - 1))
+        case (.leftArrow?, [.shift]) where viewMode == .brief:
+            markRangeAndMove(to: max(cursor - briefRowsPerColumn, 0))
+        case (.rightArrow?, [.shift]) where viewMode == .brief:
+            markRangeAndMove(to: min(cursor + briefRowsPerColumn, items.count - 1))
         case (.carriageReturn?, []), (.enter?, []), (.downArrow?, [.command]):
             delegate?.fileList(self, openItemAt: cursor)
         case (.pageDown?, [.control]):
