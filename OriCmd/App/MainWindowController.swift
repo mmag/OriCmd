@@ -11,6 +11,7 @@ final class MainWindowController: NSWindowController {
             defer: false
         )
         window.title = "OriCmd"
+        window.contentViewController = MainViewController()
         window.minSize = NSSize(width: 640, height: 400)
         if !window.setFrameUsingName(Self.frameAutosaveName) {
             window.center()
