@@ -1194,7 +1194,8 @@ extension FilePanelController: NSMenuItemValidation {
             }
             return
         }
-        ListerWindowController.show(item.url)
+        let files = listView.items.filter { !$0.isParent && !$0.isFolder }.map(\.url)
+        ListerWindowController.show(item.url, siblings: files)
     }
 
     /// F4: opens the file under the cursor in the default text editor.

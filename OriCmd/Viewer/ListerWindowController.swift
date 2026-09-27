@@ -5,7 +5,8 @@ import UniformTypeIdentifiers
 /// F3 viewer modelled on Total Commander's Lister. Shows text, a hex dump,
 /// or a Quick Look preview (images, PDF, media, documents).
 ///
-/// Keys: 1 text, 3 hex, 7 preview, Esc closes.
+/// Keys: 1 text, 3 hex, 7 preview, W word wrap, N / P next / previous file,
+/// F7 or ⌘F find, F3 / ⇧F3 find next / previous, Esc closes.
 final class ListerWindowController: NSWindowController, NSWindowDelegate {
     enum Mode {
         case text, hex, preview
@@ -15,19 +16,24 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
     private static let hexLimit = 256 * 1024
     private static var openControllers: [ListerWindowController] = []
 
-    private let url: URL
+    private var url: URL
+    private let siblings: [URL]
+    private var mode = Mode.text
+    private var wrapsLines = true
     private let scrollView = NSTextView.scrollableTextView()
     private var textView: NSTextView { scrollView.documentView as! NSTextView }
     private var preview: QLPreviewView?
 
-    static func show(_ url: URL) {
-        let controller = ListerWindowController(url: url)
+    /// Shows `url`; N / P step through `siblings` (the other files of its folder).
+    static func show(_ url: URL, siblings: [URL] = []) {
+        let controller = ListerWindowController(url: url, siblings: siblings)
         openControllers.append(controller)
         controller.showWindow(nil)
     }
 
-    private init(url: URL) {
+    private init(url: URL, siblings: [URL]) {
         self.url = url
+        self.siblings = siblings
         let window = ListerWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 650),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -40,6 +46,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
 
         textView.isEditable = false
+        textView.usesFindBar = true
+        textView.isIncrementalSearchingEnabled = true
         textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         show(Self.defaultMode(for: url))
         window.keyHandler = { [weak self] event in self?.handleKey(event) ?? false }
@@ -56,26 +64,67 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
-        let modifiers = event.modifierFlags.intersection([.command, .control, .option])
-        guard modifiers.isEmpty else { return false }
-        switch event.charactersIgnoringModifiers {
-        case "\u{1b}": window?.close()
-        case "1": show(.text)
-        case "3": show(.hex)
-        case "7": show(.preview)
-        default: return false
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if modifiers == .command, event.charactersIgnoringModifiers == "f" {
+            find(.showFindInterface)
+            return true
+        }
+        switch (event.specialKey, modifiers) {
+        case (.f7?, []): find(.showFindInterface)
+        case (.f3?, []): find(.nextMatch)
+        case (.f3?, [.shift]): find(.previousMatch)
+        default:
+            // Plain keys only when the find bar is not being typed into.
+            guard modifiers.isEmpty || modifiers == .shift, !(window?.firstResponder is NSTextView
+                  && window?.firstResponder !== textView) else { return false }
+            switch event.charactersIgnoringModifiers?.lowercased() {
+            case "\u{1b}": window?.close()
+            case "1": show(.text)
+            case "3": show(.hex)
+            case "7": show(.preview)
+            case "w": toggleWrapping()
+            case "n": step(1)
+            case "p": step(-1)
+            default: return false
+            }
         }
         return true
+    }
+
+    private func find(_ action: NSTextFinder.Action) {
+        guard mode != .preview else { return }
+        window?.makeFirstResponder(textView)
+        let item = NSMenuItem()
+        item.tag = action.rawValue
+        textView.performTextFinderAction(item)
+    }
+
+    private func toggleWrapping() {
+        guard mode == .text else { return }
+        wrapsLines.toggle()
+        setWrapping(wrapsLines)
+    }
+
+    /// N / P: shows the next or previous file of the folder in this window.
+    private func step(_ offset: Int) {
+        guard let index = siblings.firstIndex(of: url), siblings.indices.contains(index + offset) else {
+            NSSound.beep()
+            return
+        }
+        url = siblings[index + offset]
+        window?.title = "Lister - [\(url.path)]"
+        show(Self.defaultMode(for: url))
     }
 
     // MARK: - Modes
 
     private func show(_ mode: Mode) {
         guard let window else { return }
+        self.mode = mode
         switch mode {
         case .text:
             textView.string = Self.text(of: url)
-            setWrapping(true)
+            setWrapping(wrapsLines)
             window.contentView = scrollView
         case .hex:
             textView.string = Self.hexDump(of: url)
