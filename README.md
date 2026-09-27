@@ -1,316 +1,319 @@
 # OriCmd
 
-Двухпанельный файловый менеджер для macOS с привычным видом: две панели,
-кнопки F-клавиш внизу, командная строка и полное управление с клавиатуры —
-всё на своих местах. Стандартные сочетания macOS (`⌘C`, `⌘V`, `⌘Q`, `⌘W`, …)
-при этом работают как обычно.
+**English** | [Русский](README.ru.md)
 
-![Главное окно OriCmd](docs/screenshots/main.png)
+A two-panel file manager for macOS with a familiar look: two panels, function
+key buttons at the bottom, a command line and full keyboard control — everything
+in its usual place. The standard macOS shortcuts (`⌘C`, `⌘V`, `⌘Q`, `⌘W`, …)
+keep working as always.
 
-## Возможности
+![OriCmd main window](docs/screenshots/en/main.png)
 
-- **Панели:** вкладки, история, избранные каталоги, дерево, фильтры, быстрый
-  поиск; подробный и краткий вид, эскизы, дополнительные колонки, цвета файлов
-  по маске.
-- **Копирование и перемещение:** очередь и работа в фоне, фильтр по типам
-  файлов, маски имён, режимы перезаписи, проверка после копирования.
-- **Архивы как папки:** zip, tar, 7z и другие — просмотр, распаковка,
-  упаковка, изменение прямо в архиве.
-- **Серверы в панели:** SFTP (через системный ssh, с ключами и паролями),
-  FTP/FTPS, сохранённые соединения; smb, afp, NFS, WebDAV — как тома.
-- **Инструменты:** просмотр текста, hex и Quick Look (`F3`), сравнение файлов
-  по содержимому, синхронизация каталогов, групповое переименование, поиск
-  файлов, контрольные суммы, атрибуты.
-- **Под себя:** свои сочетания клавиш (в том числе импорт из `wincmd.ini`),
-  меню «Запуск», программы для `Enter`/`F3`/`F4` по маске, настраиваемая
-  панель кнопок.
-- Английский и русский интерфейс, автообновление с GitHub.
+## Features
 
-## Скриншоты
+- **Panels:** tabs, history, directory hotlist, tree, filters, quick search;
+  full and brief views, thumbnails, optional columns, file colors by mask.
+- **Copy and move:** queue and background operations, file type filter, name
+  masks, overwrite modes, verification after copying.
+- **Archives as folders:** zip, tar, 7z and more — browse, extract, pack and
+  change files right inside an archive.
+- **Servers in a panel:** SFTP (through the system ssh, with keys and
+  passwords), FTP/FTPS, saved connections; smb, afp, NFS and WebDAV as volumes.
+- **Tools:** text, hex and Quick Look viewer (`F3`), compare files by content,
+  synchronize directories, multi-rename, find files, checksums, attributes.
+- **Make it yours:** your own keyboard shortcuts (including import from
+  `wincmd.ini`), a Start menu, programs for `Enter`/`F3`/`F4` by file mask, a
+  customizable button bar.
+- English and Russian interface, automatic updates from GitHub.
+
+## Screenshots
 
 | | |
 |---|---|
-| ![Диалог копирования](docs/screenshots/copy-dialog.png)<br>Копирование (`F5`): фильтр, маски, режимы перезаписи | ![Настройки](docs/screenshots/settings.png)<br>Настройки с образцом панели |
-| ![Сравнение по содержимому](docs/screenshots/compare.png)<br>Сравнение файлов по содержимому | ![Групповое переименование](docs/screenshots/multi-rename.png)<br>Групповое переименование (`Ctrl+M`) |
-| ![Синхронизация каталогов](docs/screenshots/sync.png)<br>Синхронизация каталогов | |
+| ![Copy dialog](docs/screenshots/en/copy-dialog.png)<br>Copy (`F5`): file type filter, name masks, overwrite modes | ![Settings](docs/screenshots/en/settings.png)<br>Settings with a panel preview |
+| ![Compare by content](docs/screenshots/en/compare.png)<br>Compare files by content | ![Multi-Rename Tool](docs/screenshots/en/multi-rename.png)<br>Multi-Rename Tool (`Ctrl+M`) |
+| ![Synchronize directories](docs/screenshots/en/sync.png)<br>Synchronize directories | |
 
-Скриншоты пересобираются скриптом `scripts/screenshots.sh` на демо-папках.
+The screenshots are made by `scripts/screenshots.sh` on demo folders
+(English ones in `docs/screenshots/en`, Russian ones in `docs/screenshots/ru`).
 
-## Установка
+## Installation
 
-Готовые образы — на странице [Releases](https://github.com/mmag/OriCmd/releases).
-Образ можно собрать и самому (универсальное приложение для Apple Silicon и
+Disk images are on the [Releases](https://github.com/mmag/OriCmd/releases)
+page. You can also build one yourself (a universal app for Apple Silicon and
 Intel, macOS 14+):
 
 ```sh
-scripts/make-dmg.sh        # → build/OriCmd-<версия>.dmg
+scripts/make-dmg.sh        # → build/OriCmd-<version>.dmg
 ```
 
-Откройте образ и перетащите OriCmd в «Программы». Приложение подписано
-ad-hoc, без сертификата Apple, поэтому при первом запуске macOS его не
-откроет: нажмите на OriCmd правой кнопкой → «Открыть» → «Открыть» (или
-System Settings → Privacy & Security → «Open Anyway»). Либо снимите карантин:
+Open the image and drag OriCmd to Applications. The app is ad-hoc signed,
+without an Apple certificate, so macOS won't open it the first time: right-click
+OriCmd → Open → Open (or System Settings → Privacy & Security → Open Anyway).
+Or remove the quarantine:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/OriCmd.app
 ```
 
-Дальше OriCmd обновляется сам: раз в день (выключается в настройках) и по
-«OriCmd → Проверить обновления…» он смотрит последний релиз на GitHub, скачивает
-образ, заменяет приложение и перезапускается. Обновление не попадает в
-карантин, так что повторно разрешать запуск не нужно.
+After that OriCmd updates itself: once a day (can be turned off in Settings) and
+with OriCmd → Check for Updates… it looks for the latest release on GitHub,
+downloads the image, replaces the app and relaunches. Updates are not
+quarantined, so there is no need to allow the app again.
 
-## Сборка
+## Building
 
-Требуется macOS 14+ и Xcode.
+Requires macOS 14+ and Xcode.
 
 ```sh
 xcodebuild -project OriCmd.xcodeproj -scheme OriCmd -configuration Debug build
 ```
 
-Иконка рисуется скриптом `swift scripts/make-icon.swift`.
+The icon is drawn by `swift scripts/make-icon.swift`.
 
-## Клавиши
+## Keys
 
-F-клавиши на Mac по умолчанию управляют яркостью, звуком и т. п. Нажимайте их
-с `fn` или включите «Use F1, F2, etc. keys as standard function keys» в
+On a Mac the F keys control brightness, sound and so on by default. Press them
+with `fn`, or turn on "Use F1, F2, etc. keys as standard function keys" in
 System Settings → Keyboard.
 
-У команд есть внутренние имена (`cm_Copy`, `cm_RenMov`, …), совместимые с
-`wincmd.ini`; все они доступны из меню. В скобках — дополнительные сочетания в
-стиле macOS.
+Commands have internal names (`cm_Copy`, `cm_RenMov`, …) compatible with
+`wincmd.ini`; all of them are in the menus. Shortcuts in parentheses are
+additional Mac-style ones.
 
-Сочетания привязаны к физическим клавишам: на русской раскладке
-`Ctrl+D`, `Ctrl+B`, `Ctrl+U` и т. п. работают так же, как на английской.
+Shortcuts are bound to physical keys: with a Russian (or any other) keyboard
+layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 
-### Панели и навигация
+### Panels and navigation
 
-| Клавиша | Действие |
+| Key | Action |
 |---|---|
-| `↑` `↓` `PgUp` `PgDn` `Home` `End` | Перемещение курсора |
-| `Enter`, двойной клик (`⌘↓`) | Войти в папку / открыть файл |
-| `Backspace`, `Ctrl+PgUp` (`⌘↑`) | Родительская папка |
-| `Ctrl+PgDn` | Войти внутрь пакета (`.app` и т. п.) |
-| `Tab` | Переключить панель |
-| `Alt+←` / `Alt+→` (`⌘[` / `⌘]`) | Назад / вперёд по истории папок |
-| `Alt+↓` | Список недавних папок |
-| `Ctrl+←` / `Ctrl+→` (`⌥⌘←` / `⌥⌘→`) | Показать папку под курсором в левой / правой панели |
-| `Alt+F1` / `Alt+F2` | Список томов левой / правой панели |
-| `Ctrl+\` | Корень тома |
-| `⌘T` / `⌘W` | Новая вкладка / закрыть вкладку |
-| `Ctrl+Tab` / `Ctrl+Shift+Tab` (`⇧⌘]` / `⇧⌘[`) | Следующая / предыдущая вкладка |
-| `Ctrl+↑` (`⌥⌘↑`) | Открыть папку под курсором в новой вкладке |
-| `Ctrl+D` (`⌘D`) | Избранные каталоги (Hotlist): переход, добавить/убрать текущий |
-| `Alt+`буква, `Ctrl+Alt+`буква | Быстрый поиск по имени (`↑`/`↓` — другие совпадения, `*` в начале — поиск по подстроке) |
-| `Alt+F7` (`⌘F`) | Поиск файлов по маске и тексту; «В панель» показывает найденное списком в панели, где с файлами работают все команды, `[..]` возвращает в папку поиска |
-| `Ctrl+F1` / `Ctrl+F2` (`⌘1` / `⌘2`) | Краткий (Brief) / подробный (Full) вид |
-| `Ctrl+Shift+F1` (`⌘4`) | Эскизы (превью Quick Look) |
-| Правый клик по заголовку колонок | Дополнительные колонки: тип файла, дата создания, размеры картинки, длительность, теги Finder (сортируются кликом, как и остальные) |
-| `Ctrl+F8` (`⌘3`) | Дерево каталогов; соседняя панель показывает выбранную папку |
-| `Shift+F2` | Сравнить каталоги: отметить в обеих панелях уникальные и более новые файлы |
-| Команды → «Синхронная смена каталогов» | Вход в подпапку или переход вверх в одной панели повторяется в другой (если там есть такая папка) |
-| Команды → Синхронизировать каталоги | Рекурсивное сравнение двух папок и копирование в выбранных направлениях (двойной клик или `Space` меняет направление) |
-| `Ctrl+U` | Поменять панели местами |
-| Команды → Левая = правая / Правая = левая | Открыть в одной панели папку другой |
-| `⌘R` (`Ctrl+R`) | Перечитать папку (изменения отслеживаются и автоматически) |
-| `⇧⌘.` | Показать / скрыть скрытые файлы |
-| `Ctrl+F3` … `Ctrl+F6` (`⌃⌥⌘1` … `⌃⌥⌘4`) | Сортировка по имени, расширению, дате, размеру; повторно — обратный порядок. Клик по заголовку колонки делает то же |
+| `↑` `↓` `PgUp` `PgDn` `Home` `End` | Move the cursor |
+| `Enter`, double-click (`⌘↓`) | Open a folder / open a file |
+| `Backspace`, `Ctrl+PgUp` (`⌘↑`) | Parent folder |
+| `Ctrl+PgDn` | Go inside a package (`.app` etc.) |
+| `Tab` | Switch panels |
+| `Alt+←` / `Alt+→` (`⌘[` / `⌘]`) | Back / forward in the folder history |
+| `Alt+↓` | Recent folders |
+| `Ctrl+←` / `Ctrl+→` (`⌥⌘←` / `⌥⌘→`) | Show the folder under the cursor in the left / right panel |
+| `Alt+F1` / `Alt+F2` | Volume list of the left / right panel |
+| `Ctrl+\` | Root of the volume |
+| `⌘T` / `⌘W` | New tab / close tab |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` (`⇧⌘]` / `⇧⌘[`) | Next / previous tab |
+| `Ctrl+↑` (`⌥⌘↑`) | Open the folder under the cursor in a new tab |
+| `Ctrl+D` (`⌘D`) | Directory hotlist: go, add or remove the current folder |
+| `Alt`+letter, `Ctrl+Alt`+letter | Quick search by name (`↑`/`↓` — other matches, a leading `*` searches inside names) |
+| `Alt+F7` (`⌘F`) | Find files by mask and text; "Feed to Panel" shows the results as a list in the panel, where all commands work on them, `[..]` returns to the search folder |
+| `Ctrl+F1` / `Ctrl+F2` (`⌘1` / `⌘2`) | Brief / Full view |
+| `Ctrl+Shift+F1` (`⌘4`) | Thumbnails (Quick Look previews) |
+| Right-click on the column headers | Optional columns: kind, date created, picture dimensions, duration, Finder tags (sortable like the others) |
+| `Ctrl+F8` (`⌘3`) | Directory tree; the other panel shows the chosen folder |
+| `Shift+F2` | Compare directories: mark unique and newer files in both panels |
+| Commands → Synchronous Directory Changes | Entering a subfolder or going up in one panel is repeated in the other (if it has such a folder) |
+| Commands → Synchronize Directories… | Compare two folders recursively and copy in the chosen directions (double-click or `Space` changes the direction) |
+| `Ctrl+U` | Swap panels |
+| Commands → Left = Right / Right = Left | Show the folder of one panel in the other |
+| `⌘R` (`Ctrl+R`) | Reread the folder (changes are also picked up automatically) |
+| `⇧⌘.` | Show / hide hidden files |
+| `Ctrl+F3` … `Ctrl+F6` (`⌃⌥⌘1` … `⌃⌥⌘4`) | Sort by name, extension, date, size; again — reverse order. Clicking a column header does the same |
 
-`Ctrl+F1`…`Ctrl+F8`, `Ctrl+↑` и `Ctrl+←/→` по умолчанию заняты macOS (фокус на
-Dock и строку меню, Mission Control, переключение Spaces). Их можно отключить в System Settings → Keyboard →
-Keyboard Shortcuts либо пользоваться сочетаниями в скобках.
+`Ctrl+F1`…`Ctrl+F8`, `Ctrl+↑` and `Ctrl+←/→` are taken by macOS by default
+(focus on the Dock and the menu bar, Mission Control, switching Spaces). Turn
+them off in System Settings → Keyboard → Keyboard Shortcuts, or use the
+shortcuts in parentheses.
 
-### Выделение
+### Selection
 
-| Клавиша | Действие |
+| Key | Action |
 |---|---|
-| `Space`, `Insert` | Отметить файл и перейти ниже; на папке — ещё и подсчитать её размер |
-| `Alt+Shift+Enter` | Подсчитать размер всех папок |
-| `Shift+↑/↓`, `Shift+PgUp/PgDn/Home/End` | Отметить диапазон |
-| `⌘`+клик, `Shift`+клик | Отметить мышью |
-| `+` / `−` | Отметить / снять группу по маске (`*.txt;*.md`) |
-| `*` | Инвертировать отметку файлов |
-| `Num /` | Восстановить предыдущее выделение |
-| `⌘A` / `⌥⌘A` | Отметить всё / снять всё |
-| `⌥+` / `⌥−` | Отметить / снять файлы с тем же расширением, что под курсором |
-| Вид → Фильтр… | Показывать только файлы по маске (маска видна в строке пути) |
-| `Ctrl+B` (`⌘B`) | «Ветвь»: все файлы папки и её подпапок одним списком |
-| `Ctrl+S` | Быстрый фильтр: остаются имена, содержащие набранный текст; `Enter` оставляет фильтр, `Esc` снимает |
+| `Space`, `Insert` | Mark a file and move down; on a folder, also calculate its size |
+| `Alt+Shift+Enter` | Calculate the size of all folders |
+| `Shift+↑/↓`, `Shift+PgUp/PgDn/Home/End` | Mark a range |
+| `⌘`-click, `Shift`-click | Mark with the mouse |
+| `+` / `−` | Mark / unmark a group by mask (`*.txt;*.md`) |
+| `*` | Invert the marking of files |
+| `Num /` | Restore the previous selection |
+| `⌘A` / `⌥⌘A` | Mark all / unmark all |
+| `⌥+` / `⌥−` | Mark / unmark files with the extension of the one under the cursor |
+| Show → Filter… | Show only files matching a mask (the mask is shown in the path bar) |
+| `Ctrl+B` (`⌘B`) | Branch view: all files of the folder and its subfolders in one list |
+| `Ctrl+S` | Quick filter: only names containing the typed text stay; `Enter` keeps the filter, `Esc` removes it |
 
-### Файловые операции
+### File operations
 
-| Клавиша | Действие |
+| Key | Action |
 |---|---|
-| `F3` | Просмотр (Lister): `1` текст, `3` hex, `7` Quick Look, `W` перенос строк, `N`/`P` следующий/предыдущий файл, `F7`/`⌘F` поиск, `F3`/`⇧F3` искать далее/назад, `Esc` закрыть |
-| `F4` | Открыть в редакторе текста по умолчанию (или в программе из ассоциаций) |
-| `Shift+F4` | Создать новый файл и открыть его в редакторе |
-| `F5` | Копировать (по умолчанию — в другую панель) |
-| `Shift+F5` | Копировать в ту же папку под другим именем |
-| `F6` | Переместить / переименовать |
-| `Shift+F6` | Переименовать на месте |
-| `Ctrl+M` | Групповое переименование (Multi-Rename Tool): маски `[N]`, `[N2-5]`, `[E]`, `[C]`, `[P]`, `[YMD]`, `[hms]`, поиск и замена (в т. ч. регулярные выражения), регистр, предпросмотр и отмена |
-| `F7` (`⇧⌘N`) | Новая папка (`a/b/c` создаёт вложенные) |
-| `F8`, `Del` (`⌘⌫`) | Удалить в Корзину |
-| `Shift+F8`, `Shift+Del` | Удалить навсегда |
-| `Ctrl+Shift+F5` | Создать символическую ссылку (по умолчанию — в другой панели) |
-| Файлы → Сравнить по содержимому | Два отмеченных файла или файлы под курсорами обеих панелей. Окно сравнения: строки выровнены, изменённые — жёлтые (отличающийся кусок подсвечен), удалённые — красные, добавленные — зелёные; `N`/`P` (`⌥↓`/`⌥↑`) — следующее/предыдущее различие, «Игнорировать пробелы», двоичные файлы сравниваются побайтно в hex |
-| `⌘I` | Изменить атрибуты: права rwx, «скрытый», «защищённый», дата изменения (в т. ч. рекурсивно) |
-| `Ctrl+Q` | Быстрый просмотр в соседней панели |
-| `⌘C` / `⌘X` / `⌘V` (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) | Копировать / вырезать / вставить файлы (совместимо с Finder); вставка в ту же папку создаёт «имя copy» |
-| `⌥⌘V` | Переместить файлы из буфера сюда |
-| `⌥⌘C` | Скопировать полные пути выбранных файлов (Выделение → Копировать имена — только имена) |
-| `⌘K` | Подключиться к серверу: `sftp://`, `ftp://`, `ftps://`, `ftpes://` открываются прямо в панели; smb, afp, nfs, WebDAV монтируются как том |
-| `Ctrl+F` (`⇧⌘K`) | Сохранённые соединения (пароли — в связке ключей) |
-| Сеть → Отключиться | Закрыть сервер в активной панели |
-| `⌘E` | Извлечь съёмный или сетевой том активной панели |
-| `Alt+F5` | Упаковать в архив (формат — по расширению: `.zip`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.7z`) |
-| `Alt+F9` | Распаковать выбранные архивы |
-| Файлы → Создать файл контрольных сумм… | MD5 / SHA-1 / SHA-256 / SHA-512 для выделенного (формат `shasum`/`md5sum`) |
-| Файлы → Проверить контрольные суммы | Проверка файла `.md5`/`.sha1`/`.sha256`/`.sha512` под курсором |
+| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look, `W` word wrap, `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
+| `F4` | Open in the default text editor (or the program from the associations) |
+| `Shift+F4` | Create a new file and open it in the editor |
+| `F5` | Copy (to the other panel by default) |
+| `Shift+F5` | Copy within the same folder under another name |
+| `F6` | Move / rename |
+| `Shift+F6` | Rename in place |
+| `Ctrl+M` | Multi-Rename Tool: masks `[N]`, `[N2-5]`, `[E]`, `[C]`, `[P]`, `[YMD]`, `[hms]`, search and replace (including regular expressions), case, preview and undo |
+| `F7` (`⇧⌘N`) | New folder (`a/b/c` creates nested ones) |
+| `F8`, `Del` (`⌘⌫`) | Move to the Trash |
+| `Shift+F8`, `Shift+Del` | Delete permanently |
+| `Ctrl+Shift+F5` | Create a symbolic link (in the other panel by default) |
+| Files → Compare by Content | Two marked files, or the files under the cursors of both panels. The compare window aligns the lines: changed ones are yellow (with the differing part highlighted), removed ones red, added ones green; `N`/`P` (`⌥↓`/`⌥↑`) — next/previous difference, "Ignore whitespace"; binary files are compared byte by byte in hex |
+| `⌘I` | Change attributes: rwx permissions, hidden, locked, modification date (also recursively) |
+| `Ctrl+Q` | Quick View in the other panel |
+| `⌘C` / `⌘X` / `⌘V` (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) | Copy / cut / paste files (compatible with Finder); pasting into the same folder creates "name copy" |
+| `⌥⌘V` | Move the files from the clipboard here |
+| `⌥⌘C` | Copy the full paths of the selected files (Mark → Copy Names — names only) |
+| `⌘K` | Connect to a server: `sftp://`, `ftp://`, `ftps://`, `ftpes://` open right in the panel; smb, afp, nfs and WebDAV are mounted as volumes |
+| `Ctrl+F` (`⇧⌘K`) | Saved connections (passwords are kept in the Keychain) |
+| Net → Disconnect | Close the server in the active panel |
+| `⌘E` | Eject the removable or network volume of the active panel |
+| `Alt+F5` | Pack into an archive (the format follows the extension: `.zip`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.7z`) |
+| `Alt+F9` | Unpack the selected archives |
+| Files → Create Checksum File… | MD5 / SHA-1 / SHA-256 / SHA-512 for the selection (`shasum`/`md5sum` format) |
+| Files → Verify Checksums | Check the `.md5`/`.sha1`/`.sha256`/`.sha512` file under the cursor |
 
-Длинные операции (копирование, перемещение, архивы) показывают прогресс;
-кнопка «В фоне» переносит его в отдельное окно, и с панелями можно работать дальше.
+Long operations (copy, move, archives) show their progress; the "Background"
+button moves it to a separate window so you can keep working with the panels.
 
-#### Диалог копирования и перемещения (`F5` / `F6`)
+#### The copy and move dialog (`F5` / `F6`)
 
-- **Путь назначения** с маской имён: `папка/*.*` — имена как есть, `папка/*.bak` —
-  сменить расширение, `папка/new_*.*` — добавить приставку; без маски и для
-  одного файла — новое имя. Выпадающий список — список целей и недавние пути;
-  `F7` (кнопка «+ F7») добавляет текущую папку в список целей или убирает из
-  него, `⌃D` — выбрать из избранных каталогов, «Дерево» — выбрать папку.
-- **Только файлы этого типа**: `*.jpg *.png` — только такие файлы (и в
-  подпапках); после `|` — исключения: `*.* | *.bak .git/ node_modules/`; имя с
-  `/` на конце — папка на любой глубине (`src/` — только папки `src` целиком).
-  Папки, оставшиеся пустыми из-за фильтра, не создаются. `F8` (кнопка «+ F8») —
-  сохранённые фильтры и примеры.
-- **Копировать расширенные атрибуты и ACL** (метки, комментарии Finder, права
-  доступа) — аналог «Copy NTFS permissions»; **Проверить** — после копирования
-  сравнить каждый файл с оригиналом.
-- Кнопки: **OK** (`Return`), **F2 Очередь** — операция встаёт в очередь и
-  выполняется по одной в своём окне прогресса, **Дерево**, **Отмена** (`Esc`),
-  **Параметры >>**. Правый клик по OK или F2 — выполнить перемещение вместо
-  копирования (и наоборот).
-- **Параметры >>**: режим перезаписи (спрашивать, заменить все, пропустить все,
-  заменить более старые, автопереименование копируемых или существующих —
-  `имя(2).ext`, копировать бо́льшие или меньшие), пропуск нечитаемых файлов,
-  перезапись/удаление заблокированных файлов, копирование во все выделенные
-  папки целевой панели. Кнопка с булавкой оставляет параметры раскрытыми,
-  кнопка сохранения делает их значениями по умолчанию.
+- **Target** with a name mask: `folder/*.*` keeps the names, `folder/*.bak`
+  changes the extension, `folder/new_*.*` adds a prefix; without a mask and for a
+  single file it is the new name. The drop-down list holds the target list and
+  recent paths; `F7` (the "+ F7" button) adds the current folder to the target
+  list or removes it, `⌃D` picks a folder from the directory hotlist, "Tree"
+  chooses a folder.
+- **Only files of this type:** `*.jpg *.png` copies only such files (in
+  subfolders too); exclusions come after `|`: `*.* | *.bak .git/ node_modules/`;
+  a name ending in `/` is a folder at any depth (`src/` — only the `src` folders,
+  with everything inside). Folders left empty by the filter are not created.
+  `F8` (the "+ F8" button) — saved filters and examples.
+- **Copy extended attributes and ACLs** (tags, Finder comments, access
+  rights); **Verify** compares every copied file with the original.
+- Buttons: **OK** (`Return`), **F2 Queue** — the operation joins the queue and
+  runs one at a time in its own progress window, **Tree**, **Cancel** (`Esc`),
+  **Options >>**. Right-click OK or F2 Queue to move instead of copying (and the
+  other way round).
+- **Options >>**: overwrite mode (ask, overwrite all, skip all, overwrite older,
+  auto-rename the copied or the existing files — `name(2).ext`, copy larger or
+  smaller ones), skip unreadable files, overwrite/delete locked files, copy to all
+  folders selected in the target panel. The pin keeps the options open, the save
+  button makes them the default.
 
-### Архивы
+### Archives
 
-`Enter` или `Ctrl+PgDn` на архиве (zip, tar.\*, 7z, rar, iso, cab, …) открывает
-его как папку. Внутри работают навигация, выделение, `F3`, `Enter` (файл
-распаковывается во временную папку и открывается) и `F5` — распаковка
-выбранного в другую панель. В архивы zip, tar, tar.gz, tar.bz2, tar.xz и 7z
-можно и записывать: `F5`/`F6` в панель с открытым архивом упаковывают туда
-файлы, внутри работают `F7`, `F8` и `Shift+F6` (архив пересобирается через
-временную папку). rar, iso, cab и другие — только для чтения.
+`Enter` or `Ctrl+PgDn` on an archive (zip, tar.\*, 7z, rar, iso, cab, …) opens
+it like a folder. Inside it navigation, selection, `F3`, `Enter` (the file is
+extracted to a temporary folder and opened) and `F5` (extract the selection to
+the other panel) work. Zip, tar, tar.gz, tar.bz2, tar.xz and 7z archives can
+also be written: `F5`/`F6` into a panel showing an archive pack the files into
+it, and `F7`, `F8` and `Shift+F6` work inside (the archive is rebuilt through a
+temporary folder). rar, iso, cab and others are read-only.
 
-### Панель кнопок и кнопки дисков
+### Button bar and drive buttons
 
-Под заголовком окна — панель кнопок с частыми командами (обновить, виды,
-история, избранное, поиск, групповое переименование, синхронизация, архивы,
-Терминал). Её можно настроить: правый клик по ней → «Customize Toolbar…».
-Над каждой панелью — кнопки дисков: системный том, домашняя папка и
-подключённые тома (скрываются в настройках).
+Under the window title there is a button bar with frequent commands (reread,
+views, history, hotlist, find, multi-rename, synchronize, archives, Terminal).
+Right-click it → Customize Toolbar… to change it. Above each panel there are
+drive buttons: the startup volume, the home folder and mounted volumes (can be
+hidden in Settings).
 
-### Серверы (SFTP, FTP)
+### Servers (SFTP, FTP)
 
-SFTP работает через системные `ssh`/`sftp`: учитываются `~/.ssh/config`
-(алиасы, ProxyJump), ключи и ssh-agent; соединение с сервером одно и
-переиспользуется, пароль или passphrase спрашиваются один раз. FTP/FTPS — через
-системный `curl`. На сервере работают навигация, `F3`, `Enter`, `F5`/`F6` в обе
-стороны (скачать/закачать), `F7`, `F8`, `Shift+F6`, вставка из буфера и
-перетаскивание файлов в панель сервера. Копирование идёт пофайлово с прогрессом
-в байтах (текущий файл и всего). По SFTP сохраняются права и даты файлов и
-папок, по FTP — даты скачанных файлов.
+SFTP works through the system `ssh`/`sftp`: `~/.ssh/config` (aliases,
+ProxyJump), keys and ssh-agent are used; there is one shared connection per
+server, and a password or passphrase is asked for once. FTP/FTPS goes through the
+system `curl`. On a server navigation, `F3`, `Enter`, `F5`/`F6` both ways
+(download/upload), `F7`, `F8`, `Shift+F6`, paste from the clipboard and dropping
+files onto the server panel work. Transfers go file by file with byte progress
+(current file and total). SFTP keeps permissions and dates of files and folders,
+FTP keeps the dates of downloaded files.
 
-### Мышь
+### Mouse
 
-Правый клик (или `Ctrl`+клик) — контекстное меню: открыть, открыть в программе,
-просмотр, показать в Finder, буфер обмена, переименовать, удалить, упаковать,
-а также системные «Службы». Файлы перетаскиваются между панелями, из Finder и в
-Finder; по умолчанию копирование, с `⌘` — перемещение. Бросок на строку папки
-кладёт файлы в неё.
+Right-click (or `Ctrl`-click) opens the context menu: open, open with, view,
+show in Finder, clipboard, rename, delete, pack, and the system Services. Files
+can be dragged between the panels, from Finder and to Finder; copying by
+default, moving with `⌘`. Dropping onto a folder row puts the files into it.
 
-### Командная строка
+### Command line
 
-Буквы, набранные в панели, попадают в командную строку, а курсор остаётся в панели.
+Letters typed in a panel go to the command line while the cursor stays in the
+panel.
 
-| Клавиша | Действие |
+| Key | Action |
 |---|---|
-| `Enter` | Выполнить команду в текущей папке (login shell, без окна) |
-| `Shift+Enter` | Выполнить в Terminal, окно остаётся открытым |
-| `cd <путь>`, путь к папке | Сменить папку активной панели |
-| `Ctrl+Enter` / `Ctrl+Shift+Enter` | Вставить имя / полный путь файла под курсором |
-| `Esc` | Очистить командную строку |
+| `Enter` | Run the command in the current folder (login shell, no window) |
+| `Shift+Enter` | Run in Terminal, the window stays open |
+| `cd <path>`, a folder path | Change the folder of the active panel |
+| `Ctrl+Enter` / `Ctrl+Shift+Enter` | Insert the name / full path of the file under the cursor |
+| `Esc` | Clear the command line |
 
-## Цвета
+## Colors
 
-Настройки → «Цвета»: цвет отмеченных файлов, курсора и текста под курсором,
-чередование фона строк; образец панели сразу показывает результат. «Цвета
-файлов…» раскрашивают имена по маскам (архивы, картинки, скрипты — есть
-готовые примеры).
+Settings → Colors: the color of marked files, the cursor and the cursor text,
+alternating row backgrounds; the panel preview shows the result right away.
+File Colors… colors names by mask (archives, pictures, scripts — examples
+included).
 
-## Свои клавиши
+## Your own keys
 
-Настройки → «Клавиатура» → «Горячие клавиши…»: любую команду `cm_*` можно
-назначить на своё сочетание (двойной клик по строке и нажатие клавиш). Кнопка
-«Импорт wincmd.ini…» переносит назначения из секции `[Shortcuts]` файла
-`wincmd.ini` — они добавляются к стандартным клавишам.
+Settings → Keyboard → Keyboard Shortcuts…: any `cm_*` command can get its own
+shortcut (double-click a row and press the keys). The "Import wincmd.ini…"
+button takes the assignments from the `[Shortcuts]` section of a `wincmd.ini`
+file — they are added to the standard keys.
 
-## Меню «Запуск»
+## Start menu
 
-Свои команды: «Запуск → Изменить меню «Запуск»…». Команда выполняется в оболочке в папке активной панели; параметры
-`%P` (папка активной панели), `%N` (файл под курсором), `%S` (выделенные файлы),
-`%T` / `%M` (папка и файл под курсором другой панели) подставляются уже
-экранированными. У команды может быть своё сочетание клавиш (`CM+E` — ⌃⌘E) и
-запуск в Терминале; через «Настроить панель кнопок…» команды выносятся на панель.
+Your own commands: Start → Change Start Menu…. A command runs in the shell in the
+folder of the active panel; the parameters `%P` (folder of the active panel),
+`%N` (file under the cursor), `%S` (selected files), `%T` / `%M` (folder and
+file under the cursor in the other panel) are inserted already quoted. A command
+can have its own shortcut (`CM+E` is ⌃⌘E) and run in Terminal; Customize
+Toolbar… puts commands on the button bar.
 
-## Внутренние ассоциации
+## Internal associations
 
-«Файлы → Внутренние ассоциации…» (или кнопка в настройках): для маски
-(`*.swift;*.json`) задаются свои программы
-для `Enter`, `F3` и `F4`. Программа — приложение (кнопка «Приложение…») или
-команда оболочки: `%P` — папка файла, `%N` — его имя; без параметров путь к
-файлу добавляется в конец (`code -g`, `qlmanage -p`). Берётся первая подходящая
-запись, где задана программа для этой клавиши; иначе — стандартное поведение.
-Маска `*` в конце списка задаёт программу для всех остальных файлов.
+Files → Internal Associations… (or the button in Settings): for a mask
+(`*.swift;*.json`) you choose programs for `Enter`, `F3` and `F4`. A program is
+an application (the Application… button) or a shell command: `%P` is the file's
+folder, `%N` its name; without parameters the path is added at the end
+(`code -g`, `qlmanage -p`). The first matching entry with a program for that key
+wins; otherwise the standard behavior applies. A `*` mask at the end of the list
+sets a program for all other files.
 
-## Настройки
+## Settings
 
-«OriCmd → Настройки…» (`⌘,`) — окно с вкладками:
+OriCmd → Settings… (`⌘,`) — a window with panes:
 
-- **Основные** — язык интерфейса, автоматическая проверка обновлений.
-- **Панели** — образец панели, шрифт, командная строка, кнопки F-клавиш и
-  дисков, настройка панели кнопок.
-- **Цвета** — образец панели, цвета отмеченных файлов и курсора, чередование
-  строк, цвета по маске файлов.
-- **Операции** — значения по умолчанию для диалога копирования (режим
-  перезаписи, проверка, атрибуты), подтверждение удаления в Корзину,
-  внутренние ассоциации, меню «Запуск».
-- **Клавиатура** — режим быстрого поиска, свои сочетания клавиш, подсказка про
-  F-клавиши на Mac.
+- **General** — interface language, automatic update checks.
+- **Panels** — panel preview, font, command line, function key and drive
+  buttons, button bar setup.
+- **Colors** — panel preview, colors of marked files and the cursor,
+  alternating rows, colors by file mask.
+- **Operations** — defaults of the copy dialog (overwrite mode, verification,
+  attributes), confirmation of moving to the Trash, internal associations,
+  Start menu.
+- **Keyboard** — quick search mode, your own shortcuts, a note about the F keys
+  on a Mac.
 
-## Язык интерфейса
+## Interface language
 
-Английский и русский. По умолчанию — как в системе; в «Настройки → Основные»
-язык выбирается только для OriCmd (кнопка «Перезапустить» сразу применяет его).
+English and Russian. By default the system language is used; Settings → General
+chooses the language for OriCmd only (the Restart Now button applies it at once).
 
-## Разработка
+## Development
 
-Debug-сборка умеет прогонять сценарии нажатий и сохранять снимок окна — см.
-`OriCmd/App/DebugAutomation.swift`. Сценарии работают только с явно заданными
-тестовыми папками (`ORICMD_LEFT`, `ORICMD_RIGHT`).
+A Debug build can play key scenarios and save window snapshots — see
+`OriCmd/App/DebugAutomation.swift`. The scenarios only work on explicitly given
+test folders (`ORICMD_LEFT`, `ORICMD_RIGHT`); `scripts/test/` has the test data,
+the regression suite and local test servers.
 
-Релиз: `scripts/release.sh 0.2 [notes.md]` — ставит версию, собирает образ,
-коммитит, ставит тег `v0.2`, отправляет в GitHub и публикует релиз с образом
-(нужен `gh auth login`).
+Release: `scripts/release.sh 0.2 [notes.md]` sets the version, builds the disk
+image, commits, tags `v0.2`, pushes to GitHub and publishes the release with the
+image (needs `gh auth login`).
 
-## Лицензия
+## License
 
-GPL-3.0 — см. [LICENSE](LICENSE).
+GPL-3.0 — see [LICENSE](LICENSE).
 
-OriCmd не связан с Ghisler Software GmbH. Total Commander — торговая марка
-её владельца.
+OriCmd is not affiliated with Ghisler Software GmbH. Total Commander is a
+trademark of its owner.
