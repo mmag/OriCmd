@@ -921,6 +921,16 @@
         }
       }
     },
+    "Created": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создан"
+          }
+        }
+      }
+    },
     "Customize Toolbar…": {
       "localizations": {
         "ru": {
@@ -1001,6 +1011,16 @@
         }
       }
     },
+    "Dimensions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размеры"
+          }
+        }
+      }
+    },
     "Directory Hotlist": {
       "localizations": {
         "ru": {
@@ -1057,6 +1077,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Дублировать вкладку"
+          }
+        }
+      }
+    },
+    "Duration": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Длительность"
           }
         }
       }
@@ -1557,6 +1587,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Клавиши:"
+          }
+        }
+      }
+    },
+    "Kind": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тип файла"
           }
         }
       }
@@ -2857,6 +2897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Синхронизация"
+          }
+        }
+      }
+    },
+    "Tags": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Теги"
           }
         }
       }

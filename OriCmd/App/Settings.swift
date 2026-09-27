@@ -20,6 +20,7 @@ enum Settings {
         static let functionKeys = "ShowFunctionKeys"
         static let driveButtons = "ShowDriveButtons"
         static let confirmTrash = "ConfirmMoveToTrash"
+        static let extraColumns = "ExtraColumns"
     }
 
     static let defaultFontSize: CGFloat = 12
@@ -64,6 +65,12 @@ enum Settings {
     static var showsDriveButtons: Bool {
         get { bool(Key.driveButtons, default: true) }
         set { set(newValue, Key.driveButtons) }
+    }
+
+    /// Optional metadata columns shown in Full view, in this order.
+    static var extraColumns: [SortColumn] {
+        get { (AppDefaults.store.stringArray(forKey: Key.extraColumns) ?? []).compactMap(SortColumn.init(rawValue:)) }
+        set { set(newValue.map(\.rawValue), Key.extraColumns) }
     }
 
     static var confirmsMoveToTrash: Bool {

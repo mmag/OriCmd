@@ -1,7 +1,11 @@
 import Foundation
 
-nonisolated enum SortColumn: CaseIterable, Sendable {
+nonisolated enum SortColumn: String, CaseIterable, Sendable {
     case name, ext, size, date, attr
+    // Optional columns from file metadata (Show → header context menu).
+    case kind, created, dimensions, duration, tags
+
+    static let extras: [SortColumn] = [.kind, .created, .dimensions, .duration, .tags]
 }
 
 /// Total Commander ordering: "[..]" first, then folders, then files.
@@ -38,6 +42,10 @@ nonisolated struct SortOrder: Equatable, Sendable {
             return a.modified == b.modified ? .orderedSame : (a.modified < b.modified ? .orderedAscending : .orderedDescending)
         case .attr:
             return a.permissions.compare(b.permissions)
+        case .kind, .created, .dimensions, .duration, .tags:
+            let first = MetadataCache.shared.value(for: a, column: column)
+            let second = MetadataCache.shared.value(for: b, column: column)
+            return first.compare(second)
         }
     }
 }

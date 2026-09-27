@@ -540,11 +540,22 @@ final class FileListView: NSView {
                  font: Theme.panelNumberFont, color: color, alignment: .right)
 
         if !item.isParent {
+            for column in layout.extraColumns {
+                let value = MetadataCache.shared.cachedValue(for: item, column: column) { [weak self] in
+                    self?.setNeedsDisplay(rect)
+                }
+                let numeric = column == .dimensions || column == .duration
+                drawText(value?.display ?? "", in: layout.rect(for: column, y: y, height: rowHeight),
+                         font: numeric || column == .created ? Theme.panelNumberFont : Theme.panelFont,
+                         color: color, alignment: numeric ? .right : .left)
+            }
             drawText(Self.dateFormatter.string(from: item.modified),
                      in: layout.rect(for: .date, y: y, height: rowHeight),
                      font: Theme.panelNumberFont, color: color)
-            drawText(item.permissions, in: layout.rect(for: .attr, y: y, height: rowHeight),
-                     font: Theme.panelNumberFont, color: color)
+            if layout.contains(.attr) {
+                drawText(item.permissions, in: layout.rect(for: .attr, y: y, height: rowHeight),
+                         font: Theme.panelNumberFont, color: color)
+            }
         }
 
         drawInactiveCursorFrame(row, in: rect)
