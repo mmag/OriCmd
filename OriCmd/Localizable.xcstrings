@@ -151,6 +151,16 @@
         }
       }
     },
+    "Add Examples": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить примеры"
+          }
+        }
+      }
+    },
     "Add “%@”": {
       "localizations": {
         "ru": {
@@ -187,6 +197,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все контрольные суммы совпадают"
+          }
+        }
+      }
+    },
+    "Alternating row background": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чередовать фон строк"
           }
         }
       }
@@ -617,6 +637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закрыть вкладку"
+          }
+        }
+      }
+    },
+    "Colors:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета:"
           }
         }
       }
@@ -1141,6 +1171,26 @@
         }
       }
     },
+    "File Colors": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета файлов"
+          }
+        }
+      }
+    },
+    "File Colors…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета файлов…"
+          }
+        }
+      }
+    },
     "File already exists": {
       "localizations": {
         "ru": {
@@ -1577,6 +1627,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выделение"
+          }
+        }
+      }
+    },
+    "Mask": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маска"
+          }
+        }
+      }
+    },
+    "Mask:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маска:"
           }
         }
       }
@@ -3155,6 +3225,26 @@
         }
       }
     },
+    "cursor": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "курсор"
+          }
+        }
+      }
+    },
+    "cursor text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "текст курсора"
+          }
+        }
+      }
+    },
     "date and time": {
       "localizations": {
         "ru": {
@@ -3364,6 +3454,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выделить всё"
+          }
+        }
+      }
+    },
+    "marked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отмеченные"
           }
         }
       }

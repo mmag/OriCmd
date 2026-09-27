@@ -27,14 +27,20 @@ enum Theme {
 
     static let panelBackground = NSColor.textBackgroundColor
     static let panelText = NSColor.textColor
-    /// Marked (selected) files are drawn in red, as in Total Commander.
-    static let markedText = dynamic(
+    /// Marked (selected) files are drawn in red, as in Total Commander,
+    /// unless another color is chosen in Settings.
+    static var markedText: NSColor { ColorSettings.markedColor ?? defaultMarkedText }
+    static var cursorBackground: NSColor { ColorSettings.cursorColor ?? .selectedContentBackgroundColor }
+    static var cursorText: NSColor { ColorSettings.cursorTextColor ?? .alternateSelectedControlTextColor }
+    /// Every other row in Full view when "alternating rows" is on.
+    static let alternateRowBackground = NSColor.alternatingContentBackgroundColors.count > 1
+        ? NSColor.alternatingContentBackgroundColors[1] : NSColor.controlBackgroundColor
+
+    private static let defaultMarkedText = dynamic(
         light: NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1),
         dark: NSColor(srgbRed: 1, green: 0.4, blue: 0.4, alpha: 1)
     )
     static let markedCursorText = NSColor.systemYellow
-    static let cursorBackground = NSColor.selectedContentBackgroundColor
-    static let cursorText = NSColor.alternateSelectedControlTextColor
     static let inactiveCursorFrame = NSColor.secondaryLabelColor
 
     static let activeHeaderBackground = NSColor.selectedContentBackgroundColor

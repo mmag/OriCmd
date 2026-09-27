@@ -423,16 +423,21 @@ final class FileListView: NSView {
     /// Fills the cursor bar if needed and returns the text color for the entry.
     private func prepareCell(_ row: Int, in rect: NSRect) -> NSColor {
         let filled = row == cursor && isActive
+        if !filled && viewMode == .full && row % 2 == 1 && ColorSettings.alternatingRows {
+            Theme.alternateRowBackground.setFill()
+            rect.fill()
+        }
         if filled {
             Theme.cursorBackground.setFill()
             rect.fill()
         }
-        let isMarked = marked.contains(items[row].name)
+        let item = items[row]
+        let isMarked = marked.contains(item.name)
         return switch (filled, isMarked) {
         case (true, true): Theme.markedCursorText
         case (true, false): Theme.cursorText
         case (false, true): Theme.markedText
-        case (false, false): Theme.panelText
+        case (false, false): (item.isParent ? nil : ColorSettings.color(forName: item.name)) ?? Theme.panelText
         }
     }
 
@@ -497,7 +502,8 @@ final class FileListView: NSView {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
         paragraph.lineBreakMode = .byTruncatingMiddle
-        let color = marked.contains(item.name) ? Theme.markedText : Theme.panelText
+        let color = marked.contains(item.name) ? Theme.markedText
+            : (item.isParent ? nil : ColorSettings.color(forName: item.name)) ?? Theme.panelText
         (displayName(item) as NSString).draw(
             with: NSRect(x: rect.minX + 4, y: imageArea.maxY + 4, width: rect.width - 8, height: rowHeight),
             options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],

@@ -12,6 +12,11 @@ final class SettingsWindowController: NSWindowController {
                                            target: nil, action: nil)
     private let driveButtonsBox = NSButton(checkboxWithTitle: String(localized: "Show drive buttons"),
                                            target: nil, action: nil)
+    private let markedWell = NSColorWell(style: .minimal)
+    private let cursorWell = NSColorWell(style: .minimal)
+    private let cursorTextWell = NSColorWell(style: .minimal)
+    private let alternatingBox = NSButton(checkboxWithTitle: String(localized: "Alternating row background"),
+                                          target: nil, action: nil)
     private let confirmTrashBox = NSButton(checkboxWithTitle: String(localized: "Confirm moving to the Trash"),
                                            target: nil, action: nil)
 
@@ -46,7 +51,20 @@ final class SettingsWindowController: NSWindowController {
         quickSearchPopUp.target = self
         quickSearchPopUp.action = #selector(quickSearchChanged(_:))
 
-        for box in [commandLineBox, functionKeysBox, driveButtonsBox, confirmTrashBox] {
+        for well in [markedWell, cursorWell, cursorTextWell] {
+            well.target = self
+            well.action = #selector(colorChanged(_:))
+            well.widthAnchor.constraint(equalToConstant: 38).isActive = true
+        }
+        let colors = NSStackView(views: [
+            NSTextField(labelWithString: String(localized: "marked")), markedWell,
+            NSTextField(labelWithString: String(localized: "cursor")), cursorWell,
+            NSTextField(labelWithString: String(localized: "cursor text")), cursorTextWell,
+            NSButton(title: String(localized: "Default"), target: self, action: #selector(resetColors(_:))),
+        ])
+        let fileColors = NSButton(title: String(localized: "File Colors…"), target: self, action: #selector(showFileColors(_:)))
+
+        for box in [commandLineBox, functionKeysBox, driveButtonsBox, confirmTrashBox, alternatingBox] {
             box.target = self
             box.action = #selector(checkboxChanged(_:))
         }
@@ -57,6 +75,9 @@ final class SettingsWindowController: NSWindowController {
             [NSTextField(labelWithString: String(localized: "Show:")), commandLineBox],
             [NSGridCell.emptyContentView, functionKeysBox],
             [NSGridCell.emptyContentView, driveButtonsBox],
+            [NSTextField(labelWithString: String(localized: "Colors:")), colors],
+            [NSGridCell.emptyContentView, alternatingBox],
+            [NSGridCell.emptyContentView, fileColors],
             [NSTextField(labelWithString: String(localized: "Delete:")), confirmTrashBox],
             [NSTextField(labelWithString: String(localized: "Keyboard:")),
              NSButton(title: String(localized: "Keyboard Shortcuts…"), target: self, action: #selector(showKeys(_:)))],
@@ -86,6 +107,27 @@ final class SettingsWindowController: NSWindowController {
         functionKeysBox.state = Settings.showsFunctionKeys ? .on : .off
         driveButtonsBox.state = Settings.showsDriveButtons ? .on : .off
         confirmTrashBox.state = Settings.confirmsMoveToTrash ? .on : .off
+        alternatingBox.state = ColorSettings.alternatingRows ? .on : .off
+        markedWell.color = Theme.markedText
+        cursorWell.color = Theme.cursorBackground
+        cursorTextWell.color = Theme.cursorText
+    }
+
+    @objc private func colorChanged(_ sender: NSColorWell) {
+        switch sender {
+        case markedWell: ColorSettings.markedColor = sender.color
+        case cursorWell: ColorSettings.cursorColor = sender.color
+        default: ColorSettings.cursorTextColor = sender.color
+        }
+    }
+
+    @objc private func resetColors(_ sender: Any?) {
+        ColorSettings.resetPanelColors()
+        refresh()
+    }
+
+    @objc private func showFileColors(_ sender: Any?) {
+        FileColorsWindowController.shared.showWindow(sender)
     }
 
     @objc private func showKeys(_ sender: Any?) {
@@ -121,6 +163,7 @@ final class SettingsWindowController: NSWindowController {
         case commandLineBox: Settings.showsCommandLine = on
         case functionKeysBox: Settings.showsFunctionKeys = on
         case driveButtonsBox: Settings.showsDriveButtons = on
+        case alternatingBox: ColorSettings.alternatingRows = on
         default: Settings.confirmsMoveToTrash = on
         }
     }
