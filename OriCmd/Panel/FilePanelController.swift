@@ -22,6 +22,15 @@ final class FilePanelController: NSViewController {
     private var lastMask = "*.*"
     private var watcher: DirectoryWatcher?
 
+    private struct HistoryEntry {
+        let directory: URL
+        let selectedName: String?
+    }
+
+    private static let historyLimit = 50
+    private var backHistory: [HistoryEntry] = []
+    private var forwardHistory: [HistoryEntry] = []
+
     var sortOrder = SortOrder() {
         didSet {
             panelView.headerView.sortOrder = sortOrder
@@ -79,7 +88,7 @@ final class FilePanelController: NSViewController {
     // MARK: - Navigation
 
     /// Reads `directory` and shows it, placing the cursor on `name` if given.
-    func load(_ directory: URL, selecting name: String? = nil) {
+    func load(_ directory: URL, selecting name: String? = nil, recordingHistory: Bool = true) {
         let directory = directory.standardizedFileURL
         let entries: [FileItem]
         do {
@@ -90,6 +99,11 @@ final class FilePanelController: NSViewController {
         }
         let isNewDirectory = directory != self.directory
         if isNewDirectory {
+            if recordingHistory {
+                backHistory.append(HistoryEntry(directory: self.directory, selectedName: listView.currentItem?.name))
+                backHistory = Array(backHistory.suffix(Self.historyLimit))
+                forwardHistory.removeAll()
+            }
             listView.setMarked([])
         }
         self.directory = directory
@@ -100,6 +114,30 @@ final class FilePanelController: NSViewController {
         panelView.show(directory: directory, volumes: Volume.mounted())
         refreshList(selecting: name, fallback: isNewDirectory ? 0 : listView.cursor)
         delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    func goBack() {
+        guard let entry = backHistory.popLast() else {
+            NSSound.beep()
+            return
+        }
+        forwardHistory.append(HistoryEntry(directory: directory, selectedName: listView.currentItem?.name))
+        load(entry.directory, selecting: entry.selectedName, recordingHistory: false)
+    }
+
+    func goForward() {
+        guard let entry = forwardHistory.popLast() else {
+            NSSound.beep()
+            return
+        }
+        backHistory.append(HistoryEntry(directory: directory, selectedName: listView.currentItem?.name))
+        load(entry.directory, selecting: entry.selectedName, recordingHistory: false)
+    }
+
+    /// Recently visited folders, most recent first, without duplicates.
+    var recentDirectories: [URL] {
+        var seen: Set<URL> = [directory]
+        return backHistory.reversed().map(\.directory).filter { seen.insert($0).inserted }
     }
 
     /// Reloads the current directory keeping cursor and marks, or moves up
@@ -212,6 +250,40 @@ extension FilePanelController: NSMenuItemValidation {
     @objc(cm_GoToRoot:)
     func goToRootCommand(_ sender: Any?) {
         goToRoot()
+    }
+
+    @objc(cm_GoToPrevDir:)
+    func goToPrevDir(_ sender: Any?) {
+        goBack()
+    }
+
+    @objc(cm_GoToNextDir:)
+    func goToNextDir(_ sender: Any?) {
+        goForward()
+    }
+
+    /// Alt+Down: pops up the recently visited folders under the path bar.
+    @objc(cm_DirectoryHistory:)
+    func directoryHistory(_ sender: Any?) {
+        let menu = NSMenu()
+        for url in recentDirectories {
+            let item = NSMenuItem(title: url.path, action: #selector(historyItemChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = url
+            menu.addItem(item)
+        }
+        guard !menu.items.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let bar = panelView.pathBar
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bar.bounds.maxY), in: bar)
+    }
+
+    @objc private func historyItemChosen(_ sender: NSMenuItem) {
+        if let url = sender.representedObject as? URL {
+            load(url)
+        }
     }
 
     /// F3: opens the file under the cursor in the Lister window.

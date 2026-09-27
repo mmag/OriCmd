@@ -369,6 +369,17 @@ final class FileListView: NSView {
             delegate?.fileListGoToParent(self)
         case (.tab?, []), (.tab?, [.shift]), (.backTab?, _):
             delegate?.fileListSwitchPanel(self)
+        // Option/Control arrows edit text elsewhere, so they are panel-only keys.
+        case (.leftArrow?, [.option]):
+            tryToPerform(Command.goToPrevDir.selector, with: self)
+        case (.rightArrow?, [.option]):
+            tryToPerform(Command.goToNextDir.selector, with: self)
+        case (.downArrow?, [.option]):
+            tryToPerform(Command.directoryHistory.selector, with: self)
+        case (.leftArrow?, [.control]), (.leftArrow?, [.command, .option]):
+            tryToPerform(Command.transferLeft.selector, with: self)
+        case (.rightArrow?, [.control]), (.rightArrow?, [.command, .option]):
+            tryToPerform(Command.transferRight.selector, with: self)
         case (.deleteForward?, []), (.delete?, [.command]):
             tryToPerform(Command.delete.selector, with: self)
         case (.deleteForward?, [.shift]):

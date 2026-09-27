@@ -20,7 +20,8 @@ enum MainMenu {
         ], extra: markItems())))
         mainMenu.addItem(container(for: commandMenu("Commands", [
             [.rereadSource, .exchange],
-            [.goToParent, .goToRoot],
+            [.goToPrevDir, .goToNextDir, .directoryHistory, .goToParent, .goToRoot],
+            [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],
         ])))
         mainMenu.addItem(container(for: commandMenu("Show", [

@@ -203,6 +203,41 @@ extension MainViewController: NSMenuItemValidation {
         return (url.deletingLastPathComponent(), url.lastPathComponent)
     }
 
+    /// Ctrl+Left/Right: shows the folder under the cursor (or the current folder)
+    /// in the given panel; pressed towards the active panel itself, it shows the
+    /// other panel's folder there.
+    @objc(cm_TransferLeft:)
+    func transferLeft(_ sender: Any?) {
+        transfer(to: leftPanel)
+    }
+
+    @objc(cm_TransferRight:)
+    func transferRight(_ sender: Any?) {
+        transfer(to: rightPanel)
+    }
+
+    private func transfer(to target: FilePanelController) {
+        let source = target === activePanel ? inactivePanel : activePanel
+        var directory = source.directory
+        if source === activePanel, let item = source.listView.currentItem, item.isFolder {
+            directory = item.isParent ? source.directory.deletingLastPathComponent() : item.url
+        }
+        target.load(directory)
+    }
+
+    /// Alt+F1 / Alt+F2: opens the volume list of the left or right panel.
+    @objc(cm_LeftOpenDrives:)
+    func leftOpenDrives(_ sender: Any?) {
+        leftPanel.focus()
+        leftPanel.panelView.volumeButton.performClick(nil)
+    }
+
+    @objc(cm_RightOpenDrives:)
+    func rightOpenDrives(_ sender: Any?) {
+        rightPanel.focus()
+        rightPanel.panelView.volumeButton.performClick(nil)
+    }
+
     /// Opens Terminal in the active panel's folder.
     @objc(cm_ExecuteDOS:)
     func executeDOS(_ sender: Any?) {

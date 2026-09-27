@@ -31,6 +31,13 @@ enum Command: String, CaseIterable {
     case goToRoot = "cm_GoToRoot"
     case goToParent = "cm_GoToParent"
     case executeDOS = "cm_ExecuteDOS"
+    case goToPrevDir = "cm_GoToPrevDir"
+    case goToNextDir = "cm_GoToNextDir"
+    case directoryHistory = "cm_DirectoryHistory"
+    case transferLeft = "cm_TransferLeft"
+    case transferRight = "cm_TransferRight"
+    case leftOpenDrives = "cm_LeftOpenDrives"
+    case rightOpenDrives = "cm_RightOpenDrives"
 
     // Show
     case srcQuickView = "cm_SrcQuickview"
@@ -67,6 +74,13 @@ enum Command: String, CaseIterable {
         case .goToRoot: "Go to Root"
         case .goToParent: "Go to Parent"
         case .executeDOS: "Open Terminal Here"
+        case .goToPrevDir: "Back"
+        case .goToNextDir: "Forward"
+        case .directoryHistory: "Folder History…"
+        case .transferLeft: "Show in Left Panel"
+        case .transferRight: "Show in Right Panel"
+        case .leftOpenDrives: "Left Volume List"
+        case .rightOpenDrives: "Right Volume List"
         case .srcQuickView: "Quick View"
         case .sortByName: "Sort by Name"
         case .sortByExt: "Sort by Extension"
@@ -99,6 +113,10 @@ enum Command: String, CaseIterable {
         case .sortByDateTime: .f(5, .control)
         case .sortBySize: .f(6, .control)
         case .switchHidSys: .cmd(".", .shift)
+        case .goToPrevDir: .cmd("[")
+        case .goToNextDir: .cmd("]")
+        case .leftOpenDrives: .f(1, .option)
+        case .rightOpenDrives: .f(2, .option)
         default: nil
         }
     }
