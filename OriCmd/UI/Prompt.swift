@@ -33,6 +33,42 @@ enum Prompt {
         }
     }
 
+    /// Asks for a line of text, with an extra "Queue" button (F2) as in Total
+    /// Commander's copy dialog; the completion learns which button was used.
+    static func text(
+        _ title: String,
+        message: String,
+        initial: String,
+        okTitle: String,
+        queueTitle: String,
+        in window: NSWindow,
+        completion: @escaping (_ text: String, _ queued: Bool) -> Void
+    ) {
+        let field = NSTextField(string: initial)
+        field.frame = NSRect(x: 0, y: 0, width: 360, height: 22)
+
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.accessoryView = field
+        alert.addButton(withTitle: okTitle)
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        let queue = alert.addButton(withTitle: queueTitle)
+        queue.keyEquivalent = String(UnicodeScalar(UInt32(NSF2FunctionKey))!)
+        queue.keyEquivalentModifierMask = []
+        alert.window.initialFirstResponder = field
+        alert.beginSheetModal(for: window) { response in
+            switch response {
+            case .alertFirstButtonReturn: completion(field.stringValue, false)
+            case .alertThirdButtonReturn: completion(field.stringValue, true)
+            default: break
+            }
+        }
+        DispatchQueue.main.async {
+            field.currentEditor()?.selectedRange = NSRange(location: 0, length: (initial as NSString).length)
+        }
+    }
+
     /// Asks for a line of text plus a checkbox option.
     static func text(
         _ title: String,

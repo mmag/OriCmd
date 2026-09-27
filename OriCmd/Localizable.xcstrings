@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ (%lld more queued)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (ещё в очереди: %2$lld)"
+          }
+        }
+      }
+    },
     "%@ (default)": {
       "localizations": {
         "ru": {
@@ -2177,6 +2187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Предыдущая вкладка"
+          }
+        }
+      }
+    },
+    "Queue (F2)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В очередь (F2)"
           }
         }
       }

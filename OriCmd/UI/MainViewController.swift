@@ -244,22 +244,29 @@ extension MainViewController: NSMenuItemValidation {
         Prompt.text(kind == .copy ? String(localized: "copy.title", defaultValue: "Copy") : String(localized: "Move/Rename"),
                     message: kind == .copy ? String(localized: "Copy \(what) to:") : String(localized: "Rename/move \(what) to:"),
                     initial: initial, okTitle: kind == .copy ? String(localized: "copy.button", defaultValue: "Copy")
-                        : String(localized: "move.button", defaultValue: "Move"), in: window) { [weak self] text in
-            self?.transfer(kind, items: items, from: source, to: text)
+                        : String(localized: "move.button", defaultValue: "Move"),
+                    queueTitle: String(localized: "Queue (F2)"), in: window) { [weak self] text, queued in
+            self?.transfer(kind, items: items, from: source, to: text, queued: queued)
         }
     }
 
-    private func transfer(_ kind: TransferJob.Kind, items: [FileItem], from source: FilePanelController, to text: String) {
+    private func transfer(_ kind: TransferJob.Kind, items: [FileItem], from source: FilePanelController, to text: String,
+                          queued: Bool = false) {
         guard let window = view.window, !text.isEmpty else { return }
         let (destination, newName) = Self.resolveTarget(text, itemCount: items.count, base: source.directory)
         let job = TransferJob(kind: kind, sources: items.map(\.url), destination: destination, newName: newName)
-        Task {
-            let done = await TransferController.run(job, in: window)
+        let operation = { [weak self] in
+            let done = await TransferController.run(job, in: window, inBackground: queued)
             let transferred = Set(done)
             source.listView.setMarked(source.listView.marked.subtracting(
                 items.filter { transferred.contains($0.url) }.map(\.name)))
-            leftPanel.reread()
-            rightPanel.reread()
+            self?.leftPanel.reread()
+            self?.rightPanel.reread()
+        }
+        if queued {
+            TransferQueue.shared.add(operation)
+        } else {
+            Task { await operation() }
         }
     }
 

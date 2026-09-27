@@ -21,6 +21,9 @@ final class TransferController {
     /// After "Background" the progress is a separate window and the main window stays usable.
     private var isInBackground = false
 
+    /// Queued operations start in their own window right away.
+    var startsInBackground = false
+
     init(title: String, failureTitle: String, window: NSWindow) {
         self.title = title
         self.failureTitle = failureTitle
@@ -29,12 +32,13 @@ final class TransferController {
     }
 
     /// Copies or moves files; returns the sources that were fully transferred.
-    static func run(_ job: TransferJob, in window: NSWindow) async -> [URL] {
+    static func run(_ job: TransferJob, in window: NSWindow, inBackground: Bool = false) async -> [URL] {
         let controller = job.kind == .copy
             ? TransferController(title: String(localized: "Copying"), failureTitle: String(localized: "Copying failed"),
                                  window: window)
             : TransferController(title: String(localized: "Moving"), failureTitle: String(localized: "Moving failed"),
                                  window: window)
+        controller.startsInBackground = inBackground
         return await controller.run(source: job.sources.first?.path ?? "", target: job.destination.path) {
             progress, resolveConflict in
             try await TransferEngine(job: job, progress: progress, resolveConflict: resolveConflict).run()
@@ -49,7 +53,11 @@ final class TransferController {
             $0.target = target
         }
         refresh()
-        window.beginSheet(sheet, completionHandler: nil)
+        if startsInBackground {
+            showInOwnWindow()
+        } else {
+            window.beginSheet(sheet, completionHandler: nil)
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
         }
@@ -132,12 +140,19 @@ final class TransferController {
     /// window while the panels can be used.
     @objc private func moveToBackground(_ sender: Any?) {
         guard !isInBackground else { return }
+        window.endSheet(sheet)
+        showInOwnWindow()
+    }
+
+    private func showInOwnWindow() {
         isInBackground = true
         backgroundButton.isHidden = true
-        window.endSheet(sheet)
-        sheet.title = title
+        let waiting = TransferQueue.shared.waitingCount
+        sheet.title = waiting > 0 ? String(localized: "\(title) (\(waiting) more queued)") : title
         sheet.center()
-        sheet.makeKeyAndOrderFront(nil)
+        // The progress window shows up, but typing stays in the panels.
+        sheet.orderFront(nil)
+        window.makeKeyAndOrderFront(nil)
     }
 
     @objc private func cancel(_ sender: Any?) {
