@@ -164,7 +164,7 @@ final class TransferController {
         alert.messageText = String(localized: "File already exists")
         alert.informativeText = String(localized: "Overwrite:\n\(describe(target))\n\nWith:\n\(describe(source))")
         for title in [String(localized: "Overwrite"), String(localized: "Overwrite All"), String(localized: "Skip"),
-                      String(localized: "Skip All"), String(localized: "Cancel")] {
+                      String(localized: "Skip All"), String(localized: "Overwrite All Older"), String(localized: "Cancel")] {
             alert.addButton(withTitle: title)
         }
         let response = await alert.beginSheetModal(for: sheet)
@@ -173,6 +173,7 @@ final class TransferController {
         case 1: return .overwriteAll
         case 2: return .skip
         case 3: return .skipAll
+        case 4: return .overwriteAllOlder
         default: return .cancel
         }
     }

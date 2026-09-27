@@ -246,32 +246,52 @@ extension MainViewController: NSMenuItemValidation {
             askForUnpacking(items, from: archive, in: source)
             return
         }
-        let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}") : String(localized: "\(items.count) files/folders")
-        let targetPath = inactivePanel.directory.path
-        let initial = targetPath.hasSuffix("/") ? targetPath : targetPath + "/"
-        Prompt.text(kind == .copy ? String(localized: "copy.title", defaultValue: "Copy") : String(localized: "Move/Rename"),
-                    message: kind == .copy ? String(localized: "Copy \(what) to:") : String(localized: "Rename/move \(what) to:"),
-                    initial: initial, okTitle: kind == .copy ? String(localized: "copy.button", defaultValue: "Copy")
-                        : String(localized: "move.button", defaultValue: "Move"),
-                    queueTitle: String(localized: "Queue (F2)"), in: window) { [weak self] text, queued in
-            self?.transfer(kind, items: items, from: source, to: text, queued: queued)
+        let target = inactivePanel
+        let targetFolders = target.searchResultsShown ? [] : target.listView.items
+            .filter { $0.isFolder && !$0.isParent && target.listView.marked.contains($0.name) }
+            .map(\.url)
+        let folders = items.filter(\.isFolder).count
+        CopyDialog.show(kind: kind, files: items.count - folders, folders: folders,
+                        target: Self.folderText(target.directory), selectedTargetFolders: targetFolders.count,
+                        in: window) { [weak self] result in
+            self?.transfer(result, items: items, from: source, targetFolders: result.toAllSelectedFolders ? targetFolders : [])
         }
     }
 
-    private func transfer(_ kind: TransferJob.Kind, items: [FileItem], from source: FilePanelController, to text: String,
-                          queued: Bool = false) {
-        guard let window = view.window, !text.isEmpty else { return }
-        let (destination, newName) = Self.resolveTarget(text, itemCount: items.count, base: source.directory)
-        let job = TransferJob(kind: kind, sources: items.map(\.url), destination: destination, newName: newName)
+    /// Runs the copy or move chosen in the F5/F6 dialog (once per selected folder
+    /// of the target panel with "Copy to all selected folders").
+    private func transfer(_ result: CopyDialog.Result, items: [FileItem], from source: FilePanelController,
+                          targetFolders: [URL]) {
+        guard let window = view.window else { return }
+        var jobs: [TransferJob]
+        if targetFolders.isEmpty {
+            let (destination, newName, mask) = Self.resolveTarget(result.target, itemCount: items.count, base: source.directory)
+            var options = result.options
+            options.renameMask = mask
+            jobs = [TransferJob(kind: result.kind, sources: items.map(\.url), destination: destination, newName: newName,
+                                options: options)]
+        } else {
+            // Moving can only happen once; the other folders get copies.
+            jobs = targetFolders.enumerated().map { index, folder in
+                let isLast = index == targetFolders.count - 1
+                return TransferJob(kind: result.kind == .move && isLast ? .move : .copy, sources: items.map(\.url),
+                                   destination: folder, newName: nil, options: result.options)
+            }
+        }
         let operation = { [weak self] in
-            let done = await TransferController.run(job, in: window, inBackground: queued)
-            let transferred = Set(done)
+            // Unmarked are the items that reached every target.
+            var transferred: Set<URL>?
+            for job in jobs {
+                let done = Set(await TransferController.run(job, in: window, inBackground: result.queued))
+                transferred = transferred.map { $0.intersection(done) } ?? done
+            }
+            let finished = transferred ?? []
             source.listView.setMarked(source.listView.marked.subtracting(
-                items.filter { transferred.contains($0.url) }.map(\.name)))
+                items.filter { finished.contains($0.url) }.map(\.name)))
             self?.leftPanel.reread()
             self?.rightPanel.reread()
         }
-        if queued {
+        if result.queued {
             TransferQueue.shared.add(operation)
         } else {
             Task { await operation() }
@@ -489,8 +509,23 @@ extension MainViewController: NSMenuItemValidation {
 
     /// Interprets the target typed in the copy/move dialog: an existing folder or a
     /// path ending in "/" receives the items; otherwise a single item gets that name.
+    /// A last part with wildcards ("*.*", "*.bak") is a mask for the new names.
     /// Relative paths are relative to the source folder.
-    static func resolveTarget(_ text: String, itemCount: Int, base: URL) -> (destination: URL, newName: String?) {
+    static func resolveTarget(_ text: String, itemCount: Int, base: URL)
+        -> (destination: URL, newName: String?, renameMask: RenameMask?) {
+        var text = text
+        var mask: RenameMask?
+        if let last = text.split(separator: "/", omittingEmptySubsequences: false).last,
+           last.contains(where: { $0 == "*" || $0 == "?" }) {
+            mask = RenameMask(String(last))
+            text = String(text.dropLast(last.count))
+            if text.isEmpty { text = "./" }
+        }
+        let (destination, newName) = resolveTargetPath(text, itemCount: itemCount, base: base)
+        return (destination, newName, mask)
+    }
+
+    private static func resolveTargetPath(_ text: String, itemCount: Int, base: URL) -> (destination: URL, newName: String?) {
         var path = (text as NSString).expandingTildeInPath
         if !path.hasPrefix("/") {
             path = base.appending(path: path).path

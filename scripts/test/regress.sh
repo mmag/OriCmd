@@ -46,6 +46,29 @@ scripts/test/mkdata.sh
 run mrt "plus wait cmd+a text:*.txt enter wait ctrl+m wait text:doc_[C] enter wait wait"
 check "Multi-Rename renames" "[ -f $L/doc_4.txt ] && [ ! -f $L/readme.txt ]"
 
+# F5 dialog options
+scripts/test/mkdata.sh
+run filter "home down space space f5 wait tab text:*.txt enter wait wait"
+check "F5 only files of this type" "[ -f $R/alpha/inside.txt ] && [ ! -e $R/beta ]"
+
+scripts/test/mkdata.sh
+run mask "alt+n wait text:otes escape f5 wait text:$PWD/$R/*.bak enter wait wait"
+check "F5 renames by target mask" "cmp -s $L/notes.md $R/notes.bak"
+
+scripts/test/mkdata.sh; echo old > $R/notes.md
+defaults write ru.themmag.OriCmd.tests CopyOverwriteMode -int 5
+run autorename "alt+n wait text:otes escape f5 wait enter wait wait"
+check "F5 overwrite mode: auto-rename copied" "[ \"\$(cat $R/notes.md)\" = old ] && cmp -s $L/notes.md '$R/notes(2).md'"
+
+scripts/test/mkdata.sh; echo old > $R/notes.md; touch -t 203001010000 $R/notes.md
+defaults write ru.themmag.OriCmd.tests CopyOverwriteMode -int 4
+run older "alt+n wait text:otes escape f5 wait enter wait wait"
+check "F5 overwrite mode: only older targets" "[ \"\$(cat $R/notes.md)\" = old ]"
+
+scripts/test/mkdata.sh; mkdir $R/d1 $R/d2
+run allfolders "tab home down space space tab alt+n wait text:otes escape f5 wait click:Options_>> wait click:Copy_to_all_2_selected_folders_in_the_target_panel enter wait wait wait"
+check "F5 to all selected target folders" "cmp -s $L/notes.md $R/d1/notes.md && cmp -s $L/notes.md $R/d2/notes.md"
+
 scripts/test/mkdata.sh
 run clip "alt+n wait text:otes escape cmd+c tab cmd+v wait wait"
 check "Cmd+C / Cmd+V copies" "cmp -s $L/notes.md $R/notes.md"

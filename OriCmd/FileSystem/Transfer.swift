@@ -13,10 +13,11 @@ nonisolated struct TransferJob: Sendable {
     let destination: URL
     /// A new name, when a single item is copied or moved under another name.
     let newName: String?
+    var options = TransferOptions()
 }
 
 nonisolated enum ConflictDecision: Sendable {
-    case overwrite, overwriteAll, skip, skipAll, cancel
+    case overwrite, overwriteAll, skip, skipAll, overwriteAllOlder, cancel
 }
 
 nonisolated struct TransferError: LocalizedError {
@@ -59,15 +60,18 @@ nonisolated final class TransferProgress: Sendable {
 /// Files are copied with `copyfile(3)`, keeping metadata, extended attributes
 /// and ACLs, and cloned instantly on APFS where possible. Moves within a volume
 /// are renames; across volumes they are a copy followed by a delete.
-/// Folders are merged into existing folders of the same name.
+/// Folders are merged into existing folders of the same name. The job's
+/// options add Total Commander's overwrite modes, a file type filter, renaming
+/// by mask and verification.
 nonisolated final class TransferEngine {
     typealias ConflictHandler = @Sendable (_ source: URL, _ target: URL) async -> ConflictDecision
 
     private let job: TransferJob
     private let progress: TransferProgress
     private let resolveConflict: ConflictHandler
-    private var overwriteAll = false
-    private var skipAll = false
+    /// Starts as chosen in the dialog; "Overwrite All" etc. in the prompt change it.
+    private var mode: OverwriteMode
+    private var options: TransferOptions { job.options }
 
     private let reportsTotal: Bool
 
@@ -78,6 +82,7 @@ nonisolated final class TransferEngine {
         self.progress = progress
         self.reportsTotal = reportsTotal
         self.resolveConflict = resolveConflict
+        mode = job.options.overwrite
     }
 
     /// Returns the sources that were fully transferred.
@@ -91,52 +96,90 @@ nonisolated final class TransferEngine {
         try FileManager.default.createDirectory(at: job.destination, withIntermediateDirectories: true)
         var done: [URL] = []
         for source in job.sources {
-            let target = job.destination.appending(path: job.newName ?? source.lastPathComponent)
-            if try await transfer(source, to: target) {
+            let target = job.newName.map { job.destination.appending(path: $0) } ?? targetURL(for: source, in: job.destination)
+            if try await transfer(source, to: target, insideIncludedFolder: false) {
                 done.append(source)
             }
         }
         return done
     }
 
-    /// Returns false if the item (or something inside it) was skipped.
-    private func transfer(_ source: URL, to target: URL) async throws -> Bool {
+    /// Where `source` goes in `folder`: files are renamed by the target mask.
+    private func targetURL(for source: URL, in folder: URL) -> URL {
+        let name = source.lastPathComponent
+        guard let mask = options.renameMask, !Self.isFolder(source.path) else { return folder.appending(path: name) }
+        return folder.appending(path: mask.apply(to: name))
+    }
+
+    private static func isFolder(_ path: String) -> Bool {
+        var info = stat()
+        return lstat(path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
+    }
+
+    /// Returns false if the item (or something inside it) was skipped or filtered out.
+    private func transfer(_ source: URL, to target: URL, insideIncludedFolder: Bool) async throws -> Bool {
         if progress.isCancelled { throw CancellationError() }
+        var target = target
 
         let sourcePath = source.standardizedFileURL.path
-        let targetPath = target.standardizedFileURL.path
-        if sourcePath == targetPath {
+        let standardTarget = target.standardizedFileURL.path
+        if sourcePath == standardTarget {
             if job.kind == .move { return true }
             throw TransferError(message: String(localized: "Cannot copy \u{201C}\(source.lastPathComponent)\u{201D} onto itself."))
         }
-        if targetPath.hasPrefix(sourcePath + "/") {
+        if standardTarget.hasPrefix(sourcePath + "/") {
             throw TransferError(message: String(localized: "Cannot copy \u{201C}\(source.lastPathComponent)\u{201D} into itself."))
         }
 
         var sourceInfo = stat()
         guard lstat(sourcePath, &sourceInfo) == 0 else { throw TransferError.posix(sourcePath) }
         let isFolder = sourceInfo.st_mode & S_IFMT == S_IFDIR
+        let name = source.lastPathComponent
+
+        // "Only files of this type".
+        var insideIncludedFolder = insideIncludedFolder
+        if isFolder {
+            if options.filter.excludesFolder(name) { return skipped(source) }
+            insideIncludedFolder = insideIncludedFolder || options.filter.includesFolder(name)
+        } else if !options.filter.includesFile(name, insideIncludedFolder: insideIncludedFolder) {
+            return skipped(source)
+        }
+        if options.skipsUnreadable, access(sourcePath, isFolder ? R_OK | X_OK : R_OK) != 0 {
+            return skipped(source)
+        }
 
         var targetInfo = stat()
-        let targetExists = lstat(targetPath, &targetInfo) == 0
+        let targetExists = lstat(target.path, &targetInfo) == 0
         let targetIsFolder = targetExists && targetInfo.st_mode & S_IFMT == S_IFDIR
 
         if isFolder && targetIsFolder {
-            return try await merge(source, into: target)
+            return try await merge(source, into: target, insideIncludedFolder: insideIncludedFolder, created: false)
         }
         if targetExists {
-            switch try await decide(source, target) {
+            switch try await decide(source, target, sourceInfo: sourceInfo, targetInfo: targetInfo) {
             case .overwrite:
+                if options.overwritesLocked { Self.unlock(target, recursively: targetIsFolder) }
                 try FileManager.default.removeItem(at: target)
             case .skip:
-                progress.update { $0.doneBytes += Self.totalSize(of: source) }
-                return false
+                return skipped(source)
+            case .rename(let newTarget):
+                target = newTarget
+            case .proceed:
+                break
             }
         }
+        let targetPath = target.path
 
-        if job.kind == .move {
+        // A whole folder can only be renamed when nothing inside is filtered or renamed.
+        if job.kind == .move, !isFolder || (options.filter.isEmpty && options.renameMask == nil) {
+            let flags = sourceInfo.st_flags
+            if options.overwritesLocked, flags & UInt32(UF_IMMUTABLE) != 0 {
+                chflags(sourcePath, flags & ~UInt32(UF_IMMUTABLE))
+            }
             if Darwin.rename(sourcePath, targetPath) == 0 {
-                progress.update { $0.doneBytes += Self.totalSize(of: source) }
+                if flags & UInt32(UF_IMMUTABLE) != 0 { chflags(targetPath, flags) }
+                let size = Self.totalSize(of: URL(filePath: targetPath))
+                progress.update { $0.doneBytes += size }
                 return true
             }
             guard errno == EXDEV else { throw TransferError.posix(sourcePath) }
@@ -146,46 +189,156 @@ nonisolated final class TransferEngine {
             guard mkdir(targetPath, sourceInfo.st_mode & 0o7777 | S_IRWXU) == 0 else {
                 throw TransferError.posix(targetPath)
             }
-            return try await merge(source, into: target)
+            return try await merge(source, into: target, insideIncludedFolder: insideIncludedFolder, created: true)
         }
 
         try copyFile(sourcePath, to: targetPath, size: Int64(sourceInfo.st_size))
-        if job.kind == .move, unlink(sourcePath) != 0 {
-            throw TransferError.posix(sourcePath)
+        if options.verify {
+            try verify(sourcePath, targetPath)
+        }
+        if job.kind == .move {
+            if options.overwritesLocked, sourceInfo.st_flags & UInt32(UF_IMMUTABLE) != 0 {
+                chflags(sourcePath, sourceInfo.st_flags & ~UInt32(UF_IMMUTABLE))
+            }
+            guard unlink(sourcePath) == 0 else { throw TransferError.posix(sourcePath) }
         }
         return true
     }
 
-    /// Transfers the contents of `source` into the existing folder `target`.
-    private func merge(_ source: URL, into target: URL) async throws -> Bool {
+    /// Counts a skipped or filtered-out item as done for the progress.
+    private func skipped(_ source: URL) -> Bool {
+        let size = Self.totalSize(of: source)
+        progress.update { $0.doneBytes += size }
+        return false
+    }
+
+    /// Transfers the contents of `source` into the folder `target`. A folder
+    /// created here that stays empty because of the filter is removed again.
+    private func merge(_ source: URL, into target: URL, insideIncludedFolder: Bool, created: Bool) async throws -> Bool {
         var complete = true
-        for name in try DirectoryListing.names(in: source) {
-            let transferred = try await transfer(source.appending(path: name), to: target.appending(path: name))
+        let names: [String]
+        do {
+            names = try DirectoryListing.names(in: source)
+        } catch where options.skipsUnreadable {
+            if created { rmdir(target.path) }
+            return false
+        }
+        for name in names {
+            let child = source.appending(path: name)
+            let transferred = try await transfer(child, to: targetURL(for: child, in: target),
+                                                 insideIncludedFolder: insideIncludedFolder)
             complete = complete && transferred
         }
-        // Folder attributes (permissions, dates, xattrs) are applied after the contents.
-        copyfile(source.path, target.path, nil, copyfile_flags_t(COPYFILE_METADATA))
+        if created, !options.filter.isEmpty, (try? DirectoryListing.names(in: target))?.isEmpty == true {
+            rmdir(target.path)
+        } else {
+            // Folder attributes (permissions, dates, xattrs) are applied after the contents.
+            let flags = options.copiesAttributes ? COPYFILE_METADATA : COPYFILE_STAT
+            copyfile(source.path, target.path, nil, copyfile_flags_t(flags))
+        }
         if job.kind == .move && complete {
             guard rmdir(source.path) == 0 else { throw TransferError.posix(source.path) }
         }
         return complete
     }
 
-    private enum Resolution { case overwrite, skip }
+    private enum Resolution {
+        case overwrite, skip, proceed
+        case rename(URL)
+    }
 
-    private func decide(_ source: URL, _ target: URL) async throws -> Resolution {
-        if overwriteAll { return .overwrite }
-        if skipAll { return .skip }
-        switch await resolveConflict(source, target) {
-        case .overwrite: return .overwrite
+    private func decide(_ source: URL, _ target: URL, sourceInfo: stat, targetInfo: stat) async throws -> Resolution {
+        let bothFiles = sourceInfo.st_mode & S_IFMT != S_IFDIR && targetInfo.st_mode & S_IFMT != S_IFDIR
+        switch mode {
         case .overwriteAll:
-            overwriteAll = true
             return .overwrite
-        case .skip: return .skip
         case .skipAll:
-            skipAll = true
             return .skip
-        case .cancel: throw CancellationError()
+        case .renameCopied:
+            return .rename(Self.freeName(for: target))
+        case .renameTarget:
+            let moved = Self.freeName(for: target)
+            guard Darwin.rename(target.path, moved.path) == 0 else { throw TransferError.posix(target.path) }
+            return .proceed
+        case .overwriteOlder where bothFiles:
+            return Self.modified(sourceInfo) > Self.modified(targetInfo) ? .overwrite : .skip
+        case .copyLarger where bothFiles:
+            return sourceInfo.st_size > targetInfo.st_size ? .overwrite : .skip
+        case .copySmaller where bothFiles:
+            return sourceInfo.st_size < targetInfo.st_size ? .overwrite : .skip
+        default:
+            break
+        }
+        // Ask, and for a file meeting a folder in the modes that compare files.
+        switch await resolveConflict(source, target) {
+        case .overwrite:
+            return .overwrite
+        case .overwriteAll:
+            mode = .overwriteAll
+            return .overwrite
+        case .skip:
+            return .skip
+        case .skipAll:
+            mode = .skipAll
+            return .skip
+        case .overwriteAllOlder:
+            mode = .overwriteOlder
+            return bothFiles && Self.modified(sourceInfo) <= Self.modified(targetInfo) ? .skip : .overwrite
+        case .cancel:
+            throw CancellationError()
+        }
+    }
+
+    private static func modified(_ info: stat) -> Double {
+        Double(info.st_mtimespec.tv_sec) + Double(info.st_mtimespec.tv_nsec) / 1_000_000_000
+    }
+
+    /// "name(2).ext", "name(3).ext", … — the first name not taken in the folder.
+    static func freeName(for url: URL) -> URL {
+        let folder = url.deletingLastPathComponent()
+        let name = url.lastPathComponent
+        let dot = name.lastIndex(of: ".").flatMap { $0 == name.startIndex ? nil : $0 }
+        let base = dot.map { String(name[..<$0]) } ?? name
+        let suffix = dot.map { String(name[$0...]) } ?? ""
+        var number = 2
+        while true {
+            let candidate = folder.appending(path: "\(base)(\(number))\(suffix)")
+            var info = stat()
+            if lstat(candidate.path, &info) != 0 { return candidate }
+            number += 1
+        }
+    }
+
+    /// Clears the "locked" flag (of everything inside, for a folder).
+    private static func unlock(_ url: URL, recursively: Bool) {
+        var info = stat()
+        if lstat(url.path, &info) == 0, info.st_flags & UInt32(UF_IMMUTABLE) != 0 {
+            chflags(url.path, info.st_flags & ~UInt32(UF_IMMUTABLE))
+        }
+        guard recursively, let names = try? DirectoryListing.names(in: url) else { return }
+        for name in names {
+            let child = url.appending(path: name)
+            unlock(child, recursively: isFolder(child.path))
+        }
+    }
+
+    /// Reads back the copy and compares it with the original.
+    private func verify(_ source: String, _ target: String) throws {
+        guard let a = FileHandle(forReadingAtPath: source), let b = FileHandle(forReadingAtPath: target) else {
+            throw TransferError(message: String(localized: "Cannot verify \u{201C}\(target)\u{201D}"))
+        }
+        defer {
+            try? a.close()
+            try? b.close()
+        }
+        while true {
+            if progress.isCancelled { throw CancellationError() }
+            let chunkA = try a.read(upToCount: 1 << 20) ?? Data()
+            let chunkB = try b.read(upToCount: 1 << 20) ?? Data()
+            guard chunkA == chunkB else {
+                throw TransferError(message: String(localized: "Verification failed: \u{201C}\(target)\u{201D} differs from the original."))
+            }
+            if chunkA.isEmpty { return }
         }
     }
 
@@ -214,7 +367,8 @@ nonisolated final class TransferEngine {
         copyfile_state_set(state, UInt32(COPYFILE_STATE_STATUS_CTX), Unmanaged.passUnretained(progress).toOpaque())
 
         // COPYFILE_CLONE clones on APFS and falls back to a full copy with metadata.
-        let result = copyfile(source, target, state, copyfile_flags_t(COPYFILE_CLONE))
+        let flags = options.copiesAttributes ? COPYFILE_CLONE : COPYFILE_DATA | COPYFILE_STAT
+        let result = copyfile(source, target, state, copyfile_flags_t(flags))
         let failure = errno
         progress.update {
             $0.doneBytes += size

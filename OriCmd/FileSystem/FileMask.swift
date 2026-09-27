@@ -8,4 +8,10 @@ enum FileMask {
             pattern == "*" || pattern == "*.*" || fnmatch(pattern, name, FNM_CASEFOLD) == 0
         }
     }
+
+    nonisolated static func matchesAny(_ name: String, _ patterns: [String]) -> Bool {
+        patterns.contains { pattern in
+            pattern == "*" || pattern == "*.*" || fnmatch(pattern, name, FNM_CASEFOLD) == 0
+        }
+    }
 }
