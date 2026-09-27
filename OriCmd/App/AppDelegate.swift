@@ -5,8 +5,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.make()
-        NotificationCenter.default.addObserver(forName: KeyBindings.didChange, object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { NSApp.mainMenu = MainMenu.make() }
+        for name in [KeyBindings.didChange, UserCommands.didChange] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { NSApp.mainMenu = MainMenu.make() }
+            }
         }
 
         let controller = MainWindowController()
@@ -21,6 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    @objc func showStartMenuEditor(_ sender: Any?) {
+        UserCommandsWindowController.shared.showWindow(sender)
     }
 
     @objc func showSettings(_ sender: Any?) {

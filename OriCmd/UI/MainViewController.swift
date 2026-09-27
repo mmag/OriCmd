@@ -609,6 +609,35 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
+    /// Runs a Start menu command (from the menu or the button bar).
+    @objc func runUserCommand(_ sender: Any?) {
+        let id: String?
+        if let item = sender as? NSMenuItem {
+            id = item.representedObject as? String
+        } else if let item = sender as? NSToolbarItem {
+            id = ButtonBar.userCommandID(from: item.itemIdentifier)
+        } else {
+            id = nil
+        }
+        guard let command = id.flatMap(UserCommands.command(withID:)), !command.command.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let context = UserCommand.Context(
+            sourcePath: activePanel.directory.path,
+            currentName: activePanel.listView.currentItem.flatMap { $0.isParent ? nil : $0.name },
+            selectedNames: activePanel.selectedItems.map(\.name),
+            targetPath: inactivePanel.directory.path,
+            targetName: inactivePanel.listView.currentItem.flatMap { $0.isParent ? nil : $0.name }
+        )
+        let line = command.expanded(with: context)
+        if command.runsInTerminal {
+            ShellRunner.runInTerminal(line, in: activePanel.directory)
+        } else {
+            ShellRunner.run(line, in: activePanel.directory, window: view.window)
+        }
+    }
+
     /// ⌘K: mounts a network share and shows it in the active panel.
     @objc func connectToServer(_ sender: Any?) {
         guard let window = view.window else { return }

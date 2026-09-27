@@ -32,6 +32,8 @@ enum MainMenu {
         ])
         mainMenu.addItem(container(for: commands))
 
+        mainMenu.addItem(container(for: startMenu()))
+
         let net = NSMenu(title: String(localized: "Net"))
         net.addItem(item(String(localized: "Connect to Server…"), #selector(MainViewController.connectToServer(_:)), "k"))
         net.addItem(item(String(localized: "Eject"), #selector(MainViewController.ejectVolume(_:)), "e"))
@@ -140,6 +142,23 @@ enum MainMenu {
         menu.addItem(item(String(localized: "Zoom"), #selector(NSWindow.performZoom(_:))))
         menu.addItem(.separator())
         menu.addItem(item(String(localized: "Bring All to Front"), #selector(NSApplication.arrangeInFront(_:))))
+        return menu
+    }
+
+    /// Total Commander's "Start" menu: the user's own commands.
+    private static func startMenu() -> NSMenu {
+        let menu = NSMenu(title: String(localized: "Start"))
+        for command in UserCommands.all {
+            let shortcut = Shortcut(text: command.keys)
+            let entry = item(command.title, #selector(MainViewController.runUserCommand(_:)),
+                             shortcut?.key ?? "", shortcut?.modifiers ?? [])
+            entry.representedObject = command.id.uuidString
+            menu.addItem(entry)
+        }
+        if !menu.items.isEmpty {
+            menu.addItem(.separator())
+        }
+        menu.addItem(item(String(localized: "Change Start Menu…"), #selector(AppDelegate.showStartMenuEditor(_:))))
         return menu
     }
 

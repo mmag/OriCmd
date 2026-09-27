@@ -49,11 +49,31 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        Self.buttons.map { NSToolbarItem.Identifier($0.0.rawValue) } + [.space, .flexibleSpace]
+        Self.buttons.map { NSToolbarItem.Identifier($0.0.rawValue) }
+            + UserCommands.all.map { NSToolbarItem.Identifier(Self.userPrefix + $0.id.uuidString) }
+            + [.space, .flexibleSpace]
+    }
+
+    private static let userPrefix = "user."
+
+    /// The Start menu command a toolbar button stands for.
+    static func userCommandID(from identifier: NSToolbarItem.Identifier) -> String? {
+        identifier.rawValue.hasPrefix(userPrefix) ? String(identifier.rawValue.dropFirst(userPrefix.count)) : nil
     }
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        if let id = Self.userCommandID(from: identifier) {
+            guard let command = UserCommands.command(withID: id) else { return nil }
+            let item = NSToolbarItem(itemIdentifier: identifier)
+            item.label = command.title
+            item.paletteLabel = command.title
+            item.toolTip = command.command
+            item.image = NSImage(systemSymbolName: "play.square", accessibilityDescription: command.title)
+            item.action = #selector(MainViewController.runUserCommand(_:))
+            item.isBordered = true
+            return item
+        }
         guard let (command, symbol) = Self.buttons.first(where: { $0.0.rawValue == identifier.rawValue }) else {
             return nil
         }

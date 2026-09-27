@@ -51,6 +51,16 @@
         }
       }
     },
+    "%P folder of the active panel, %N file under the cursor, %S selected files, %T folder of the other panel, %M file under the cursor there. Values are quoted for the shell.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%P — каталог активной панели, %N — файл под курсором, %S — выделенные файлы, %T — каталог другой панели, %M — файл под курсором в ней. Значения экранируются для оболочки."
+          }
+        }
+      }
+    },
     "%lld OK, %lld mismatched, %lld missing": {
       "localizations": {
         "ru": {
@@ -127,6 +137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "О программе %@"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить"
           }
         }
       }
@@ -501,6 +521,16 @@
         }
       }
     },
+    "Change Start Menu…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить меню «Запуск»…"
+          }
+        }
+      }
+    },
     "Change attributes of %lld files/folders": {
       "localizations": {
         "ru": {
@@ -597,6 +627,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Команда"
+          }
+        }
+      }
+    },
+    "Command:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команда:"
           }
         }
       }
@@ -1451,6 +1491,16 @@
         }
       }
     },
+    "Keys:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиши:"
+          }
+        }
+      }
+    },
     "Left": {
       "localizations": {
         "ru": {
@@ -1697,6 +1747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сеть"
+          }
+        }
+      }
+    },
+    "New Command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая команда"
           }
         }
       }
@@ -2231,6 +2291,16 @@
         }
       }
     },
+    "Run in Terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполнять в Терминале"
+          }
+        }
+      }
+    },
     "Search commands": {
       "localizations": {
         "ru": {
@@ -2551,6 +2621,26 @@
         }
       }
     },
+    "Start": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск"
+          }
+        }
+      }
+    },
+    "Start Menu": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Меню «Запуск»"
+          }
+        }
+      }
+    },
     "Start Search": {
       "localizations": {
         "ru": {
@@ -2727,6 +2817,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Эскизы"
+          }
+        }
+      }
+    },
+    "Title": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название"
+          }
+        }
+      }
+    },
+    "Title:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название:"
           }
         }
       }
@@ -3041,6 +3151,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "цифр"
+          }
+        }
+      }
+    },
+    "e.g. CM+E (C Control, A Option, S Shift, M Command)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "например CM+E (C — Control, A — Option, S — Shift, M — Command)"
           }
         }
       }

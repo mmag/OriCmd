@@ -170,6 +170,9 @@ enum DebugAutomation {
             }
             responder = current.nextResponder
         }
+        if let delegate = NSApp.delegate, delegate.responds(to: action) {
+            return NSApp.sendAction(action, to: delegate, from: nil)
+        }
         NSLog("No target for \(action)")
         return false
     }
