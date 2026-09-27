@@ -10,6 +10,8 @@ final class SettingsWindowController: NSWindowController {
                                           target: nil, action: nil)
     private let functionKeysBox = NSButton(checkboxWithTitle: String(localized: "Show function key buttons"),
                                            target: nil, action: nil)
+    private let driveButtonsBox = NSButton(checkboxWithTitle: String(localized: "Show drive buttons"),
+                                           target: nil, action: nil)
     private let confirmTrashBox = NSButton(checkboxWithTitle: String(localized: "Confirm moving to the Trash"),
                                            target: nil, action: nil)
 
@@ -44,7 +46,7 @@ final class SettingsWindowController: NSWindowController {
         quickSearchPopUp.target = self
         quickSearchPopUp.action = #selector(quickSearchChanged(_:))
 
-        for box in [commandLineBox, functionKeysBox, confirmTrashBox] {
+        for box in [commandLineBox, functionKeysBox, driveButtonsBox, confirmTrashBox] {
             box.target = self
             box.action = #selector(checkboxChanged(_:))
         }
@@ -54,6 +56,7 @@ final class SettingsWindowController: NSWindowController {
             [NSTextField(labelWithString: String(localized: "Quick search:")), quickSearchPopUp],
             [NSTextField(labelWithString: String(localized: "Show:")), commandLineBox],
             [NSGridCell.emptyContentView, functionKeysBox],
+            [NSGridCell.emptyContentView, driveButtonsBox],
             [NSTextField(labelWithString: String(localized: "Delete:")), confirmTrashBox],
         ])
         grid.column(at: 0).xPlacement = .trailing
@@ -79,6 +82,7 @@ final class SettingsWindowController: NSWindowController {
         quickSearchPopUp.selectItem(at: Settings.quickSearchMode == .optionLetters ? 0 : 1)
         commandLineBox.state = Settings.showsCommandLine ? .on : .off
         functionKeysBox.state = Settings.showsFunctionKeys ? .on : .off
+        driveButtonsBox.state = Settings.showsDriveButtons ? .on : .off
         confirmTrashBox.state = Settings.confirmsMoveToTrash ? .on : .off
     }
 
@@ -110,6 +114,7 @@ final class SettingsWindowController: NSWindowController {
         switch sender {
         case commandLineBox: Settings.showsCommandLine = on
         case functionKeysBox: Settings.showsFunctionKeys = on
+        case driveButtonsBox: Settings.showsDriveButtons = on
         default: Settings.confirmsMoveToTrash = on
         }
     }

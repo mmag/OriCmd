@@ -3,6 +3,7 @@ import AppKit
 /// One of the two file panels, laid out top to bottom like in Total Commander:
 /// volume selector with free space, path bar, file list, status line.
 final class PanelView: NSView {
+    let driveBar = DriveBar()
     let volumeButton = NSPopUpButton(frame: .zero, pullsDown: false)
     let freeSpaceLabel = NSTextField(labelWithString: "")
     let rootButton = NSButton(title: "/", target: nil, action: nil)
@@ -30,6 +31,7 @@ final class PanelView: NSView {
     private var volumes: [Volume] = []
     private var tabBarHeight: NSLayoutConstraint!
     private var headerHeight: NSLayoutConstraint!
+    private var driveBarHeight: NSLayoutConstraint!
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -66,7 +68,7 @@ final class PanelView: NSView {
         quickSearchField.placeholderString = String(localized: "Quick search")
         quickSearchField.isHidden = true
 
-        let views: [NSView] = [volumeButton, freeSpaceLabel, rootButton, parentButton, tabBar, pathBar, headerView,
+        let views: [NSView] = [driveBar, volumeButton, freeSpaceLabel, rootButton, parentButton, tabBar, pathBar, headerView,
                                scrollView, statusLabel, quickSearchField]
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -75,9 +77,15 @@ final class PanelView: NSView {
 
         headerHeight = headerView.heightAnchor.constraint(equalToConstant: headerView.intrinsicContentSize.height)
         tabBarHeight = tabBar.heightAnchor.constraint(equalToConstant: 0)
+        driveBarHeight = driveBar.heightAnchor.constraint(equalToConstant: DriveBar.height)
         tabBar.isHidden = true
         NSLayoutConstraint.activate([
-            volumeButton.topAnchor.constraint(equalTo: topAnchor, constant: 3),
+            driveBar.topAnchor.constraint(equalTo: topAnchor),
+            driveBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            driveBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            driveBarHeight,
+
+            volumeButton.topAnchor.constraint(equalTo: driveBar.bottomAnchor, constant: 3),
             volumeButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
             volumeButton.widthAnchor.constraint(lessThanOrEqualToConstant: 180),
 
@@ -136,6 +144,11 @@ final class PanelView: NSView {
         listView.viewMode = mode
     }
 
+    func setDriveBarVisible(_ visible: Bool) {
+        driveBar.isHidden = !visible
+        driveBarHeight.constant = visible ? DriveBar.height : 0
+    }
+
     /// Shows the folder tabs (the bar is hidden when `visible` is false).
     func setTabs(_ titles: [String], selected: Int, visible: Bool) {
         tabBar.titles = titles
@@ -146,7 +159,11 @@ final class PanelView: NSView {
 
     /// Updates the header for `directory`: path, current volume and free space.
     func show(directory: URL, volumes: [Volume]) {
+        if volumes != self.volumes || driveBar.drives.isEmpty {
+            driveBar.drives = DriveBar.drives(for: volumes)
+        }
         self.volumes = volumes
+        driveBar.currentPath = directory.path
         pathBar.path = directory.path
 
         volumeButton.removeAllItems()

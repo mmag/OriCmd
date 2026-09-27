@@ -18,6 +18,7 @@ enum Settings {
         static let quickSearch = "QuickSearchMode"
         static let commandLine = "ShowCommandLine"
         static let functionKeys = "ShowFunctionKeys"
+        static let driveButtons = "ShowDriveButtons"
         static let confirmTrash = "ConfirmMoveToTrash"
     }
 
@@ -58,6 +59,11 @@ enum Settings {
     static var showsFunctionKeys: Bool {
         get { bool(Key.functionKeys, default: true) }
         set { set(newValue, Key.functionKeys) }
+    }
+
+    static var showsDriveButtons: Bool {
+        get { bool(Key.driveButtons, default: true) }
+        set { set(newValue, Key.driveButtons) }
     }
 
     static var confirmsMoveToTrash: Bool {

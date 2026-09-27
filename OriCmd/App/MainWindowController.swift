@@ -2,6 +2,7 @@ import AppKit
 
 final class MainWindowController: NSWindowController {
     private static let frameAutosaveName = "MainWindow"
+    private let buttonBar = ButtonBar()
 
     init() {
         let window = NSWindow(
@@ -11,6 +12,10 @@ final class MainWindowController: NSWindowController {
             defer: false
         )
         window.title = "OriCmd"
+        window.toolbar = buttonBar.toolbar
+        window.toolbarStyle = .unifiedCompact
+        // Buttons start at the left, like Total Commander's button bar.
+        window.titleVisibility = .hidden
         window.contentViewController = MainViewController()
         window.minSize = NSSize(width: 640, height: 400)
         if !window.setFrameUsingName(Self.frameAutosaveName) {

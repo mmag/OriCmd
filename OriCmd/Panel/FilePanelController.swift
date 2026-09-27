@@ -109,6 +109,8 @@ final class FilePanelController: NSViewController {
         panelView.onGoToRoot = { [weak self] in self?.goToRoot() }
         panelView.onGoToParent = { [weak self] in self?.goToParent() }
         panelView.onVolumeSelected = { [weak self] volume in self?.load(volume.url) }
+        panelView.driveBar.onSelect = { [weak self] url in self?.load(url) }
+        panelView.setDriveBarVisible(Settings.showsDriveButtons)
         panelView.tabBar.onSelect = { [weak self] index in self?.selectTab(index) }
         panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
         panelView.quickSearchField.delegate = self
@@ -136,6 +138,7 @@ final class FilePanelController: NSViewController {
 
     /// Font or other appearance settings changed.
     func settingsDidChange() {
+        panelView.setDriveBarVisible(Settings.showsDriveButtons)
         listView.settingsDidChange()
         panelView.pathBar.needsDisplay = true
         panelView.headerView.needsDisplay = true
