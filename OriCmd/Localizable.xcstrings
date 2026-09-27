@@ -3401,6 +3401,16 @@
         }
       }
     },
+    "Unexpected server listing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Непонятный ответ сервера на запрос списка файлов"
+          }
+        }
+      }
+    },
     "Unpack": {
       "localizations": {
         "ru": {

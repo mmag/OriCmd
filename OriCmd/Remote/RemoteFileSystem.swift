@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// A server shown in a panel (SFTP, FTP). Paths are absolute POSIX paths on
 /// the server; entries come back as `FileItem`s whose URL carries the server
@@ -27,6 +28,96 @@ nonisolated enum RemotePath {
     static func parent(of path: String) -> String {
         let parent = (path as NSString).deletingLastPathComponent
         return parent.isEmpty ? "/" : parent
+    }
+}
+
+/// One file of a server transfer, planned before it starts so that the
+/// progress can count bytes.
+nonisolated struct PlannedFile: Sendable {
+    let source: String
+    let target: String
+    let size: Int64
+}
+
+/// Byte progress of a transfer that a command line tool makes file by file:
+/// the tool reports which file it starts, and the size of the current file
+/// is measured while it is being copied.
+nonisolated final class TransferMeter: Sendable {
+    private let files: [PlannedFile]
+    /// Bytes of the files before each file.
+    private let offsets: [Int64]
+    private let progress: TransferProgress
+    private let currentIndex = OSAllocatedUnfairLock<Int?>(initialState: nil)
+
+    init(files: [PlannedFile], progress: TransferProgress) {
+        self.files = files
+        var offsets: [Int64] = []
+        var total: Int64 = 0
+        for file in files {
+            offsets.append(total)
+            total += file.size
+        }
+        self.offsets = offsets
+        self.progress = progress
+        let totalBytes = total
+        progress.update {
+            $0.totalBytes = totalBytes
+            $0.doneBytes = 0
+        }
+    }
+
+    var current: (index: Int, file: PlannedFile)? {
+        currentIndex.withLock { $0 }.map { ($0, files[$0]) }
+    }
+
+    func start(_ index: Int) {
+        guard files.indices.contains(index) else { return }
+        currentIndex.withLock { $0 = index }
+        let file = files[index]
+        let offset = offsets[index]
+        progress.update {
+            $0.source = file.source
+            $0.target = file.target
+            $0.fileBytes = file.size
+            $0.fileDoneBytes = 0
+            $0.doneBytes = offset
+        }
+    }
+
+    /// `bytes` of file `index` are done (ignored once another file started).
+    func advance(_ index: Int, to bytes: Int64) {
+        guard currentIndex.withLock({ $0 }) == index else { return }
+        let done = min(max(bytes, 0), files[index].size)
+        let offset = offsets[index]
+        progress.update {
+            $0.fileDoneBytes = done
+            $0.doneBytes = offset + done
+        }
+    }
+
+    func finish() {
+        progress.update {
+            $0.doneBytes = $0.totalBytes
+            $0.fileDoneBytes = $0.fileBytes
+        }
+    }
+}
+
+/// Splits streamed output into lines.
+nonisolated final class LineBuffer: Sendable {
+    private let pending = OSAllocatedUnfairLock(initialState: [UInt8]())
+
+    /// Adds `data` and returns the lines it completes (without line breaks).
+    func append(_ data: Data, separators: Set<UInt8> = [0x0A]) -> [String] {
+        pending.withLock { pending in
+            pending.append(contentsOf: data)
+            var lines: [String] = []
+            while let end = pending.firstIndex(where: separators.contains) {
+                lines.append(String(decoding: pending[..<end], as: UTF8.self))
+                pending.removeSubrange(...end)
+            }
+            return lines
+        }
     }
 }
 

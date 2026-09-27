@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 nonisolated struct RemoteError: LocalizedError {
     let message: String
@@ -125,10 +126,12 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     // MARK: - Commands
 
     /// Runs sftp batch commands over the master connection.
-    private func sftp(_ commands: [String], progress: TransferProgress? = nil) async throws -> String {
+    private func sftp(_ commands: [String], progress: TransferProgress? = nil,
+                      onOutput: (@Sendable (Data) -> Void)? = nil) async throws -> String {
         let output = try await ProcessRunner.run(
             "/usr/bin/sftp", ["-q", "-b", "-"] + options + portOption("-P") + [destination],
-            input: commands.joined(separator: "\n") + "\n", environment: environment, progress: progress
+            input: commands.joined(separator: "\n") + "\n", environment: environment, progress: progress,
+            onOutput: onOutput
         )
         guard output.status == 0 else { throw RemoteError(output.errors) }
         return output.text
@@ -154,15 +157,140 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
         return LongListing.items(from: lines, baseURL: baseURL.appending(path: path))
     }
 
-    func download(_ items: [FileItem], from folder: String, to destination: URL, progress: TransferProgress) async throws {
-        let paths = items.map { RemotePath.join(folder, $0.name) }
-        _ = try await sftp(["lcd \(Self.quoted(destination.path))"] + paths.map { "get -Rp \(Self.quoted($0))" },
-                           progress: progress)
+    /// Lists several folders in one session: one listing per path, in order.
+    private func list(_ paths: [String]) async throws -> [[FileItem]] {
+        let text = try await sftp(paths.flatMap { ["cd \(Self.quoted($0))", "ls -lan"] })
+        var chunks: [[Substring]] = []
+        var collecting = false
+        for line in text.split(whereSeparator: \.isNewline) {
+            if line.hasPrefix("sftp>") {
+                collecting = line.hasSuffix("ls -lan")
+                if collecting { chunks.append([]) }
+            } else if collecting {
+                chunks[chunks.count - 1].append(line)
+            }
+        }
+        guard chunks.count == paths.count else { throw RemoteError(String(localized: "Unexpected server listing")) }
+        return zip(paths, chunks).map { path, lines in
+            LongListing.items(from: lines.joined(separator: "\n"), baseURL: baseURL.appending(path: path))
+        }
     }
 
+    /// Downloads file by file (folders are listed first, level by level), so
+    /// the progress counts bytes; symbolic links are fetched as sftp resolves them.
+    func download(_ items: [FileItem], from folder: String, to destination: URL, progress: TransferProgress) async throws {
+        var folders: [(item: FileItem, local: URL)] = []
+        var files: [PlannedFile] = []
+        var commands: [String] = []
+        var level: [(remote: String, local: URL)] = []
+        func add(_ item: FileItem, remote: String, local: URL) {
+            if item.isDirectory {
+                folders.append((item, local))
+                level.append((remote, local))
+            } else {
+                let command = item.isSymlink ? "-get -Rp" : "get -p"
+                commands.append("\(command) \(Self.quoted(remote)) \(Self.quoted(local.path))")
+                files.append(PlannedFile(source: remote, target: local.path, size: item.isSymlink ? 0 : item.size))
+            }
+        }
+        for item in items {
+            add(item, remote: RemotePath.join(folder, item.name), local: destination.appending(path: item.name))
+        }
+        while !level.isEmpty {
+            if progress.isCancelled { throw CancellationError() }
+            let current = level
+            level = []
+            for ((remote, local), children) in zip(current, try await list(current.map(\.remote))) {
+                for child in children {
+                    add(child, remote: RemotePath.join(remote, child.name), local: local.appending(path: child.name))
+                }
+            }
+        }
+        for (_, local) in folders {
+            try FileManager.default.createDirectory(at: local, withIntermediateDirectories: true)
+        }
+        try await transfer(commands, files: files, progress: progress, pollInterval: .milliseconds(250)) { file in
+            var info = stat()
+            return lstat(file.target, &info) == 0 ? Int64(info.st_size) : nil
+        }
+        // Folder permissions and dates, as `get -Rp` kept them (innermost first).
+        for (item, local) in folders.reversed() {
+            try? FileManager.default.setAttributes([.posixPermissions: Int(item.mode & 0o7777),
+                                                    .modificationDate: item.modified], ofItemAtPath: local.path)
+        }
+    }
+
+    /// Uploads file by file (creating the folders first), so the progress counts bytes.
     func upload(_ files: [URL], to path: String, progress: TransferProgress) async throws {
-        _ = try await sftp(["cd \(Self.quoted(path))"] + files.map { "put -Rp \(Self.quoted($0.path))" },
-                           progress: progress)
+        var commands: [String] = []
+        var planned: [PlannedFile] = []
+        var folderModes: [(remote: String, mode: Int)] = []
+        func add(_ url: URL, remote: String) {
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isRegularFileKey,
+                                                           .fileSizeKey])
+            if values?.isSymbolicLink == true {
+                commands.append("-put -Rp \(Self.quoted(url.path)) \(Self.quoted(remote))")
+                planned.append(PlannedFile(source: url.path, target: remote, size: 0))
+            } else if values?.isDirectory == true {
+                commands.append("-mkdir \(Self.quoted(remote))")
+                planned.append(PlannedFile(source: url.path, target: remote, size: 0))
+                if let mode = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.posixPermissions] as? Int {
+                    folderModes.append((remote, mode))
+                }
+                let children = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
+                for child in children.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                    add(child, remote: RemotePath.join(remote, child.lastPathComponent))
+                }
+            } else if values?.isRegularFile == true {
+                commands.append("put -p \(Self.quoted(url.path)) \(Self.quoted(remote))")
+                planned.append(PlannedFile(source: url.path, target: remote, size: Int64(values?.fileSize ?? 0)))
+            }
+        }
+        for file in files {
+            add(file, remote: RemotePath.join(path, file.lastPathComponent))
+        }
+        // Folder permissions last, as `put -Rp` kept them (a read-only folder is filled first).
+        for (remote, mode) in folderModes.reversed() {
+            commands.append("-chmod \(String(mode & 0o7777, radix: 8)) \(Self.quoted(remote))")
+            planned.append(PlannedFile(source: remote, target: remote, size: 0))
+        }
+        // The server is only asked about big files, once a second.
+        try await transfer(commands, files: planned, progress: progress, pollInterval: .seconds(1)) { [weak self] file in
+            guard let self, file.size >= 4 << 20 else { return nil }
+            let text = try? await sftp(["ls -ln \(Self.quoted(file.target))"])
+            return text.flatMap { LongListing.items(from: $0, baseURL: baseURL).first?.size }
+        }
+    }
+
+    /// Runs one command per planned file in a single sftp session. sftp echoes
+    /// each batch command as it starts it, which tells which file is being copied;
+    /// `measure` returns how much of it is done.
+    private func transfer(_ commands: [String], files: [PlannedFile], progress: TransferProgress,
+                          pollInterval: Duration,
+                          measure: @escaping @Sendable (PlannedFile) async -> Int64?) async throws {
+        let meter = TransferMeter(files: files, progress: progress)
+        let lines = LineBuffer()
+        let started = OSAllocatedUnfairLock(initialState: 0)
+        let onOutput: @Sendable (Data) -> Void = { data in
+            let echoes = lines.append(data).filter { $0.hasPrefix("sftp>") }.count
+            guard echoes > 0 else { return }
+            let index = started.withLock { count in
+                count += echoes
+                return count - 1
+            }
+            meter.start(index)
+        }
+        let poller = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: pollInterval)
+                if let (index, file) = meter.current, let done = await measure(file) {
+                    meter.advance(index, to: done)
+                }
+            }
+        }
+        defer { poller.cancel() }
+        _ = try await sftp(commands, progress: progress, onOutput: onOutput)
+        meter.finish()
     }
 
     func makeDirectory(_ path: String) async throws {

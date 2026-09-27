@@ -63,22 +63,42 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
         return components.url ?? URL(string: "\(scheme)://\(hostPart)/")!
     }
 
-    private func curl(_ arguments: [String], progress: TransferProgress? = nil) async throws -> ProcessRunner.Output {
+    /// Runs curl logged in; with `onPercent`, curl's progress bar ("###  42.0%")
+    /// reports how much of the file is done.
+    private func curl(_ arguments: [String], progress: TransferProgress? = nil,
+                      onPercent: (@Sendable (Double) -> Void)? = nil) async throws -> ProcessRunner.Output {
         func escaped(_ text: String) -> String {
             text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         }
-        var options = ["-s", "-S", "-K", "-", "--connect-timeout", "20"]
+        var options = [onPercent == nil ? "-s" : "-#", "-S", "-K", "-", "--connect-timeout", "20"]
         if requiresTLS {
             options.append("--ssl-reqd")
         }
+        var onErrors: (@Sendable (Data) -> Void)?
+        if let onPercent {
+            let lines = LineBuffer()
+            onErrors = { data in
+                let percents = lines.append(data, separators: [0x0A, 0x0D]).compactMap { Self.percent(in: $0) }
+                if let percent = percents.last { onPercent(percent) }
+            }
+        }
         let output = try await ProcessRunner.run(
             "/usr/bin/curl", options + arguments,
-            input: "user = \"\(escaped(user)):\(escaped(password))\"\n", progress: progress
+            input: "user = \"\(escaped(user)):\(escaped(password))\"\n", progress: progress, onErrors: onErrors
         )
         guard output.status == 0 else {
-            throw RemoteError(output.errors.isEmpty ? "curl: \(output.status)" : output.errors)
+            let message = output.errors.components(separatedBy: CharacterSet(charactersIn: "\r\n"))
+                .filter { !$0.isEmpty && Self.percent(in: $0) == nil && !$0.allSatisfy { "#=O-. ".contains($0) } }
+                .joined(separator: "\n")
+            throw RemoteError(message.isEmpty ? "curl: \(output.status)" : message)
         }
         return output
+    }
+
+    /// The percentage at the end of a curl progress bar line.
+    private static func percent(in line: String) -> Double? {
+        guard let match = line.firstMatch(of: /#*\s*(\d{1,3}(?:\.\d)?)%\s*$/) else { return nil }
+        return Double(match.1)
     }
 
     /// Runs FTP commands (MKD, DELE, RMD, RNFR/RNTO) after logging in.
@@ -107,41 +127,70 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
         return LongListing.items(from: output.text, baseURL: base)
     }
 
+    /// Lists the folders first (so the progress knows the total), then fetches file by file.
     func download(_ items: [FileItem], from folder: String, to local: URL, progress: TransferProgress) async throws {
-        for item in items {
-            let path = RemotePath.join(folder, item.name)
-            let target = local.appending(path: item.name)
-            progress.update {
-                $0.source = path
-                $0.target = target.path
-            }
-            if item.isDirectory {
-                try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
-                try await download(try await list(path), from: path, to: target, progress: progress)
-            } else {
-                _ = try await curl(["-o", target.path, url(for: path, directory: false)], progress: progress)
+        var folders: [URL] = []
+        var files: [PlannedFile] = []
+        func plan(_ items: [FileItem], from folder: String, to local: URL) async throws {
+            for item in items {
+                if progress.isCancelled { throw CancellationError() }
+                let path = RemotePath.join(folder, item.name)
+                let target = local.appending(path: item.name)
+                if item.isDirectory {
+                    folders.append(target)
+                    try await plan(try await list(path), from: path, to: target)
+                } else {
+                    files.append(PlannedFile(source: path, target: target.path, size: item.size))
+                }
             }
         }
+        try await plan(items, from: folder, to: local)
+        for folder in folders {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        let meter = TransferMeter(files: files, progress: progress)
+        for (index, file) in files.enumerated() {
+            meter.start(index)
+            _ = try await curl(["-o", file.target, url(for: file.source, directory: false)], progress: progress) {
+                meter.advance(index, to: Int64(Double(file.size) * $0 / 100))
+            }
+        }
+        meter.finish()
     }
 
+    /// Creates the folders first, then sends file by file.
     func upload(_ files: [URL], to path: String, progress: TransferProgress) async throws {
-        for file in files {
-            progress.update {
-                $0.source = file.path
-                $0.target = path
-            }
-            var isDirectory: ObjCBool = false
-            FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory)
-            if isDirectory.boolValue {
-                let folder = RemotePath.join(path, file.lastPathComponent)
-                try? await quote(["MKD \(folder)"])
-                let children = try FileManager.default.contentsOfDirectory(at: file, includingPropertiesForKeys: nil)
-                try await upload(children, to: folder, progress: progress)
-            } else {
-                _ = try await curl(["--ftp-create-dirs", "-T", file.path, url(for: path, directory: true)],
-                                   progress: progress)
+        var folders: [String] = []
+        var planned: [PlannedFile] = []
+        func plan(_ url: URL, into path: String) {
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .fileSizeKey])
+            let remote = RemotePath.join(path, url.lastPathComponent)
+            if values?.isDirectory == true {
+                folders.append(remote)
+                let children = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
+                for child in children.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                    plan(child, into: remote)
+                }
+            } else if values?.isRegularFile == true {
+                planned.append(PlannedFile(source: url.path, target: path, size: Int64(values?.fileSize ?? 0)))
             }
         }
+        for file in files {
+            plan(file, into: path)
+        }
+        for folder in folders {
+            if progress.isCancelled { throw CancellationError() }
+            try? await quote(["MKD \(folder)"])
+        }
+        let meter = TransferMeter(files: planned, progress: progress)
+        for (index, file) in planned.enumerated() {
+            meter.start(index)
+            _ = try await curl(["--ftp-create-dirs", "-T", file.source, url(for: file.target, directory: true)],
+                               progress: progress) {
+                meter.advance(index, to: Int64(Double(file.size) * $0 / 100))
+            }
+        }
+        meter.finish()
     }
 
     func makeDirectory(_ path: String) async throws {

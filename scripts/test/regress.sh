@@ -69,6 +69,13 @@ check "SFTP downloads a folder" "cmp -s $L/beta/deep/deeper/blob.bin $R/deep/dee
 scripts/test/mkdata.sh; echo upload > $R/up.txt
 run ftp "$(connect ftp://tester@127.0.0.1:2121/left 'text:secret enter wait') tab down f5 wait enter wait wait wait"
 check "FTP uploads a file" "cmp -s $R/up.txt $L/up.txt"
+scripts/test/mkdata.sh; mkdir -p $R/up/sub; echo a > $R/up/a.txt; echo b > $R/up/sub/b.txt; chmod 750 $R/up/sub
+run sftpup "$(connect sftp://oritest$PWD/$L) tab home down f5 wait enter wait wait wait"
+check "SFTP uploads a folder" "diff -r $R/up $L/up >/dev/null && [ \"\$(stat -f %Lp $L/up/sub)\" = 750 ]"
+
+scripts/test/mkdata.sh
+run ftpdown "$(connect ftp://tester@127.0.0.1:2121/left 'text:secret enter wait') home down f5 wait enter wait wait wait"
+check "FTP downloads a folder" "diff -r $L/alpha $R/alpha >/dev/null"
 scripts/test/servers.sh stop
 
 echo "passed: $pass, failed: $fail"

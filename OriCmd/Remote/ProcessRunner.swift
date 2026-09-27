@@ -3,7 +3,7 @@ import os
 
 /// Runs a command line tool (ssh, sftp, curl) off the main thread, feeding
 /// stdin and collecting stdout/stderr without pipe dead-locks. Cancelling the
-/// progress terminates it.
+/// progress terminates it. `onOutput` / `onErrors` see the output as it arrives.
 nonisolated enum ProcessRunner {
     struct Output: Sendable {
         let status: Int32
@@ -15,7 +15,9 @@ nonisolated enum ProcessRunner {
 
     @concurrent
     static func run(_ executable: String, _ arguments: [String], input: String? = nil,
-                    environment: [String: String] = [:], progress: TransferProgress? = nil) async throws -> Output {
+                    environment: [String: String] = [:], progress: TransferProgress? = nil,
+                    onOutput: (@Sendable (Data) -> Void)? = nil,
+                    onErrors: (@Sendable (Data) -> Void)? = nil) async throws -> Output {
         let process = Process()
         process.executableURL = URL(filePath: executable)
         process.arguments = arguments
@@ -32,16 +34,22 @@ nonisolated enum ProcessRunner {
         outputPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             collected.withLock { $0.output.append(data) }
+            if !data.isEmpty { onOutput?(data) }
         }
         errorPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             collected.withLock { $0.errors.append(data) }
+            if !data.isEmpty { onErrors?(data) }
         }
 
         try process.run()
         if let input {
-            inputPipe.fileHandleForWriting.write(Data(input.utf8))
-            try? inputPipe.fileHandleForWriting.close()
+            // Long batches do not fit the pipe buffer: the tool reads them as it goes.
+            let writer = inputPipe.fileHandleForWriting
+            DispatchQueue.global().async {
+                try? writer.write(contentsOf: Data(input.utf8))
+                try? writer.close()
+            }
         }
         while process.isRunning {
             if progress?.isCancelled == true {
