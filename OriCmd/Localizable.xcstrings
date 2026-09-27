@@ -201,6 +201,16 @@
         }
       }
     },
+    "Branch View (All Files in Subfolders)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все файлы без подкаталогов (ветвь)"
+          }
+        }
+      }
+    },
     "Brief": {
       "localizations": {
         "ru": {

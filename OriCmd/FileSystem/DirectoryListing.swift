@@ -42,6 +42,27 @@ enum DirectoryListing {
         return result
     }
 
+    /// All files below `directory` (not folders, not following symlinked folders),
+    /// named by their path relative to it — Total Commander's branch view.
+    nonisolated static func branchItems(in directory: URL, includingHidden: Bool, limit: Int = 50_000) -> [FileItem] {
+        var result: [FileItem] = []
+        func walk(_ folder: URL, prefix: String) {
+            guard result.count < limit, let items = try? self.items(in: folder) else { return }
+            for item in items where includingHidden || !item.isHidden {
+                let path = prefix + item.name
+                if item.isFolder && !item.isSymlink {
+                    walk(item.url, prefix: path + "/")
+                } else if !item.isFolder {
+                    result.append(FileItem(name: path, url: item.url, isDirectory: item.isDirectory,
+                                           isPackage: item.isPackage, isSymlink: item.isSymlink, isHidden: item.isHidden,
+                                           size: item.size, modified: item.modified, mode: item.mode))
+                }
+            }
+        }
+        walk(directory, prefix: "")
+        return result
+    }
+
     /// Entry names of `directory`, without "." and "..".
     nonisolated static func names(in directory: URL) throws -> [String] {
         guard let stream = opendir(directory.path) else {

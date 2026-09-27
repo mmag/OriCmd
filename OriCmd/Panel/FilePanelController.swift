@@ -81,6 +81,9 @@ final class FilePanelController: NSViewController {
         didSet { refreshList(selecting: listView.currentItem?.name) }
     }
 
+    /// Ctrl+B: lists all files of the folder and its subfolders, with relative names.
+    private(set) var isBranchView = false
+
     /// Show → Filter: only files matching this mask are listed (folders always are).
     private var filterMask: String? {
         didSet {
@@ -161,12 +164,18 @@ final class FilePanelController: NSViewController {
     /// Reads `directory` and shows it, placing the cursor on `name` if given.
     func load(_ directory: URL, selecting name: String? = nil, recordingHistory: Bool = true) {
         let directory = directory.standardizedFileURL
-        let entries: [FileItem]
+        if directory != self.directory {
+            isBranchView = false
+        }
+        var entries: [FileItem]
         do {
             entries = try DirectoryListing.items(in: directory)
         } catch {
             present(error, reading: directory)
             return
+        }
+        if isBranchView {
+            entries = DirectoryListing.branchItems(in: directory, includingHidden: showsHidden)
         }
         if archive != nil {
             archive = nil
@@ -821,6 +830,15 @@ extension FilePanelController: NSMenuItemValidation {
 
     // MARK: - Selection by extension, filter
 
+    /// Ctrl+B: toggles the branch view (all files in all subfolders).
+    @objc(cm_BranchView:)
+    func branchView(_ sender: Any?) {
+        guard !refuseInsideArchive() else { return }
+        isBranchView.toggle()
+        listView.setMarked([])
+        load(directory, selecting: listView.currentItem?.name)
+    }
+
     /// Alt+Num+: marks all files with the extension of the file under the cursor.
     @objc(cm_SelectCurrentExtension:)
     func selectCurrentExtension(_ sender: Any?) {
@@ -1327,6 +1345,8 @@ extension FilePanelController: NSMenuItemValidation {
             menuItem.state = sortOrder.ascending ? .off : .on
         } else if command == .goToParent {
             return directory.path != "/"
+        } else if command == .branchView {
+            menuItem.state = isBranchView ? .on : .off
         } else if command == .srcAllFiles || command == .srcUserSpec {
             menuItem.state = (filterMask == nil) == (command == .srcAllFiles) ? .on : .off
         } else if command == .srcShort || command == .srcLong {

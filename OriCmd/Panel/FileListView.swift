@@ -558,6 +558,8 @@ final class FileListView: NSView {
             default: #selector(NSText.paste(_:))
             }
             tryToPerform(action, with: self)
+        case (nil, [.control]) where event.charactersIgnoringModifiers == "b":
+            tryToPerform(Command.branchView.selector, with: self)
         case (nil, [.control]) where event.charactersIgnoringModifiers == "d":
             tryToPerform(Command.directoryHotlist.selector, with: self)
         case (.leftArrow?, [.control]), (.leftArrow?, [.command, .option]):

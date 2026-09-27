@@ -62,6 +62,7 @@ enum Command: String, CaseIterable {
     case syncDirs = "cm_SyncDirs"
 
     // Show
+    case branchView = "cm_BranchView"
     case srcAllFiles = "cm_SrcAllFiles"
     case srcUserSpec = "cm_SrcUserSpec"
     case srcShort = "cm_SrcShort"
@@ -130,6 +131,7 @@ enum Command: String, CaseIterable {
         case .searchFor: String(localized: "Find Files…")
         case .compareDirs: String(localized: "Compare Directories")
         case .syncDirs: String(localized: "Synchronize Directories…")
+        case .branchView: String(localized: "Branch View (All Files in Subfolders)")
         case .srcAllFiles: String(localized: "All Files")
         case .srcUserSpec: String(localized: "Filter…")
         case .srcShort: String(localized: "Brief")
@@ -186,6 +188,7 @@ enum Command: String, CaseIterable {
         case .directoryHotlist: .cmd("d")
         case .searchFor: .f(7, .option)
         case .compareDirs: .f(2, .shift)
+        case .branchView: .cmd("b")
         case .srcShort: .cmd("1")
         case .srcLong: .cmd("2")
         case .srcTree: .cmd("3")
