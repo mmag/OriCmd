@@ -17,6 +17,8 @@ enum Command: String, CaseIterable {
     case mkDir = "cm_MkDir"
     case delete = "cm_Delete"
     case deletePermanently = "cm_DeletePermanently"
+    case packFiles = "cm_PackFiles"
+    case unpackFiles = "cm_UnpackFiles"
     case exit = "cm_Exit"
 
     // Mark
@@ -74,6 +76,8 @@ enum Command: String, CaseIterable {
         case .mkDir: String(localized: "New Folder…")
         case .delete: String(localized: "Delete")
         case .deletePermanently: String(localized: "Delete Permanently")
+        case .packFiles: String(localized: "Pack…")
+        case .unpackFiles: String(localized: "Unpack…")
         case .exit: String(localized: "Exit")
         case .spreadSelection: String(localized: "Select Group…  (+)")
         case .shrinkSelection: String(localized: "Unselect Group…  (−)")
@@ -123,6 +127,8 @@ enum Command: String, CaseIterable {
         case .mkDir: .f(7)
         case .delete: .f(8)
         case .deletePermanently: .f(8, .shift)
+        case .packFiles: .f(5, .option)
+        case .unpackFiles: .f(9, .option)
         case .clearAll: .cmd("a", .option)
         case .rereadSource: .cmd("r")
         case .exchange: .ctrl("u")

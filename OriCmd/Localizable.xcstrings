@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ already exists. Replace?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ уже существует. Заменить?"
+          }
+        }
+      }
+    },
     "%@ bytes": {
       "localizations": {
         "ru": {
@@ -27,6 +37,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ Кб из %2$@ Кб свободно"
+          }
+        }
+      }
+    },
+    "%lld archives": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "архивов: %lld"
           }
         }
       }
@@ -161,6 +181,16 @@
         }
       }
     },
+    "Cannot open archive “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся открыть архив «%@»"
+          }
+        }
+      }
+    },
     "Cannot read folder “%@”": {
       "localizations": {
         "ru": {
@@ -187,6 +217,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся запустить «%@»"
+          }
+        }
+      }
+    },
+    "Cannot unpack “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся распаковать «%@»"
           }
         }
       }
@@ -711,6 +751,16 @@
         }
       }
     },
+    "Not supported inside archives": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внутри архивов это не поддерживается"
+          }
+        }
+      }
+    },
     "OK": {
       "localizations": {
         "ru": {
@@ -767,6 +817,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заменить:\n%1$@\n\nфайлом:\n%2$@"
+          }
+        }
+      }
+    },
+    "Pack": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упаковать"
+          }
+        }
+      }
+    },
+    "Pack %@ to archive (.zip, .tar.gz, .tar.bz2, .tar.xz, .7z):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упаковать %@ в архив (.zip, .tar.gz, .tar.bz2, .tar.xz, .7z):"
+          }
+        }
+      }
+    },
+    "Pack files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упаковка файлов"
+          }
+        }
+      }
+    },
+    "Packing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упаковка"
+          }
+        }
+      }
+    },
+    "Packing failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка упаковки"
+          }
+        }
+      }
+    },
+    "Pack…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упаковать…"
           }
         }
       }
@@ -1167,6 +1277,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отменить"
+          }
+        }
+      }
+    },
+    "Unpack": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распаковать"
+          }
+        }
+      }
+    },
+    "Unpack %@ to:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распаковать %@ в:"
+          }
+        }
+      }
+    },
+    "Unpack the files first (F5), or use Alt+F5 to create a new archive.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала распакуйте файлы (F5) или создайте новый архив (Alt+F5)."
+          }
+        }
+      }
+    },
+    "Unpacking": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распаковка"
+          }
+        }
+      }
+    },
+    "Unpacking failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка распаковки"
+          }
+        }
+      }
+    },
+    "Unpack…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распаковать…"
           }
         }
       }

@@ -13,6 +13,7 @@ enum MainMenu {
             [.list, .edit],
             [.copy, .renMov, .renameOnly, .mkDir],
             [.delete, .deletePermanently],
+            [.packFiles, .unpackFiles],
         ])))
         mainMenu.addItem(container(for: editMenu()))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Mark"), [

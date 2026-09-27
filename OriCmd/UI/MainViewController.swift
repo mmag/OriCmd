@@ -197,6 +197,16 @@ extension MainViewController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
+        if inactivePanel.archive != nil || (source.archive != nil && kind == .move) {
+            Prompt.info(String(localized: "Not supported inside archives"),
+                        message: String(localized: "Unpack the files first (F5), or use Alt+F5 to create a new archive."),
+                        in: window)
+            return
+        }
+        if let archive = source.archive {
+            askForUnpacking(items, from: archive, in: source)
+            return
+        }
         let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}") : String(localized: "\(items.count) files/folders")
         let targetPath = inactivePanel.directory.path
         let initial = targetPath.hasSuffix("/") ? targetPath : targetPath + "/"
@@ -213,11 +223,143 @@ extension MainViewController: NSMenuItemValidation {
         let (destination, newName) = Self.resolveTarget(text, itemCount: items.count, base: source.directory)
         let job = TransferJob(kind: kind, sources: items.map(\.url), destination: destination, newName: newName)
         Task {
-            let done = await TransferController(job: job, window: window).run()
+            let done = await TransferController.run(job, in: window)
             source.listView.setMarked(source.listView.marked.subtracting(done.map(\.lastPathComponent)))
             leftPanel.reread()
             rightPanel.reread()
         }
+    }
+
+    // MARK: - Archives
+
+    /// F5 inside an archive: unpacks the selected entries, by default into the other panel.
+    private func askForUnpacking(_ items: [FileItem], from archive: FilePanelController.ArchiveLocation,
+                                 in source: FilePanelController) {
+        guard let window = view.window else { return }
+        let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
+            : String(localized: "\(items.count) files/folders")
+        Prompt.text(String(localized: "Unpack"), message: String(localized: "Unpack \(what) to:"),
+                    initial: Self.folderText(inactivePanel.directory), okTitle: String(localized: "Unpack"),
+                    in: window) { [weak self] text in
+            guard let self, !text.isEmpty else { return }
+            let destination = Self.resolveFolder(text, base: source.directory)
+            let paths = items.map { archive.path(of: $0.name) }
+            let total = archive.entries
+                .filter { entry in paths.contains { entry.path == $0 || entry.path.hasPrefix($0 + "/") } }
+                .reduce(Int64(0)) { $0 + $1.size }
+            confirmOverwriting(items.map(\.name), in: destination) {
+                self.unpack([(archive.url, paths, archive.folder)], to: destination, total: total)
+            }
+        }
+    }
+
+    /// Alt+F9: unpacks the selected archives, by default into the other panel.
+    @objc(cm_UnpackFiles:)
+    func unpackFiles(_ sender: Any?) {
+        let source = activePanel
+        let archives = source.archive == nil
+            ? source.selectedItems.filter { !$0.isDirectory && ArchiveReader.isArchive($0.name) }
+            : []
+        guard !archives.isEmpty, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let what = archives.count == 1 ? String(localized: "\u{201C}\(archives[0].name)\u{201D}")
+            : String(localized: "\(archives.count) archives")
+        Prompt.text(String(localized: "Unpack"), message: String(localized: "Unpack \(what) to:"),
+                    initial: Self.folderText(inactivePanel.directory), okTitle: String(localized: "Unpack"),
+                    in: window) { [weak self] text in
+            guard let self, !text.isEmpty else { return }
+            let destination = Self.resolveFolder(text, base: source.directory)
+            unpack(archives.map { ($0.url, [], "") }, to: destination, total: nil)
+        }
+    }
+
+    /// Alt+F5: packs the selection into a new archive; the suffix picks the format.
+    @objc(cm_PackFiles:)
+    func packFiles(_ sender: Any?) {
+        let source = activePanel
+        let items = source.selectedItems
+        guard source.archive == nil, !items.isEmpty, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let name = items.count == 1 ? (items[0].isFolder ? items[0].name : items[0].baseName)
+            : source.directory.lastPathComponent
+        let folder = inactivePanel.archive == nil ? inactivePanel.directory : source.directory
+        let initial = folder.appending(path: name + ".zip").path
+        let selection = NSRange(location: (initial as NSString).length - (name as NSString).length - 4,
+                                length: (name as NSString).length)
+        let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
+            : String(localized: "\(items.count) files/folders")
+        Prompt.text(String(localized: "Pack files"),
+                    message: String(localized: "Pack \(what) to archive (.zip, .tar.gz, .tar.bz2, .tar.xz, .7z):"),
+                    initial: initial, selection: selection, okTitle: String(localized: "Pack"), in: window) {
+            [weak self] text in
+            guard let self, !text.isEmpty else { return }
+            var path = (text as NSString).expandingTildeInPath
+            if !path.hasPrefix("/") { path = source.directory.appending(path: path).path }
+            let archive = URL(filePath: path)
+            let names = items.map(\.name)
+            confirmOverwriting([archive.lastPathComponent], in: archive.deletingLastPathComponent()) {
+                Task {
+                    _ = await TransferController(title: String(localized: "Packing"),
+                                                 failureTitle: String(localized: "Packing failed"), window: window)
+                        .run(source: source.directory.path, target: archive.path) { progress, _ in
+                            try? FileManager.default.removeItem(at: archive)
+                            try await ArchiveWriter.pack(names, in: source.directory, to: archive, progress: progress)
+                            return []
+                        }
+                    self.leftPanel.reread()
+                    self.rightPanel.reread()
+                }
+            }
+        }
+    }
+
+    private func unpack(_ archives: [(url: URL, paths: [String], base: String)], to destination: URL, total: Int64?) {
+        guard let window = view.window else { return }
+        Task {
+            _ = await TransferController(title: String(localized: "Unpacking"),
+                                         failureTitle: String(localized: "Unpacking failed"), window: window)
+                .run(source: archives.first?.url.path ?? "", target: destination.path) { progress, _ in
+                    let size = try total ?? archives.reduce(Int64(0)) { sum, archive in
+                        try sum + ArchiveReader.entries(of: archive.url).reduce(Int64(0)) { $0 + $1.size }
+                    }
+                    progress.update { $0.totalBytes = size }
+                    try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+                    for archive in archives {
+                        try await ArchiveReader.extract(archive.url, paths: archive.paths, base: archive.base,
+                                                        to: destination, progress: progress)
+                    }
+                    return archives.map(\.url)
+                }
+            leftPanel.reread()
+            rightPanel.reread()
+        }
+    }
+
+    /// Asks once before replacing existing items, then runs `action`.
+    private func confirmOverwriting(_ names: [String], in folder: URL, then action: @escaping () -> Void) {
+        let existing = names.filter { FileManager.default.fileExists(atPath: folder.appending(path: $0).path) }
+        guard !existing.isEmpty, let window = view.window else {
+            action()
+            return
+        }
+        let what = existing.count == 1 ? String(localized: "\u{201C}\(existing[0])\u{201D}")
+            : String(localized: "\(existing.count) files/folders")
+        Prompt.confirm(String(localized: "\(what) already exists. Replace?"), okTitle: String(localized: "Overwrite"),
+                       in: window, completion: action)
+    }
+
+    private static func folderText(_ url: URL) -> String {
+        url.path.hasSuffix("/") ? url.path : url.path + "/"
+    }
+
+    /// A folder typed in a dialog; relative paths are relative to `base`.
+    private static func resolveFolder(_ text: String, base: URL) -> URL {
+        let path = (text as NSString).expandingTildeInPath
+        return (path.hasPrefix("/") ? URL(filePath: path) : base.appending(path: path)).standardizedFileURL
     }
 
     /// Interprets the target typed in the copy/move dialog: an existing folder or a

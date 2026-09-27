@@ -19,6 +19,23 @@ final class FilePanelController: NSViewController {
 
     private(set) var directory: URL
     private var entries: [FileItem] = []
+
+    /// Where the panel is inside an archive, while browsing one.
+    struct ArchiveLocation {
+        let url: URL
+        var folder: String
+        var entries: [ArchiveEntry]
+
+        var displayPath: String { folder.isEmpty ? url.path : url.path + "/" + folder }
+
+        /// Archive paths of entries shown in the current folder.
+        func path(of name: String) -> String {
+            folder.isEmpty ? name : folder + "/" + name
+        }
+    }
+
+    /// Set while the panel shows the inside of an archive (read-only).
+    private(set) var archive: ArchiveLocation?
     private var lastMask = "*.*"
     private var watcher: DirectoryWatcher?
 
@@ -133,6 +150,10 @@ final class FilePanelController: NSViewController {
             present(error, reading: directory)
             return
         }
+        if archive != nil {
+            archive = nil
+            listView.setMarked([])
+        }
         let isNewDirectory = directory != self.directory
         if isNewDirectory {
             if recordingHistory {
@@ -154,6 +175,108 @@ final class FilePanelController: NSViewController {
             updateTabBar()
         }
         delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    // MARK: - Archives
+
+    /// Shows the contents of an archive as a folder (Enter / Ctrl+PgDn on it).
+    func openArchive(_ url: URL) {
+        do {
+            let entries = try ArchiveReader.entries(of: url)
+            listView.setMarked([])
+            archive = ArchiveLocation(url: url, folder: "", entries: entries)
+            showArchiveFolder(selecting: nil)
+        } catch {
+            Prompt.error(String(localized: "Cannot open archive \u{201C}\(url.lastPathComponent)\u{201D}"), error,
+                         in: view.window)
+        }
+    }
+
+    private func reopenArchive(_ location: ArchiveLocation) {
+        guard let entries = try? ArchiveReader.entries(of: location.url) else {
+            load(directory)
+            return
+        }
+        archive?.entries = entries
+        showArchiveFolder(selecting: listView.currentItem?.name)
+    }
+
+    /// Lists the current archive folder. Folders that only exist implicitly
+    /// (as part of deeper paths) are shown too.
+    private func showArchiveFolder(selecting name: String?) {
+        guard let archive else { return }
+        let prefix = archive.folder.isEmpty ? "" : archive.folder + "/"
+        var children: [String: FileItem] = [:]
+        for entry in archive.entries where entry.path.hasPrefix(prefix) && entry.path.count > prefix.count {
+            let rest = entry.path.dropFirst(prefix.count)
+            let childName = String(rest.prefix { $0 != "/" })
+            let isNested = rest.contains("/")
+            if isNested && children[childName] != nil { continue }
+            let isFolder = isNested || entry.isDirectory
+            children[childName] = FileItem(
+                name: childName, url: archive.url.appending(path: prefix + childName),
+                isDirectory: isFolder, isPackage: false, isSymlink: false, isHidden: childName.hasPrefix("."),
+                size: isFolder ? 0 : entry.size, modified: entry.modified,
+                mode: isNested ? 0o755 : entry.mode
+            )
+        }
+        entries = Array(children.values)
+        panelView.show(directory: directory, volumes: Volume.mounted())
+        panelView.pathBar.path = archive.displayPath
+        refreshList(selecting: name, fallback: 0)
+        delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    private func openInArchive(_ item: FileItem) {
+        guard let archive else { return }
+        if item.isParent {
+            archiveGoUp()
+        } else if item.isDirectory {
+            self.archive?.folder = archive.path(of: item.name)
+            showArchiveFolder(selecting: nil)
+        } else {
+            Task {
+                if let url = await extractToTemporaryFolder(item) {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
+    /// Up one folder inside the archive, or out of it at its root.
+    private func archiveGoUp() {
+        guard let archive else { return }
+        if archive.folder.isEmpty {
+            load(archive.url.deletingLastPathComponent(), selecting: archive.url.lastPathComponent, recordingHistory: false)
+        } else {
+            let name = (archive.folder as NSString).lastPathComponent
+            self.archive?.folder = (archive.folder as NSString).deletingLastPathComponent
+            showArchiveFolder(selecting: name)
+        }
+    }
+
+    /// Extracts one entry of the archive into a new temporary folder.
+    private func extractToTemporaryFolder(_ item: FileItem) async -> URL? {
+        guard let archive else { return nil }
+        let folder = FileManager.default.temporaryDirectory.appending(path: "OriCmd-\(UUID().uuidString)")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try await ArchiveReader.extract(archive.url, paths: [archive.path(of: item.name)], base: archive.folder,
+                                            to: folder, progress: TransferProgress())
+            return folder.appending(path: item.name)
+        } catch {
+            Prompt.error(String(localized: "Cannot unpack \u{201C}\(item.name)\u{201D}"), error, in: view.window)
+            return nil
+        }
+    }
+
+    /// Archives are read-only; returns true (after telling the user) inside one.
+    private func refuseInsideArchive() -> Bool {
+        guard archive != nil else { return false }
+        Prompt.info(String(localized: "Not supported inside archives"),
+                    message: String(localized: "Unpack the files first (F5), or use Alt+F5 to create a new archive."),
+                    in: view.window)
+        return true
     }
 
     // MARK: - Tabs
@@ -240,6 +363,10 @@ final class FilePanelController: NSViewController {
     /// Reloads the current directory keeping cursor and marks, or moves up
     /// to the nearest existing folder if it has been removed.
     func reread() {
+        if let archive {
+            reopenArchive(archive)
+            return
+        }
         var directory = self.directory
         while !FileManager.default.fileExists(atPath: directory.path) && directory.path != "/" {
             directory = directory.deletingLastPathComponent()
@@ -257,11 +384,20 @@ final class FilePanelController: NSViewController {
     }
 
     func goToParent() {
+        if archive != nil {
+            archiveGoUp()
+            return
+        }
         guard directory.path != "/" else { return }
         load(directory.deletingLastPathComponent(), selecting: directory.lastPathComponent)
     }
 
     func goToRoot() {
+        if archive != nil {
+            archive?.folder = ""
+            showArchiveFolder(selecting: nil)
+            return
+        }
         let root = Volume.containing(directory, in: Volume.mounted())?.url ?? URL(filePath: "/")
         load(root)
     }
@@ -277,7 +413,7 @@ final class FilePanelController: NSViewController {
     private func refreshList(selecting name: String?, fallback: Int = 0) {
         var items = showsHidden ? entries : entries.filter { !$0.isHidden }
         items = sortOrder.sorted(items)
-        if directory.path != "/" {
+        if archive != nil || directory.path != "/" {
             items.insert(.parent(of: directory), at: 0)
         }
         let cursor = name.flatMap { name in items.firstIndex { $0.name == name } } ?? fallback
@@ -319,8 +455,12 @@ final class FilePanelController: NSViewController {
     }
 
     private func open(_ item: FileItem, enteringPackages: Bool) {
-        if item.isParent {
+        if archive != nil {
+            openInArchive(item)
+        } else if item.isParent {
             goToParent()
+        } else if !item.isDirectory && ArchiveReader.isArchive(item.name) {
+            openArchive(item.url)
         } else if item.isFolder || (enteringPackages && item.isDirectory) {
             load(item.url)
         } else {
@@ -465,12 +605,21 @@ extension FilePanelController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
+        if archive != nil {
+            Task {
+                if let url = await extractToTemporaryFolder(item) {
+                    ListerWindowController.show(url)
+                }
+            }
+            return
+        }
         ListerWindowController.show(item.url)
     }
 
     /// F4: opens the file under the cursor in the default text editor.
     @objc(cm_Edit:)
     func edit(_ sender: Any?) {
+        guard !refuseInsideArchive() else { return }
         guard let item = listView.currentItem, !item.isParent, !item.isFolder else {
             NSSound.beep()
             return
@@ -485,6 +634,7 @@ extension FilePanelController: NSMenuItemValidation {
     /// F7: asks for a name (prefilled with the entry under the cursor, as TC does).
     @objc(cm_MkDir:)
     func mkDir(_ sender: Any?) {
+        guard !refuseInsideArchive() else { return }
         guard let window = view.window else { return }
         let initial = listView.currentItem.flatMap { $0.isParent ? nil : $0.name } ?? ""
         Prompt.text(String(localized: "New folder"), message: String(localized: "Folder name (use / for nested folders):"),
@@ -503,18 +653,21 @@ extension FilePanelController: NSMenuItemValidation {
     /// F8 / Del / ⌘⌫: moves the selection to the Trash after confirmation.
     @objc(cm_Delete:)
     func delete(_ sender: Any?) {
+        guard !refuseInsideArchive() else { return }
         confirmDelete(permanently: false)
     }
 
     /// ⇧F8 / ⇧Del: deletes the selection permanently after confirmation.
     @objc(cm_DeletePermanently:)
     func deletePermanently(_ sender: Any?) {
+        guard !refuseInsideArchive() else { return }
         confirmDelete(permanently: true)
     }
 
     /// ⇧F6: renames the entry under the cursor in place.
     @objc(cm_RenameOnly:)
     func renameOnly(_ sender: Any?) {
+        guard !refuseInsideArchive() else { return }
         guard let item = listView.currentItem, !item.isParent else {
             NSSound.beep()
             return

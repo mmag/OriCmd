@@ -61,6 +61,17 @@ enum Prompt {
         }
     }
 
+    static func info(_ title: String, message: String, in window: NSWindow?) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        if let window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
+    }
+
     static func error(_ title: String, _ error: Error, in window: NSWindow?) {
         let alert = NSAlert()
         alert.messageText = title

@@ -1,9 +1,12 @@
 import AppKit
 
-/// Runs a copy or move with a Total Commander style progress sheet
-/// and "File already exists" prompts.
+/// Runs a long file operation (copy, move, pack, unpack) with a Total Commander
+/// style progress sheet and "File already exists" prompts.
 final class TransferController {
-    private let job: TransferJob
+    typealias Work = @Sendable (TransferProgress, @escaping TransferEngine.ConflictHandler) async throws -> [URL]
+
+    private let title: String
+    private let failureTitle: String
     private let window: NSWindow
     private let progress = TransferProgress()
 
@@ -15,19 +18,29 @@ final class TransferController {
     private let totalBar = NSProgressIndicator()
     private var timer: Timer?
 
-    init(job: TransferJob, window: NSWindow) {
-        self.job = job
+    init(title: String, failureTitle: String, window: NSWindow) {
+        self.title = title
+        self.failureTitle = failureTitle
         self.window = window
         buildSheet()
     }
 
-    private var title: String { job.kind == .copy ? String(localized: "Copying") : String(localized: "Moving") }
+    /// Copies or moves files; returns the sources that were fully transferred.
+    static func run(_ job: TransferJob, in window: NSWindow) async -> [URL] {
+        let controller = job.kind == .copy
+            ? TransferController(title: String(localized: "Copying"), failureTitle: String(localized: "Copying failed"),
+                                 window: window)
+            : TransferController(title: String(localized: "Moving"), failureTitle: String(localized: "Moving failed"),
+                                 window: window)
+        return await controller.run(source: job.sources.first?.path ?? "", target: job.destination.path) {
+            progress, resolveConflict in
+            try await TransferEngine(job: job, progress: progress, resolveConflict: resolveConflict).run()
+        }
+    }
 
-    /// Runs the transfer and returns the sources that were fully transferred.
-    /// Errors are reported to the user.
-    func run() async -> [URL] {
-        let source = job.sources.first?.path ?? ""
-        let target = job.destination.path
+    /// Shows the progress sheet while `work` runs; returns its result.
+    /// Errors are reported to the user; cancellation returns an empty list.
+    func run(source: String, target: String, _ work: @escaping Work) async -> [URL] {
         progress.update {
             $0.source = source
             $0.target = target
@@ -38,12 +51,12 @@ final class TransferController {
             MainActor.assumeIsolated { self?.refresh() }
         }
 
-        let engine = TransferEngine(job: job, progress: progress) { [weak self] source, target in
+        let resolveConflict: TransferEngine.ConflictHandler = { [weak self] source, target in
             await self?.askOverwrite(source, target) ?? .cancel
         }
         var result: Result<[URL], Error>
         do {
-            result = .success(try await engine.run())
+            result = .success(try await work(progress, resolveConflict))
         } catch {
             result = .failure(error)
         }
@@ -55,8 +68,7 @@ final class TransferController {
             return done
         case .failure(let error):
             if !(error is CancellationError) {
-                Prompt.error(job.kind == .copy ? String(localized: "Copying failed") : String(localized: "Moving failed"),
-                             error, in: window)
+                Prompt.error(failureTitle, error, in: window)
             }
             return []
         }
@@ -95,6 +107,10 @@ final class TransferController {
 
     private func refresh() {
         let state = progress.snapshot
+        for bar in [fileBar, totalBar] where bar.isIndeterminate != (state.totalBytes == 0) {
+            bar.isIndeterminate = state.totalBytes == 0
+            if bar.isIndeterminate { bar.startAnimation(nil) }
+        }
         fromLabel.stringValue = state.source.isEmpty ? "" : String(localized: "From: \(state.source)")
         toLabel.stringValue = state.target.isEmpty ? "" : String(localized: "To: \(state.target)")
         fileBar.doubleValue = state.fileBytes > 0 ? Double(state.fileDoneBytes) / Double(state.fileBytes) * 100 : 0
