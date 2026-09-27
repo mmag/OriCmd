@@ -8,7 +8,9 @@ final class PanelView: NSView {
     let rootButton = NSButton(title: "/", target: nil, action: nil)
     let parentButton = NSButton(title: "..", target: nil, action: nil)
     let pathBar = PathBar()
+    let headerView = FileListHeaderView()
     let scrollView = NSScrollView()
+    let listView = FileListView()
     let statusLabel = NSTextField(labelWithString: "")
 
     var onVolumeSelected: ((Volume) -> Void)?
@@ -16,10 +18,12 @@ final class PanelView: NSView {
     var onGoToParent: (() -> Void)?
 
     var isActive = false {
-        didSet { pathBar.isActive = isActive }
+        didSet {
+            pathBar.isActive = isActive
+            listView.isActive = isActive
+        }
     }
 
-    private(set) var directory = URL(filePath: "/")
     private var volumes: [Volume] = []
 
     override init(frame frameRect: NSRect) {
@@ -47,12 +51,13 @@ final class PanelView: NSView {
         scrollView.borderType = .lineBorder
         scrollView.drawsBackground = true
         scrollView.backgroundColor = Theme.panelBackground
+        scrollView.documentView = listView
 
         statusLabel.font = Theme.chromeFont
         statusLabel.lineBreakMode = .byTruncatingTail
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let views: [NSView] = [volumeButton, freeSpaceLabel, rootButton, parentButton, pathBar, scrollView, statusLabel]
+        let views: [NSView] = [volumeButton, freeSpaceLabel, rootButton, parentButton, pathBar, headerView, scrollView, statusLabel]
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -78,7 +83,11 @@ final class PanelView: NSView {
             pathBar.leadingAnchor.constraint(equalTo: leadingAnchor),
             pathBar.trailingAnchor.constraint(equalTo: trailingAnchor),
 
-            scrollView.topAnchor.constraint(equalTo: pathBar.bottomAnchor),
+            headerView.topAnchor.constraint(equalTo: pathBar.bottomAnchor),
+            headerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            scrollView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
 
@@ -96,7 +105,6 @@ final class PanelView: NSView {
 
     /// Updates the header for `directory`: path, current volume and free space.
     func show(directory: URL, volumes: [Volume]) {
-        self.directory = directory
         self.volumes = volumes
         pathBar.path = directory.path
 
