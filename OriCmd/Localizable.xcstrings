@@ -241,6 +241,16 @@
         }
       }
     },
+    "Application…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение…"
+          }
+        }
+      }
+    },
     "Apply": {
       "localizations": {
         "ru": {
@@ -1241,6 +1251,26 @@
         }
       }
     },
+    "Edit (F4)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка (F4)"
+          }
+        }
+      }
+    },
+    "Edit (F4):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка (F4):"
+          }
+        }
+      }
+    },
     "Edit New File…": {
       "localizations": {
         "ru": {
@@ -1667,6 +1697,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Включая подкаталоги"
+          }
+        }
+      }
+    },
+    "Internal Associations": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внутренние ассоциации"
+          }
+        }
+      }
+    },
+    "Internal Associations…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внутренние ассоциации…"
           }
         }
       }
@@ -2161,6 +2211,26 @@
         }
       }
     },
+    "Open (Enter)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть (Enter)"
+          }
+        }
+      }
+    },
+    "Open (Enter):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть (Enter):"
+          }
+        }
+      }
+    },
     "Open Folder in New Tab": {
       "localizations": {
         "ru": {
@@ -2377,6 +2447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Предыдущая вкладка"
+          }
+        }
+      }
+    },
+    "Programs:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Программы:"
           }
         }
       }
@@ -3191,6 +3271,16 @@
         }
       }
     },
+    "The first entry whose mask matches and that has a program for the key is used; empty fields fall back to the standard behaviour (the Lister for F3, the default text editor for F4, the macOS default app for Enter). A program is an application or a shell command: %P is the file's folder, %N its name; without them the quoted path is added at the end.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Используется первая запись, чья маска подходит и где задана программа для этой клавиши; пустые поля — стандартное поведение (Lister для F3, текстовый редактор по умолчанию для F4, программа macOS по умолчанию для Enter). Программа — приложение или команда оболочки: %P — папка файла, %N — его имя; без них в конец добавляется путь к файлу в кавычках."
+          }
+        }
+      }
+    },
     "The panels contain the same files.": {
       "localizations": {
         "ru": {
@@ -3497,6 +3587,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Просмотр"
+          }
+        }
+      }
+    },
+    "View (F3)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просмотр (F3)"
+          }
+        }
+      }
+    },
+    "View (F3):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просмотр (F3):"
           }
         }
       }

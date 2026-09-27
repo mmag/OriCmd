@@ -16,6 +16,7 @@ enum MainMenu {
             [.setAttrib, .createSymlink, .compareFilesByContent],
             [.packFiles, .unpackFiles],
             [.crcCreate, .crcCheck],
+            [.internalAssociate],
         ])))
         mainMenu.addItem(container(for: editMenu()))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Mark"), [

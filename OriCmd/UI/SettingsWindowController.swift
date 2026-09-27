@@ -79,6 +79,9 @@ final class SettingsWindowController: NSWindowController {
             [NSGridCell.emptyContentView, alternatingBox],
             [NSGridCell.emptyContentView, fileColors],
             [NSTextField(labelWithString: String(localized: "Delete:")), confirmTrashBox],
+            [NSTextField(labelWithString: String(localized: "Programs:")),
+             NSButton(title: String(localized: "Internal Associations…"), target: nil,
+                      action: Command.internalAssociate.selector)],
             [NSTextField(labelWithString: String(localized: "Keyboard:")),
              NSButton(title: String(localized: "Keyboard Shortcuts…"), target: self, action: #selector(showKeys(_:)))],
         ])

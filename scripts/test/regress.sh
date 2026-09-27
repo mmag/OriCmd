@@ -50,6 +50,15 @@ scripts/test/mkdata.sh
 run clip "alt+n wait text:otes escape cmd+c tab cmd+v wait wait"
 check "Cmd+C / Cmd+V copies" "cmp -s $L/notes.md $R/notes.md"
 
+# Associations; the "*" entry keeps every other file away from real apps.
+scripts/test/mkdata.sh
+defaults write ru.themmag.OriCmd.tests FileAssociations -data $(python3 -c 'import json; print(json.dumps([
+  {"id": "00000000-0000-0000-0000-000000000001", "mask": "*.txt", "open": "cp %N %N.opened", "view": "", "edit": "cp %P%N %P%N.edited"},
+  {"id": "00000000-0000-0000-0000-000000000002", "mask": "*.md", "open": "", "view": "sh -c \x27cp \"$0\" \"$0.viewed\"\x27", "edit": ""},
+  {"id": "00000000-0000-0000-0000-000000000003", "mask": "*", "open": "true", "view": "", "edit": "true"}]).encode().hex())')
+run assoc "alt+r wait text:eadme escape f4 wait enter wait alt+n wait text:otes escape f3 wait wait"
+check "associations for Enter / F3 / F4" "[ -f $L/readme.txt.opened ] && [ -f $L/readme.txt.edited ] && [ -f $L/notes.md.viewed ]"
+
 scripts/test/servers.sh start
 connect() { echo "cmd:connectToServer wait cmd+a text:$1 enter wait $2 wait wait"; }
 

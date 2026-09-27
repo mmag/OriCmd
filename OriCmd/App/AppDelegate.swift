@@ -29,6 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UserCommandsWindowController.shared.showWindow(sender)
     }
 
+    /// Programs for Enter / F3 / F4 by file mask.
+    @objc(cm_InternalAssociate:)
+    func showAssociations(_ sender: Any?) {
+        AssociationsWindowController.shared.showWindow(sender)
+    }
+
     @objc func showSettings(_ sender: Any?) {
         SettingsWindowController.shared.showWindow(sender)
     }

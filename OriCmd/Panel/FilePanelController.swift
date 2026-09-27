@@ -582,7 +582,7 @@ final class FilePanelController: NSViewController {
         } else {
             Task {
                 if let url = await extractToTemporaryFolder(item) {
-                    NSWorkspace.shared.open(url)
+                    openFile(url)
                 }
             }
         }
@@ -893,7 +893,7 @@ final class FilePanelController: NSViewController {
             } else {
                 Task {
                     if let url = await downloadToTemporaryFolder(item) {
-                        NSWorkspace.shared.open(url)
+                        openFile(url)
                     }
                 }
             }
@@ -906,7 +906,14 @@ final class FilePanelController: NSViewController {
         } else if item.isFolder || (enteringPackages && item.isDirectory) {
             load(item.url)
         } else {
-            NSWorkspace.shared.open(item.url)
+            openFile(item.url)
+        }
+    }
+
+    /// Enter on a file: its associated program, or the one macOS opens it with.
+    private func openFile(_ url: URL) {
+        if !FileAssociations.perform(.open, on: url, window: view.window) {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -1540,6 +1547,9 @@ extension FilePanelController: NSMenuItemValidation {
     }
 
     private func openInEditor(_ url: URL) {
+        if FileAssociations.perform(.edit, on: url, window: view.window) {
+            return
+        }
         if let editor = NSWorkspace.shared.urlForApplication(toOpen: .plainText) {
             NSWorkspace.shared.open([url], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
         } else {
@@ -1569,7 +1579,7 @@ extension FilePanelController: NSMenuItemValidation {
         }
     }
 
-    /// F3: opens the file under the cursor in the Lister window.
+    /// F3: opens the file under the cursor in the Lister window (or its associated viewer).
     @objc(cm_List:)
     func list(_ sender: Any?) {
         guard let item = listView.currentItem, !item.isParent, !item.isFolder else {
@@ -1581,17 +1591,20 @@ extension FilePanelController: NSMenuItemValidation {
                 ?? archive.map { $0.displayPath + "/" + item.name }
             Task {
                 let url = remote != nil ? await downloadToTemporaryFolder(item) : await extractToTemporaryFolder(item)
-                if let url {
+                if let url, !FileAssociations.perform(.view, on: url, window: view.window) {
                     ListerWindowController.show(url, title: title)
                 }
             }
+            return
+        }
+        if FileAssociations.perform(.view, on: item.url, window: view.window) {
             return
         }
         let files = listView.items.filter { !$0.isParent && !$0.isFolder }.map(\.url)
         ListerWindowController.show(item.url, siblings: files)
     }
 
-    /// F4: opens the file under the cursor in the default text editor.
+    /// F4: opens the file under the cursor in its associated editor or the default text editor.
     @objc(cm_Edit:)
     func edit(_ sender: Any?) {
         guard !refuseInsideArchive() else { return }
