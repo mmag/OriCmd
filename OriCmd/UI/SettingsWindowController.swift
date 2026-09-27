@@ -278,6 +278,13 @@ private final class ColorsPane: SettingsPane {
     private let alternatingBox = NSButton()
 
     override func build() {
+        section(String(localized: "Theme"))
+        let themes = NSSegmentedControl(labels: [String(localized: "As in the system"), String(localized: "Light"),
+                                                 String(localized: "Dark")],
+                                        trackingMode: .selectOne, target: self, action: #selector(themeChanged(_:)))
+        themes.selectedSegment = Settings.Appearance.allCases.firstIndex(of: Settings.appearance) ?? 0
+        row(String(localized: "Appearance:"), themes)
+
         section(String(localized: "Preview"))
         fullWidth(PanelPreview())
 
@@ -316,6 +323,11 @@ private final class ColorsPane: SettingsPane {
         case cursorWell: ColorSettings.cursorColor = sender.color
         default: ColorSettings.cursorTextColor = sender.color
         }
+    }
+
+    @objc private func themeChanged(_ sender: NSSegmentedControl) {
+        Settings.appearance = Settings.Appearance.allCases[sender.selectedSegment]
+        refresh()
     }
 
     @objc private func alternatingChanged(_ sender: NSButton) {

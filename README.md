@@ -24,7 +24,7 @@ keep working as always.
 - **Make it yours:** your own keyboard shortcuts (including import from
   `wincmd.ini`), a Start menu, programs for `Enter`/`F3`/`F4` by file mask, a
   customizable button bar.
-- English and Russian interface, automatic updates from GitHub.
+- Light and dark themes, English and Russian interface, automatic updates from GitHub.
 
 ## Screenshots
 
@@ -32,7 +32,7 @@ keep working as always.
 |---|---|
 | ![Copy dialog](docs/screenshots/en/copy-dialog.png)<br>Copy (`F5`): file type filter, name masks, overwrite modes | ![Settings](docs/screenshots/en/settings.png)<br>Settings with a panel preview |
 | ![Compare by content](docs/screenshots/en/compare.png)<br>Compare files by content | ![Multi-Rename Tool](docs/screenshots/en/multi-rename.png)<br>Multi-Rename Tool (`Ctrl+M`) |
-| ![Synchronize directories](docs/screenshots/en/sync.png)<br>Synchronize directories | |
+| ![Synchronize directories](docs/screenshots/en/sync.png)<br>Synchronize directories | ![Dark theme](docs/screenshots/en/main-dark.png)<br>Dark theme |
 
 The screenshots are made by `scripts/screenshots.sh` on demo folders
 (English ones in `docs/screenshots/en`, Russian ones in `docs/screenshots/ru`).
@@ -256,10 +256,11 @@ panel.
 
 ## Colors
 
-Settings → Colors: the color of marked files, the cursor and the cursor text,
+Settings → Colors: the theme — as in the system, light or dark (for OriCmd only,
+switches at once); the color of marked files, the cursor and the cursor text,
 alternating row backgrounds; the panel preview shows the result right away.
 File Colors… colors names by mask (archives, pictures, scripts — examples
-included).
+included); in the dark theme these colors are shown lighter, so they stay readable.
 
 ## Your own keys
 
@@ -294,8 +295,8 @@ OriCmd → Settings… (`⌘,`) — a window with panes:
 - **General** — interface language, automatic update checks.
 - **Panels** — panel preview, font, command line, function key and drive
   buttons, button bar setup.
-- **Colors** — panel preview, colors of marked files and the cursor,
-  alternating rows, colors by file mask.
+- **Colors** — light or dark theme (or as in the system), panel preview,
+  colors of marked files and the cursor, alternating rows, colors by file mask.
 - **Operations** — defaults of the copy dialog (overwrite mode, verification,
   attributes), confirmation of moving to the Trash, internal associations,
   Start menu.

@@ -22,6 +22,7 @@ enum Settings {
         static let confirmTrash = "ConfirmMoveToTrash"
         static let extraColumns = "ExtraColumns"
         static let checkUpdates = "CheckForUpdates"
+        static let appearance = "Appearance"
         static let languages = "AppleLanguages"
         static let copyOverwrite = "CopyOverwriteMode"
         static let copyVerify = "CopyVerify"
@@ -83,6 +84,28 @@ enum Settings {
     static var confirmsMoveToTrash: Bool {
         get { bool(Key.confirmTrash, default: true) }
         set { set(newValue, Key.confirmTrash) }
+    }
+
+    /// Light or dark look: the system's, or chosen for OriCmd only.
+    enum Appearance: String, CaseIterable {
+        case system, light, dark
+    }
+
+    static var appearance: Appearance {
+        get { AppDefaults.store.string(forKey: Key.appearance).flatMap(Appearance.init) ?? .system }
+        set {
+            set(newValue.rawValue, Key.appearance)
+            applyAppearance()
+        }
+    }
+
+    /// Takes effect at once in every window.
+    static func applyAppearance() {
+        NSApp.appearance = switch appearance {
+        case .system: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
     }
 
     /// The interface language: the system's, or one chosen for OriCmd only.

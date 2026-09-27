@@ -29,7 +29,7 @@ enum ColorSettings {
             cursor: store.string(forKey: Key.cursor).flatMap(NSColor.init(hex:)),
             cursorText: store.string(forKey: Key.cursorText).flatMap(NSColor.init(hex:)),
             alternating: store.bool(forKey: Key.alternating),
-            rules: rules.compactMap { rule in NSColor(hex: rule.color).map { (rule.mask, $0) } }
+            rules: rules.compactMap { rule in NSColor(hex: rule.color).map { (rule.mask, readable($0)) } }
         )
         cache = loaded
         return loaded
@@ -61,6 +61,15 @@ enum ColorSettings {
             return (try? JSONDecoder().decode([Rule].self, from: data)) ?? []
         }
         set { store(try? JSONEncoder().encode(newValue), Key.rules) }
+    }
+
+    /// A file color as chosen, and lighter on a dark background, where the
+    /// usual dark purples and blues would hardly be readable.
+    private static func readable(_ color: NSColor) -> NSColor {
+        let lighter = color.blended(withFraction: 0.4, of: .white) ?? color
+        return NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? lighter : color
+        }
     }
 
     /// The color of the first rule whose mask matches `name`.

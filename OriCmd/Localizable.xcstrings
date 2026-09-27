@@ -371,6 +371,16 @@
         }
       }
     },
+    "Appearance:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оформление:"
+          }
+        }
+      }
+    },
     "Application…": {
       "localizations": {
         "ru": {
@@ -387,6 +397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Применить"
+          }
+        }
+      }
+    },
+    "As in the system": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как в системе"
           }
         }
       }
@@ -1367,6 +1387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вырезать"
+          }
+        }
+      }
+    },
+    "Dark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тёмная"
           }
         }
       }
@@ -2417,6 +2447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Буквы (⌥+буквы — в командную строку)"
+          }
+        }
+      }
+    },
+    "Light": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Светлая"
           }
         }
       }
@@ -4307,6 +4347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сервер сообщил об ошибке"
+          }
+        }
+      }
+    },
+    "Theme": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тема"
           }
         }
       }

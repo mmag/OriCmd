@@ -25,6 +25,7 @@ shot() {
   rm -f $SHOTS/$name*.png
   defaults delete ru.themmag.OriCmd.tests 2>/dev/null
   defaults write ru.themmag.OriCmd.tests FileColorRules -data $RULES
+  [ -n "$THEME" ] && defaults write ru.themmag.OriCmd.tests Appearance $THEME
   env ORICMD_DEMO=1 ORICMD_LEFT=$left ORICMD_RIGHT=$right "ORICMD_KEYS=$keys" \
     ORICMD_SNAPSHOT=$PWD/$SHOTS/$name.png ORICMD_QUIT=1 "$@" $APP -AppleLanguages "($UI)" >/dev/null 2>&1
   defaults delete ru.themmag.OriCmd.tests 2>/dev/null
@@ -51,6 +52,8 @@ for UI in en ru; do
   shot sync $P $D/Backup/OriCmd "cmd:cm_SyncDirs wait click:$COMPARE wait wait wait"
   shot rename $D/Downloads $P "alt+i wait text:MG escape insert insert insert insert insert insert ctrl+m wait text:$MASK wait wait"
   shot settings $P $D/Downloads "cmd:showSettings wait wait" ORICMD_SETTINGS_TAB=1
+  THEME=dark shot main-dark $P $D/Downloads \
+    "alt+l wait text:ICENSE escape insert alt+p wait text:ackage escape insert alt+r wait text:EADME escape wait"
 
   publish main.png main.png 1600
   publish copy-sheet.png copy-dialog.png 1100
@@ -58,5 +61,6 @@ for UI in en ru; do
   publish sync-win1.png sync.png 1400
   publish rename-win1.png multi-rename.png 1400
   publish settings-win1.png settings.png 1000
+  publish main-dark.png main-dark.png 1400
 done
 rm -rf $D

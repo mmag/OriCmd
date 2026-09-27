@@ -4,6 +4,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Settings.applyAppearance()
         NSApp.mainMenu = MainMenu.make()
         for name in [KeyBindings.didChange, UserCommands.didChange] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
