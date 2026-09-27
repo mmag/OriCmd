@@ -22,6 +22,12 @@ enum Settings {
         static let confirmTrash = "ConfirmMoveToTrash"
         static let extraColumns = "ExtraColumns"
         static let checkUpdates = "CheckForUpdates"
+        static let languages = "AppleLanguages"
+        static let copyOverwrite = "CopyOverwriteMode"
+        static let copyVerify = "CopyVerify"
+        static let copyAttributes = "CopyAttributes"
+        static let copySkipUnreadable = "CopySkipUnreadable"
+        static let copyOverwriteLocked = "CopyOverwriteLocked"
     }
 
     static let defaultFontSize: CGFloat = 12
@@ -77,6 +83,60 @@ enum Settings {
     static var confirmsMoveToTrash: Bool {
         get { bool(Key.confirmTrash, default: true) }
         set { set(newValue, Key.confirmTrash) }
+    }
+
+    /// The interface language: the system's, or one chosen for OriCmd only.
+    enum Language: String, CaseIterable {
+        case system = "", english = "en", russian = "ru"
+    }
+
+    /// Takes effect after a restart (macOS reads AppleLanguages at launch).
+    static var language: Language {
+        get {
+            let domain = AppDefaults.store.persistentDomain(forName: AppDefaults.domainName)
+            guard let first = (domain?[Key.languages] as? [String])?.first else { return .system }
+            return Language.allCases.first { !$0.rawValue.isEmpty && first.hasPrefix($0.rawValue) } ?? .system
+        }
+        set {
+            if newValue == .system {
+                AppDefaults.store.removeObject(forKey: Key.languages)
+            } else {
+                AppDefaults.store.set([newValue.rawValue], forKey: Key.languages)
+            }
+        }
+    }
+
+    /// The language the interface is shown in right now.
+    static var runningLanguage: Language {
+        let code = Bundle.main.preferredLocalizations.first ?? "en"
+        return code.hasPrefix("ru") ? .russian : .english
+    }
+
+    // Defaults of the F5 / F6 dialog (its save button writes them as well).
+
+    static var copyOverwriteMode: OverwriteMode {
+        get { OverwriteMode(rawValue: AppDefaults.store.integer(forKey: Key.copyOverwrite)) ?? .ask }
+        set { set(newValue.rawValue, Key.copyOverwrite) }
+    }
+
+    static var copyVerifies: Bool {
+        get { bool(Key.copyVerify, default: false) }
+        set { set(newValue, Key.copyVerify) }
+    }
+
+    static var copyAttributes: Bool {
+        get { bool(Key.copyAttributes, default: true) }
+        set { set(newValue, Key.copyAttributes) }
+    }
+
+    static var copySkipsUnreadable: Bool {
+        get { bool(Key.copySkipUnreadable, default: false) }
+        set { set(newValue, Key.copySkipUnreadable) }
+    }
+
+    static var copyOverwritesLocked: Bool {
+        get { bool(Key.copyOverwriteLocked, default: false) }
+        set { set(newValue, Key.copyOverwriteLocked) }
     }
 
     /// Looks for a new release on GitHub once a day.

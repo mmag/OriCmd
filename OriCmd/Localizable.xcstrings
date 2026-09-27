@@ -361,6 +361,16 @@
         }
       }
     },
+    "Any cm_ command can get its own keys; shortcuts from Total Commander's wincmd.ini can be imported. Keys work on any keyboard layout.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Любой команде cm_ можно назначить свои клавиши; сочетания из wincmd.ini Total Commander можно импортировать. Клавиши работают на любой раскладке."
+          }
+        }
+      }
+    },
     "Application…": {
       "localizations": {
         "ru": {
@@ -377,6 +387,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Применить"
+          }
+        }
+      }
+    },
+    "As in Total Commander, Alt (Option) with letters jumps to a file; plain letters type into the command line.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как в Total Commander: Alt (Option) с буквами переходит к файлу, просто буквы набираются в командной строке."
+          }
+        }
+      }
+    },
+    "As in the system (%@)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как в системе (%@)"
           }
         }
       }
@@ -437,6 +467,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все окна — на передний план"
+          }
+        }
+      }
+    },
+    "Button bar:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панель кнопок:"
           }
         }
       }
@@ -771,6 +811,16 @@
         }
       }
     },
+    "Check Now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить сейчас"
+          }
+        }
+      }
+    },
     "Check for Updates…": {
       "localizations": {
         "ru": {
@@ -851,6 +901,26 @@
         }
       }
     },
+    "Colors": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета"
+          }
+        }
+      }
+    },
+    "Colors by file mask — archives, pictures, scripts — like “Define colors by file type” in Total Commander.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета по маске файлов — архивы, картинки, скрипты, — как «Цвета по типу файла» в Total Commander."
+          }
+        }
+      }
+    },
     "Colors:": {
       "localizations": {
         "ru": {
@@ -867,6 +937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Команда"
+          }
+        }
+      }
+    },
+    "Command line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Командная строка"
           }
         }
       }
@@ -1091,6 +1171,16 @@
         }
       }
     },
+    "Copy and move (F5 / F6)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копирование и перемещение (F5 / F6)"
+          }
+        }
+      }
+    },
     "Copy between a server and a local folder.": {
       "localizations": {
         "ru": {
@@ -1251,6 +1341,26 @@
         }
       }
     },
+    "Cursor text:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст курсора:"
+          }
+        }
+      }
+    },
+    "Cursor:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Курсор:"
+          }
+        }
+      }
+    },
     "Customize Toolbar…": {
       "localizations": {
         "ru": {
@@ -1287,6 +1397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "По умолчанию"
+          }
+        }
+      }
+    },
+    "Default Colors": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета по умолчанию"
           }
         }
       }
@@ -1511,6 +1631,16 @@
         }
       }
     },
+    "Drive buttons": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопки дисков"
+          }
+        }
+      }
+    },
     "Duplicate Tab": {
       "localizations": {
         "ru": {
@@ -1731,6 +1861,16 @@
         }
       }
     },
+    "File colors": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета файлов"
+          }
+        }
+      }
+    },
     "File mask, e.g. *.txt;*.md": {
       "localizations": {
         "ru": {
@@ -1757,6 +1897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Файл"
+          }
+        }
+      }
+    },
+    "Files:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы:"
           }
         }
       }
@@ -1871,6 +2021,16 @@
         }
       }
     },
+    "Font": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шрифт"
+          }
+        }
+      }
+    },
     "Forward": {
       "localizations": {
         "ru": {
@@ -1907,6 +2067,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Подробный"
+          }
+        }
+      }
+    },
+    "Function key buttons (F3 View … F8 Delete)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопки функциональных клавиш (F3 Просмотр … F8 Удалить)"
+          }
+        }
+      }
+    },
+    "Function keys": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Функциональные клавиши"
+          }
+        }
+      }
+    },
+    "General": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Основные"
           }
         }
       }
@@ -1991,6 +2181,16 @@
         }
       }
     },
+    "If a file exists:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если файл существует:"
+          }
+        }
+      }
+    },
     "Ignore whitespace": {
       "localizations": {
         "ru": {
@@ -2041,6 +2241,16 @@
         }
       }
     },
+    "Interface language:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык интерфейса:"
+          }
+        }
+      }
+    },
     "Internal Associations": {
       "localizations": {
         "ru": {
@@ -2077,6 +2287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не сворачивать параметры"
+          }
+        }
+      }
+    },
+    "Keyboard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиатура"
           }
         }
       }
@@ -2137,6 +2357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Тип файла"
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык"
           }
         }
       }
@@ -2227,6 +2457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выделение"
+          }
+        }
+      }
+    },
+    "Marked files:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отмеченные файлы:"
           }
         }
       }
@@ -2571,6 +2811,26 @@
         }
       }
     },
+    "On a Mac F1–F12 control brightness and sound by default. Hold fn, or turn on “Use F1, F2, etc. keys as standard function keys”.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На Mac клавиши F1–F12 по умолчанию управляют яркостью и звуком. Нажимайте их с fn или включите «Использовать F1, F2 и т. д. как стандартные функциональные клавиши»."
+          }
+        }
+      }
+    },
+    "Once a day OriCmd looks for a new release on GitHub and offers to install it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Раз в день OriCmd проверяет новый релиз на GitHub и предлагает его установить."
+          }
+        }
+      }
+    },
     "Only files of this type:": {
       "localizations": {
         "ru": {
@@ -2641,6 +2901,16 @@
         }
       }
     },
+    "Open Keyboard Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть настройки клавиатуры"
+          }
+        }
+      }
+    },
     "Open Release Page": {
       "localizations": {
         "ru": {
@@ -2671,12 +2941,32 @@
         }
       }
     },
+    "Operations": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Операции"
+          }
+        }
+      }
+    },
     "Option+letters (letters go to the command line)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "⌥+буквы (буквы — в командную строку)"
+          }
+        }
+      }
+    },
+    "Optional columns (kind, created, dimensions, duration, tags) are chosen by right-clicking a panel's column headers.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнительные колонки (тип, дата создания, размеры, длительность, теги) включаются правым кликом по заголовкам колонок панели."
           }
         }
       }
@@ -2707,6 +2997,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Установлена последняя версия OriCmd"
+          }
+        }
+      }
+    },
+    "OriCmd shows the new language after a restart.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый язык появится после перезапуска."
           }
         }
       }
@@ -2861,12 +3161,32 @@
         }
       }
     },
+    "Panel colors": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета панелей"
+          }
+        }
+      }
+    },
     "Panel font:": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Шрифт панелей:"
+          }
+        }
+      }
+    },
+    "Panels": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панели"
           }
         }
       }
@@ -2921,6 +3241,16 @@
         }
       }
     },
+    "Preview": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Образец"
+          }
+        }
+      }
+    },
     "Previous Difference": {
       "localizations": {
         "ru": {
@@ -2937,6 +3267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Предыдущая вкладка"
+          }
+        }
+      }
+    },
+    "Programs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Программы"
           }
         }
       }
@@ -3201,6 +3541,16 @@
         }
       }
     },
+    "Restart Now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить"
+          }
+        }
+      }
+    },
     "Restore Selection  (/)": {
       "localizations": {
         "ru": {
@@ -3317,6 +3667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Поиск команд"
+          }
+        }
+      }
+    },
+    "Search file names with:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Быстрый поиск файлов:"
           }
         }
       }
@@ -3457,6 +3817,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Настройки…"
+          }
+        }
+      }
+    },
+    "Shift+F8 deletes permanently and always asks.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shift+F8 удаляет безвозвратно и всегда спрашивает."
+          }
+        }
+      }
+    },
+    "Shortcuts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сочетания клавиш"
           }
         }
       }
@@ -3711,6 +4091,16 @@
         }
       }
     },
+    "Start menu:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Меню «Запуск»:"
+          }
+        }
+      }
+    },
     "Stop": {
       "localizations": {
         "ru": {
@@ -3917,6 +4307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сервер сообщил об ошибке"
+          }
+        }
+      }
+    },
+    "These are the defaults of the copy dialog; its “Options >>” change them for one operation.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это значения по умолчанию для диалога копирования; кнопка «Параметры >>» в нём меняет их для одной операции."
           }
         }
       }
@@ -4151,6 +4551,16 @@
         }
       }
     },
+    "Updates": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновления"
+          }
+        }
+      }
+    },
     "Updates:": {
       "localizations": {
         "ru": {
@@ -4241,12 +4651,32 @@
         }
       }
     },
+    "Verify copied files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверять скопированные файлы"
+          }
+        }
+      }
+    },
     "Verifying checksums": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Проверка контрольных сумм"
+          }
+        }
+      }
+    },
+    "Version %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия %@"
           }
         }
       }
@@ -4291,6 +4721,16 @@
         }
       }
     },
+    "Which program opens, views (F3) or edits (F4) files of a given type.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Какая программа открывает, показывает (F3) или редактирует (F4) файлы нужного типа."
+          }
+        }
+      }
+    },
     "Window": {
       "localizations": {
         "ru": {
@@ -4317,6 +4757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "У вас версия %@."
+          }
+        }
+      }
+    },
+    "Your own commands with %P, %N, %S parameters, in the menu and on the button bar.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свои команды с параметрами %P, %N, %S — в меню и на панели кнопок."
           }
         }
       }

@@ -12,6 +12,12 @@ enum AppDefaults {
         #endif
     }
 
+    /// The defaults domain behind `store` (for values that must live in it
+    /// rather than be inherited from the global domain, like AppleLanguages).
+    static var domainName: String {
+        isTestRun ? "ru.themmag.OriCmd.tests" : Bundle.main.bundleIdentifier ?? "ru.themmag.OriCmd"
+    }
+
     static let store: UserDefaults = {
         #if DEBUG
         if isTestRun, let tests = UserDefaults(suiteName: "ru.themmag.OriCmd.tests") {

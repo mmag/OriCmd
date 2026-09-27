@@ -24,11 +24,6 @@ final class CopyDialog: NSObject {
         static let filterList = "CopyFilterList"
         static let filterHistory = "CopyFilterHistory"
         static let pinned = "CopyOptionsPinned"
-        static let overwrite = "CopyOverwriteMode"
-        static let skipUnreadable = "CopySkipUnreadable"
-        static let overwriteLocked = "CopyOverwriteLocked"
-        static let verify = "CopyVerify"
-        static let attributes = "CopyAttributes"
     }
 
     private static let historyLimit = 15
@@ -106,8 +101,8 @@ final class CopyDialog: NSObject {
         reloadFilterItems()
 
         let store = AppDefaults.store
-        attributesBox.state = store.object(forKey: Key.attributes) as? Bool ?? true ? .on : .off
-        verifyBox.state = store.bool(forKey: Key.verify) ? .on : .off
+        attributesBox.state = Settings.copyAttributes ? .on : .off
+        verifyBox.state = Settings.copyVerifies ? .on : .off
 
         okButton.keyEquivalent = "\r"
         let cancelButton = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancel(_:)))
@@ -183,8 +178,7 @@ final class CopyDialog: NSObject {
         for mode in OverwriteMode.allCases {
             overwritePopUp.addItem(withTitle: mode.title)
         }
-        let mode = OverwriteMode(rawValue: store.integer(forKey: Key.overwrite)) ?? .ask
-        overwritePopUp.selectItem(at: mode.rawValue - 1)
+        overwritePopUp.selectItem(at: Settings.copyOverwriteMode.rawValue - 1)
         saveButton.bezelStyle = .toolbar
         saveButton.image = NSImage(systemSymbolName: "square.and.arrow.down",
                                    accessibilityDescription: String(localized: "Save as default"))
@@ -192,8 +186,8 @@ final class CopyDialog: NSObject {
         saveButton.target = self
         saveButton.action = #selector(saveDefaults(_:))
 
-        skipUnreadableBox.state = store.bool(forKey: Key.skipUnreadable) ? .on : .off
-        overwriteLockedBox.state = store.bool(forKey: Key.overwriteLocked) ? .on : .off
+        skipUnreadableBox.state = Settings.copySkipsUnreadable ? .on : .off
+        overwriteLockedBox.state = Settings.copyOverwritesLocked ? .on : .off
         allFoldersBox.isEnabled = selectedTargetFolders > 0
         if selectedTargetFolders > 0 {
             allFoldersBox.title = String(localized: "Copy to all \(selectedTargetFolders) selected folders in the target panel")
@@ -440,12 +434,11 @@ final class CopyDialog: NSObject {
     }
 
     @objc private func saveDefaults(_ sender: Any?) {
-        let store = AppDefaults.store
-        store.set(overwritePopUp.indexOfSelectedItem + 1, forKey: Key.overwrite)
-        store.set(skipUnreadableBox.state == .on, forKey: Key.skipUnreadable)
-        store.set(overwriteLockedBox.state == .on, forKey: Key.overwriteLocked)
-        store.set(verifyBox.state == .on, forKey: Key.verify)
-        store.set(attributesBox.state == .on, forKey: Key.attributes)
+        Settings.copyOverwriteMode = OverwriteMode(rawValue: overwritePopUp.indexOfSelectedItem + 1) ?? .ask
+        Settings.copySkipsUnreadable = skipUnreadableBox.state == .on
+        Settings.copyOverwritesLocked = overwriteLockedBox.state == .on
+        Settings.copyVerifies = verifyBox.state == .on
+        Settings.copyAttributes = attributesBox.state == .on
         saveButton.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [saveButton] in
             saveButton.image = NSImage(systemSymbolName: "square.and.arrow.down", accessibilityDescription: nil)
