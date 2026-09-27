@@ -48,7 +48,7 @@ enum DebugAutomation {
                 } else if token.hasPrefix("click:") {
                     // Presses the button with that title in the topmost window.
                     let title = String(token.dropFirst(6)).replacingOccurrences(of: "_", with: " ")
-                    func find(_ view: NSView?) -> NSButton? {
+                    @MainActor func find(_ view: NSView?) -> NSButton? {
                         guard let view else { return nil }
                         if let button = view as? NSButton, button.title == title { return button }
                         return view.subviews.lazy.compactMap(find).first
@@ -261,6 +261,7 @@ private struct KeyStroke {
             case "shift": modifiers.insert(.shift)
             case "alt", "opt": modifiers.insert(.option)
             case "ctrl": modifiers.insert(.control)
+            case "num": modifiers.insert(.numericPad)
             default: return nil
             }
         }

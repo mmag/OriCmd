@@ -291,6 +291,16 @@
         }
       }
     },
+    "Cannot connect to “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся подключиться к «%@»"
+          }
+        }
+      }
+    },
     "Cannot copy “%@” into itself.": {
       "localizations": {
         "ru": {
@@ -587,6 +597,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Спрашивать перед перемещением в Корзину"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключиться"
+          }
+        }
+      }
+    },
+    "Connect to Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение к серверу"
+          }
+        }
+      }
+    },
+    "Connect to Server…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключиться к серверу…"
           }
         }
       }
@@ -1251,6 +1291,16 @@
         }
       }
     },
+    "Left = Right": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Левая = правая"
+          }
+        }
+      }
+    },
     "Left Volume List": {
       "localizations": {
         "ru": {
@@ -1447,6 +1497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Имя"
+          }
+        }
+      }
+    },
+    "Net": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сеть"
           }
         }
       }
@@ -1881,6 +1941,16 @@
         }
       }
     },
+    "Restore Selection  (/)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить выделение  (Num /)"
+          }
+        }
+      }
+    },
     "Reverse Order": {
       "localizations": {
         "ru": {
@@ -1897,6 +1967,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Справа"
+          }
+        }
+      }
+    },
+    "Right = Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правая = левая"
           }
         }
       }
@@ -1987,6 +2067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выделить файлы"
+          }
+        }
+      }
+    },
+    "Server address (smb://, afp://, nfs://, https:// for WebDAV):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес сервера (smb://, afp://, nfs://, https:// для WebDAV):"
           }
         }
       }

@@ -69,8 +69,12 @@ final class CommandLineController: NSObject {
         case (nil, []), (nil, [.shift]):
             guard let characters = event.characters, Self.isPrintable(characters) else { break }
             if characters == "\u{1b}" { break }
-            // With an empty command line these keys mark files (or search) instead.
-            if text.isEmpty && (lettersStartQuickSearch || ["+", "-", "*", " "].contains(characters)) { return false }
+            // With an empty command line these keys mark files (or search) instead;
+            // "/" only from the numeric keypad (Num / restores the selection).
+            let isKeypadSlash = characters == "/" && event.modifierFlags.contains(.numericPad)
+            if text.isEmpty && (lettersStartQuickSearch || isKeypadSlash || ["+", "-", "*", " "].contains(characters)) {
+                return false
+            }
             append(characters)
             return true
         case (nil, [.option]) where lettersStartQuickSearch:

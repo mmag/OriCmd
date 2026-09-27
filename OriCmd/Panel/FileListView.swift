@@ -194,7 +194,13 @@ final class FileListView: NSView {
 
     // MARK: - Marking
 
+    /// The last non-empty selection that was replaced, for "Restore selection".
+    private(set) var previousMarks: Set<String> = []
+
     func setMarked(_ names: Set<String>) {
+        if !marked.isEmpty && names != marked {
+            previousMarks = marked
+        }
         marked = names
         needsDisplay = true
         delegate?.fileListMarksDidChange(self)
@@ -230,6 +236,13 @@ final class FileListView: NSView {
 
     override func selectAll(_ sender: Any?) {
         setMarked(Set(items.filter { !$0.isParent }.map(\.name)))
+    }
+
+    /// Num /: marks again what was marked before the last change.
+    @objc(cm_RestoreSelection:)
+    func restoreSelection(_ sender: Any?) {
+        let names = Set(items.map(\.name))
+        setMarked(previousMarks.intersection(names))
     }
 
     @objc(cm_ClearAll:)
@@ -687,6 +700,7 @@ final class FileListView: NSView {
         case "+": spreadSelection(nil)
         case "-": shrinkSelection(nil)
         case "*": exchangeSelection(nil)
+        case "/": restoreSelection(nil)
         case let text? where Settings.quickSearchMode == .letters && !text.isEmpty
             && text.unicodeScalars.allSatisfy({ $0.value >= 0x21 && $0.value != 0x7F && $0.value < 0xF700 }):
             delegate?.fileList(self, beginQuickSearchWith: text)

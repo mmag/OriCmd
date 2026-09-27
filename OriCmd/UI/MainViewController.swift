@@ -599,6 +599,42 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
+    /// ⌘K: mounts a network share and shows it in the active panel.
+    @objc func connectToServer(_ sender: Any?) {
+        guard let window = view.window else { return }
+        let key = "LastServerAddress"
+        Prompt.text(String(localized: "Connect to Server"),
+                    message: String(localized: "Server address (smb://, afp://, nfs://, https:// for WebDAV):"),
+                    initial: AppDefaults.store.string(forKey: key) ?? "smb://",
+                    okTitle: String(localized: "Connect"), in: window) { [weak self] address in
+            guard let url = URL(string: address.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
+                NSSound.beep()
+                return
+            }
+            AppDefaults.store.set(address, forKey: key)
+            Task {
+                do {
+                    let mountPoint = try await NetworkConnection.mount(url)
+                    self?.activePanel.load(mountPoint)
+                } catch {
+                    Prompt.error(String(localized: "Cannot connect to \u{201C}\(address)\u{201D}"), error, in: window)
+                }
+            }
+        }
+    }
+
+    /// Left = Right: shows the right panel's folder in the left panel.
+    @objc(cm_LeftEqualRight:)
+    func leftEqualRight(_ sender: Any?) {
+        leftPanel.load(rightPanel.directory)
+    }
+
+    /// Right = Left: shows the left panel's folder in the right panel.
+    @objc(cm_RightEqualLeft:)
+    func rightEqualLeft(_ sender: Any?) {
+        rightPanel.load(leftPanel.directory)
+    }
+
     /// ⌘E: ejects the (removable or network) volume shown in the active panel.
     @objc func ejectVolume(_ sender: Any?) {
         guard let volume = ejectableVolume else {

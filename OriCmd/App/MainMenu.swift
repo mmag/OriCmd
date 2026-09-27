@@ -22,7 +22,7 @@ enum MainMenu {
             [.spreadSelection, .shrinkSelection],
         ], extra: markItems())))
         let commands = commandMenu(String(localized: "Commands"), [
-            [.rereadSource, .exchange],
+            [.rereadSource, .exchange, .leftEqualRight, .rightEqualLeft],
             [.openNewTab, .openDirInNewTab, .closeCurrentTab, .switchToNextTab, .switchToPreviousTab],
             [.searchFor, .directoryHotlist],
             [.compareDirs, .syncDirs],
@@ -30,9 +30,12 @@ enum MainMenu {
             [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],
         ])
-        commands.addItem(.separator())
-        commands.addItem(item(String(localized: "Eject"), #selector(MainViewController.ejectVolume(_:)), "e"))
         mainMenu.addItem(container(for: commands))
+
+        let net = NSMenu(title: String(localized: "Net"))
+        net.addItem(item(String(localized: "Connect to Server…"), #selector(MainViewController.connectToServer(_:)), "k"))
+        net.addItem(item(String(localized: "Eject"), #selector(MainViewController.ejectVolume(_:)), "e"))
+        mainMenu.addItem(container(for: net))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcThumbs, .srcTree, .srcQuickView],
             [.srcAllFiles, .srcUserSpec, .branchView],
@@ -118,6 +121,7 @@ enum MainMenu {
             item(String(localized: "mark.selectAll", defaultValue: "Select All"), #selector(NSText.selectAll(_:))),
             item(Command.clearAll.title, Command.clearAll.selector, "a", [.command, .option]),
             item(Command.exchangeSelection.title, Command.exchangeSelection.selector),
+            item(Command.restoreSelection.title, Command.restoreSelection.selector),
             item(Command.selectCurrentExtension.title, Command.selectCurrentExtension.selector),
             item(Command.unselectCurrentExtension.title, Command.unselectCurrentExtension.selector),
             .separator(),

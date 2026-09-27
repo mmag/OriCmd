@@ -34,6 +34,7 @@ enum Command: String, CaseIterable {
     case spreadSelection = "cm_SpreadSelection"
     case shrinkSelection = "cm_ShrinkSelection"
     case clearAll = "cm_ClearAll"
+    case restoreSelection = "cm_RestoreSelection"
     case selectCurrentExtension = "cm_SelectCurrentExtension"
     case unselectCurrentExtension = "cm_UnselectCurrentExtension"
     case copyNamesToClip = "cm_CopyNamesToClip"
@@ -43,6 +44,8 @@ enum Command: String, CaseIterable {
     // Commands
     case rereadSource = "cm_RereadSource"
     case exchange = "cm_Exchange"
+    case leftEqualRight = "cm_LeftEqualRight"
+    case rightEqualLeft = "cm_RightEqualLeft"
     case goToRoot = "cm_GoToRoot"
     case goToParent = "cm_GoToParent"
     case executeDOS = "cm_ExecuteDOS"
@@ -110,6 +113,7 @@ enum Command: String, CaseIterable {
         case .spreadSelection: String(localized: "Select Group…  (+)")
         case .shrinkSelection: String(localized: "Unselect Group…  (−)")
         case .clearAll: String(localized: "Unselect All")
+        case .restoreSelection: String(localized: "Restore Selection  (/)")
         case .selectCurrentExtension: String(localized: "Select Same Extension  (⌥+)")
         case .unselectCurrentExtension: String(localized: "Unselect Same Extension  (⌥−)")
         case .copyNamesToClip: String(localized: "Copy Names")
@@ -117,6 +121,8 @@ enum Command: String, CaseIterable {
         case .exchangeSelection: String(localized: "Invert Selection  (*)")
         case .rereadSource: String(localized: "Refresh")
         case .exchange: String(localized: "Swap Panels")
+        case .leftEqualRight: String(localized: "Left = Right")
+        case .rightEqualLeft: String(localized: "Right = Left")
         case .goToRoot: String(localized: "Go to Root")
         case .goToParent: String(localized: "Go to Parent")
         case .executeDOS: String(localized: "Open Terminal Here")
