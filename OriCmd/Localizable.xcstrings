@@ -231,6 +231,16 @@
         }
       }
     },
+    "Cannot update archive": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся обновить архив"
+          }
+        }
+      }
+    },
     "Case sensitive": {
       "localizations": {
         "ru": {
@@ -371,6 +381,16 @@
         }
       }
     },
+    "Delete %@ from the archive?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить %@ из архива?"
+          }
+        }
+      }
+    },
     "Delete Permanently": {
       "localizations": {
         "ru": {
@@ -437,6 +457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Правка"
+          }
+        }
+      }
+    },
+    "Entries with the same names will be replaced.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Одноимённые элементы архива будут заменены."
           }
         }
       }
@@ -701,6 +731,16 @@
         }
       }
     },
+    "Move %@ into %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить %1$@ в %2$@?"
+          }
+        }
+      }
+    },
     "Move to Trash": {
       "localizations": {
         "ru": {
@@ -821,6 +861,16 @@
         }
       }
     },
+    "Only zip, tar, tar.gz, tar.bz2, tar.xz and 7z archives can be changed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменять можно только архивы zip, tar, tar.gz, tar.bz2, tar.xz и 7z."
+          }
+        }
+      }
+    },
     "Open Folder in New Tab": {
       "localizations": {
         "ru": {
@@ -887,6 +937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Упаковать"
+          }
+        }
+      }
+    },
+    "Pack %@ into %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упаковать %1$@ в %2$@?"
           }
         }
       }
@@ -1371,6 +1431,26 @@
         }
       }
     },
+    "The archive would become empty.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив стал бы пустым."
+          }
+        }
+      }
+    },
+    "This archive is read-only": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив доступен только для чтения"
+          }
+        }
+      }
+    },
     "This cannot be undone.": {
       "localizations": {
         "ru": {
@@ -1497,6 +1577,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Снять выделение с файлов"
+          }
+        }
+      }
+    },
+    "Updating archive": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление архива"
           }
         }
       }

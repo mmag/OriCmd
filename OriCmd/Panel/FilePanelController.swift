@@ -199,13 +199,33 @@ final class FilePanelController: NSViewController {
         }
     }
 
-    private func reopenArchive(_ location: ArchiveLocation) {
+    private func reopenArchive(_ location: ArchiveLocation, selecting name: String? = nil) {
         guard let entries = try? ArchiveReader.entries(of: location.url) else {
             load(directory)
             return
         }
         archive?.entries = entries
-        showArchiveFolder(selecting: listView.currentItem?.name)
+        showArchiveFolder(selecting: name ?? listView.currentItem?.name)
+    }
+
+    /// Changes the archive shown in this panel (with a progress sheet), then
+    /// shows its new contents. `completion` receives whether it succeeded.
+    func applyArchiveEdit(_ edit: ArchiveEditor.Edit, selecting name: String? = nil,
+                          completion: ((Bool) -> Void)? = nil) {
+        guard let archive, let window = view.window else { return }
+        let url = archive.url
+        Task {
+            let done = await TransferController(title: String(localized: "Updating archive"),
+                                                failureTitle: String(localized: "Cannot update archive"), window: window)
+                .run(source: url.path, target: url.path) { progress, _ in
+                    try await ArchiveEditor.apply(edit, to: url, progress: progress)
+                    return [url]
+                }
+            if let current = self.archive, current.url == url {
+                reopenArchive(current, selecting: name)
+            }
+            completion?(!done.isEmpty)
+        }
     }
 
     /// Lists the current archive folder. Folders that only exist implicitly
@@ -277,7 +297,16 @@ final class FilePanelController: NSViewController {
         }
     }
 
-    /// Archives are read-only; returns true (after telling the user) inside one.
+    /// Refuses changes inside archives that cannot be written (rar, iso, …).
+    private func refuseReadOnlyArchive() -> Bool {
+        guard let archive, !ArchiveEditor.isWritable(archive.url) else { return false }
+        Prompt.info(String(localized: "This archive is read-only"),
+                    message: String(localized: "Only zip, tar, tar.gz, tar.bz2, tar.xz and 7z archives can be changed."),
+                    in: view.window)
+        return true
+    }
+
+    /// Refuses operations that are never available inside archives.
     private func refuseInsideArchive() -> Bool {
         guard archive != nil else { return false }
         Prompt.info(String(localized: "Not supported inside archives"),
@@ -641,15 +670,19 @@ extension FilePanelController: NSMenuItemValidation {
     /// F7: asks for a name (prefilled with the entry under the cursor, as TC does).
     @objc(cm_MkDir:)
     func mkDir(_ sender: Any?) {
-        guard !refuseInsideArchive() else { return }
+        guard !refuseReadOnlyArchive() else { return }
         guard let window = view.window else { return }
         let initial = listView.currentItem.flatMap { $0.isParent ? nil : $0.name } ?? ""
         Prompt.text(String(localized: "New folder"), message: String(localized: "Folder name (use / for nested folders):"),
                     initial: initial, okTitle: String(localized: "Create"), in: window) { [weak self] name in
             guard let self, !name.isEmpty else { return }
+            let topLevel = name.split(separator: "/").first.map(String.init) ?? name
+            if let archive {
+                applyArchiveEdit(.makeFolder(archive.path(of: name)), selecting: topLevel)
+                return
+            }
             do {
                 _ = try FileOperations.createDirectory(named: name, in: directory)
-                let topLevel = name.split(separator: "/").first.map(String.init) ?? name
                 load(directory, selecting: topLevel)
             } catch {
                 Prompt.error(String(localized: "Cannot create folder \u{201C}\(name)\u{201D}"), error, in: view.window)
@@ -660,21 +693,21 @@ extension FilePanelController: NSMenuItemValidation {
     /// F8 / Del / ⌘⌫: moves the selection to the Trash after confirmation.
     @objc(cm_Delete:)
     func delete(_ sender: Any?) {
-        guard !refuseInsideArchive() else { return }
+        guard !refuseReadOnlyArchive() else { return }
         confirmDelete(permanently: false)
     }
 
     /// ⇧F8 / ⇧Del: deletes the selection permanently after confirmation.
     @objc(cm_DeletePermanently:)
     func deletePermanently(_ sender: Any?) {
-        guard !refuseInsideArchive() else { return }
+        guard !refuseReadOnlyArchive() else { return }
         confirmDelete(permanently: true)
     }
 
     /// ⇧F6: renames the entry under the cursor in place.
     @objc(cm_RenameOnly:)
     func renameOnly(_ sender: Any?) {
-        guard !refuseInsideArchive() else { return }
+        guard !refuseReadOnlyArchive() else { return }
         guard let item = listView.currentItem, !item.isParent else {
             NSSound.beep()
             return
@@ -692,7 +725,13 @@ extension FilePanelController: NSMenuItemValidation {
         let what = items.count == 1
             ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
             : String(localized: "the selected \(items.count) files/folders")
-        if permanently {
+        if let archive {
+            Prompt.confirm(String(localized: "Delete \(what) from the archive?"),
+                           message: String(localized: "This cannot be undone."),
+                           okTitle: String(localized: "Delete"), destructive: true, in: window) { [weak self] in
+                self?.applyArchiveEdit(.delete(items.map { archive.path(of: $0.name) }))
+            }
+        } else if permanently {
             Prompt.confirm(String(localized: "Do you really want to permanently delete \(what)?"),
                            message: String(localized: "This cannot be undone."),
                            okTitle: String(localized: "Delete"), destructive: true, in: window) { [weak self] in
@@ -873,6 +912,10 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileList(_ list: FileListView, rename item: FileItem, to newName: String) {
         guard newName != item.name else { return }
+        if let archive {
+            applyArchiveEdit(.rename(archive.path(of: item.name), to: newName), selecting: newName)
+            return
+        }
         do {
             let url = try FileOperations.rename(item.url, to: newName)
             load(directory, selecting: url.lastPathComponent)

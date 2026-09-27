@@ -220,6 +220,10 @@ extension MainViewController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
+        if let target = inactivePanel.archive, source.archive == nil, ArchiveEditor.isWritable(target.url) {
+            askForPacking(items, kind: kind, from: source, into: target)
+            return
+        }
         if inactivePanel.archive != nil || (source.archive != nil && kind == .move) {
             Prompt.info(String(localized: "Not supported inside archives"),
                         message: String(localized: "Unpack the files first (F5), or use Alt+F5 to create a new archive."),
@@ -272,6 +276,38 @@ extension MainViewController: NSMenuItemValidation {
                 .reduce(Int64(0)) { $0 + $1.size }
             confirmOverwriting(items.map(\.name), in: destination) {
                 self.unpack([(archive.url, paths, archive.folder)], to: destination, total: total)
+            }
+        }
+    }
+
+    /// F5/F6 towards a panel showing an archive: adds the selection to it
+    /// (and, for F6, deletes the originals afterwards).
+    private func askForPacking(_ items: [FileItem], kind: TransferJob.Kind, from source: FilePanelController,
+                               into archive: FilePanelController.ArchiveLocation) {
+        guard let window = view.window else { return }
+        let target = inactivePanel
+        let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
+            : String(localized: "\(items.count) files/folders")
+        let place = String(localized: "\u{201C}\(archive.url.lastPathComponent)\u{201D}")
+        let existing = Set(target.listView.items.map(\.name)).intersection(items.map(\.name))
+        Prompt.confirm(kind == .copy ? String(localized: "Pack \(what) into \(place)?")
+                                     : String(localized: "Move \(what) into \(place)?"),
+                       message: existing.isEmpty ? "" : String(localized: "Entries with the same names will be replaced."),
+                       okTitle: kind == .copy ? String(localized: "Pack") : String(localized: "move.button", defaultValue: "Move"),
+                       in: window) {
+            target.applyArchiveEdit(.add(items.map(\.url), folder: archive.folder), selecting: items.first?.name) {
+                succeeded in
+                guard succeeded else { return }
+                source.listView.setMarked(source.listView.marked.subtracting(items.map(\.name)))
+                guard kind == .move else { return }
+                Task {
+                    do {
+                        try await FileOperations.deletePermanently(items.map(\.url))
+                    } catch {
+                        Prompt.error(String(localized: "Cannot delete"), error, in: window)
+                    }
+                    source.reread()
+                }
             }
         }
     }
