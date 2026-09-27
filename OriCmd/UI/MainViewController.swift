@@ -700,7 +700,7 @@ extension MainViewController: NSMenuItemValidation {
         guard let window = view.window else { return }
         let key = "LastServerAddress"
         Prompt.text(String(localized: "Connect to Server"),
-                    message: String(localized: "Server address (sftp://, smb://, afp://, nfs://, https:// for WebDAV):"),
+                    message: String(localized: "Server address (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// for WebDAV):"),
                     initial: AppDefaults.store.string(forKey: key) ?? "smb://",
                     okTitle: String(localized: "Connect"), in: window) { [weak self] address in
             guard let url = URL(string: address.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
@@ -712,6 +712,10 @@ extension MainViewController: NSMenuItemValidation {
                 self?.activePanel.openRemote(fileSystem)
                 return
             }
+            if ["ftp", "ftps", "ftpes"].contains(url.scheme?.lowercased() ?? "") {
+                self?.connectFTP(url)
+                return
+            }
             Task {
                 do {
                     let mountPoint = try await NetworkConnection.mount(url)
@@ -720,6 +724,22 @@ extension MainViewController: NSMenuItemValidation {
                     Prompt.error(String(localized: "Cannot connect to \u{201C}\(address)\u{201D}"), error, in: window)
                 }
             }
+        }
+    }
+
+    /// Opens an FTP server in the active panel, asking for the password if needed.
+    private func connectFTP(_ url: URL) {
+        guard let window = view.window else { return }
+        if FTPFileSystem.needsPassword(url) {
+            Prompt.password(String(localized: "Connect to Server"),
+                            message: String(localized: "Password for \(url.user(percentEncoded: false) ?? "")@\(url.host() ?? ""):"),
+                            in: window) { [weak self] password in
+                if let fileSystem = FTPFileSystem(url: url, password: password) {
+                    self?.activePanel.openRemote(fileSystem)
+                }
+            }
+        } else if let fileSystem = FTPFileSystem(url: url, password: nil) {
+            activePanel.openRemote(fileSystem)
         }
     }
 

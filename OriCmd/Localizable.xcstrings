@@ -2271,6 +2271,16 @@
         }
       }
     },
+    "Password for %@@%@:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль для %1$@@%2$@:"
+          }
+        }
+      }
+    },
     "Paste": {
       "localizations": {
         "ru": {
@@ -2657,6 +2667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выделить файлы"
+          }
+        }
+      }
+    },
+    "Server address (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// for WebDAV):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес сервера (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// для WebDAV):"
           }
         }
       }

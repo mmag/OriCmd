@@ -154,8 +154,9 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
         return LongListing.items(from: lines, baseURL: baseURL.appending(path: path))
     }
 
-    func download(_ paths: [String], to folder: URL, progress: TransferProgress) async throws {
-        _ = try await sftp(["lcd \(Self.quoted(folder.path))"] + paths.map { "get -Rp \(Self.quoted($0))" },
+    func download(_ items: [FileItem], from folder: String, to destination: URL, progress: TransferProgress) async throws {
+        let paths = items.map { RemotePath.join(folder, $0.name) }
+        _ = try await sftp(["lcd \(Self.quoted(destination.path))"] + paths.map { "get -Rp \(Self.quoted($0))" },
                            progress: progress)
     }
 

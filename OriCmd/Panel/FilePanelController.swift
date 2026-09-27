@@ -406,7 +406,7 @@ final class FilePanelController: NSViewController {
         let controller = TransferController(title: String(localized: "Downloading"),
                                             failureTitle: String(localized: "Download failed"), window: window)
         let done = await controller.run(source: path, target: folder.path) { progress, _ in
-            try await remote.fileSystem.download([path], to: folder, progress: progress)
+            try await remote.fileSystem.download([item], from: remote.path, to: folder, progress: progress)
             return [folder]
         }
         return done.isEmpty ? nil : folder.appending(path: item.name)
@@ -438,12 +438,11 @@ final class FilePanelController: NSViewController {
     /// moving deletes them on the server afterwards. Returns whether it worked.
     func download(_ items: [FileItem], to folder: URL, moving: Bool) async -> Bool {
         guard let remote, let window = view.window else { return false }
-        let paths = items.map { remote.path(of: $0.name) }
         let controller = TransferController(title: String(localized: "Downloading"),
                                             failureTitle: String(localized: "Download failed"), window: window)
         let done = await controller.run(source: remote.displayPath, target: folder.path) { progress, _ in
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            try await remote.fileSystem.download(paths, to: folder, progress: progress)
+            try await remote.fileSystem.download(items, from: remote.path, to: folder, progress: progress)
             if moving {
                 try await remote.fileSystem.delete(items, in: remote.path)
             }

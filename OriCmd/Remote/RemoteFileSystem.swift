@@ -11,7 +11,8 @@ protocol RemoteFileSystem: AnyObject, Sendable {
     func connect() async throws -> String
     func disconnect()
     func list(_ path: String) async throws -> [FileItem]
-    func download(_ paths: [String], to folder: URL, progress: TransferProgress) async throws
+    /// Downloads entries of `folder` (folders recursively) into the local `destination`.
+    func download(_ items: [FileItem], from folder: String, to destination: URL, progress: TransferProgress) async throws
     func upload(_ files: [URL], to path: String, progress: TransferProgress) async throws
     func makeDirectory(_ path: String) async throws
     func delete(_ items: [FileItem], in folder: String) async throws

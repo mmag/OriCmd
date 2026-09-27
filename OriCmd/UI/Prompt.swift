@@ -103,6 +103,24 @@ enum Prompt {
         }
     }
 
+    /// Asks for a password (hidden while typing).
+    static func password(_ title: String, message: String, in window: NSWindow,
+                         completion: @escaping (String) -> Void) {
+        let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 22))
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.accessoryView = field
+        alert.addButton(withTitle: String(localized: "Connect"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.window.initialFirstResponder = field
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn {
+                completion(field.stringValue)
+            }
+        }
+    }
+
     /// Asks to pick one of `options`; the completion gets its index.
     static func choice(
         _ title: String,
