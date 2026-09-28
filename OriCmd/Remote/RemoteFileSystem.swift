@@ -38,9 +38,9 @@ nonisolated final class RemoteConflicts: Sendable {
     }
 
     /// Whether the existing `target` is replaced by `source`; false skips it.
-    func replaces(_ source: URL, _ target: URL, sourceDate: Date?, targetDate: Date?) async throws -> Bool {
+    func replaces(_ source: ConflictItem, _ target: ConflictItem) async throws -> Bool {
         guard let resolve else { return true }
-        let isOlder = (targetDate ?? .distantPast) < (sourceDate ?? .distantFuture)
+        let isOlder = (target.modified ?? .distantPast) < (source.modified ?? .distantFuture)
         switch mode.withLock({ $0 }) {
         case .overwriteAll: return true
         case .skipAll: return false
@@ -108,8 +108,7 @@ extension RemoteFileSystem {
                     } else if isFolder != item.isDirectory {
                         throw RemoteError(String(localized:
                             "\u{201C}\(item.name)\u{201D} is a folder on one side and a file on the other."))
-                    } else if try await !conflicts.replaces(url, item.url, sourceDate: values?.contentModificationDate,
-                                                            targetDate: item.modified) {
+                    } else if try await !conflicts.replaces(.local(url), .remote(item)) {
                         check.kept.insert(url.path)
                         check.incomplete.insert(top)
                     }

@@ -27,7 +27,7 @@ nonisolated enum ArchiveWriter {
                 "Unknown archive type \u{201C}\(archive.lastPathComponent)\u{201D}: use .zip, .tar.gz, .tar.bz2, .tar.xz, .tar or .7z."))
         }
         let partial = archive.deletingLastPathComponent()
-            .appending(path: ".\(archive.lastPathComponent).oricmd-\(UUID().uuidString.prefix(8))")
+            .appending(path: ".oricmd-\(UUID().uuidString.prefix(12)).part")
         do {
             let output = try await ProcessRunner.run(
                 "/usr/bin/bsdtar", ["-c"] + format + ["-f", partial.path, "-C", directory.path, "--"] + names,

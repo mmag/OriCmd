@@ -16,6 +16,32 @@ nonisolated struct TransferJob: Sendable {
     var options = TransferOptions()
 }
 
+/// One side of a "File already exists" question: what the user needs to decide.
+nonisolated struct ConflictItem: Sendable {
+    /// Shown as is: a local path, or "host:/path" on a server.
+    let path: String
+    let name: String
+    let isFolder: Bool
+    let size: Int64?
+    let modified: Date?
+
+    static func local(_ url: URL) -> ConflictItem {
+        var info = stat()
+        let found = lstat(url.path, &info) == 0
+        return ConflictItem(path: url.path, name: url.lastPathComponent,
+                            isFolder: found && info.st_mode & S_IFMT == S_IFDIR,
+                            size: found ? Int64(info.st_size) : nil,
+                            modified: found ? Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)) : nil)
+    }
+
+    /// An entry of a server listing (the local file system knows nothing about it).
+    static func remote(_ item: FileItem) -> ConflictItem {
+        ConflictItem(path: (item.url.host().map { $0 + ":" } ?? "") + item.url.path(percentEncoded: false),
+                     name: item.name, isFolder: item.isDirectory,
+                     size: item.isDirectory ? nil : item.size, modified: item.modified)
+    }
+}
+
 nonisolated enum ConflictDecision: Sendable {
     case overwrite, overwriteAll, skip, skipAll, overwriteAllOlder, cancel
 }
@@ -64,7 +90,7 @@ nonisolated final class TransferProgress: Sendable {
 /// options add Total Commander's overwrite modes, a file type filter, renaming
 /// by mask and verification.
 nonisolated final class TransferEngine {
-    typealias ConflictHandler = @Sendable (_ source: URL, _ target: URL) async -> ConflictDecision
+    typealias ConflictHandler = @Sendable (_ source: ConflictItem, _ target: ConflictItem) async -> ConflictDecision
 
     private let job: TransferJob
     private let progress: TransferProgress
@@ -209,8 +235,9 @@ nonisolated final class TransferEngine {
 
         // The copy is written under a temporary name next to the target and renamed
         // when complete: an interrupted copy never looks like a finished file.
+        // A short fixed-length name: the original may already use the whole 255 bytes.
         let partial = target.deletingLastPathComponent()
-            .appending(path: ".\(target.lastPathComponent).oricmd-\(UUID().uuidString.prefix(8))").path
+            .appending(path: ".oricmd-\(UUID().uuidString.prefix(12)).part").path
         do {
             try copyFile(sourcePath, to: partial, size: Int64(sourceInfo.st_size))
             // Only regular files are read back (a symbolic link is copied as a link).
@@ -279,7 +306,7 @@ nonisolated final class TransferEngine {
         // since replacing would delete a whole folder (or put a file over one).
         if !bothFiles {
             if mode == .skipAll { return .skip }
-            switch await resolveConflict(source, target) {
+            switch await resolveConflict(.local(source), .local(target)) {
             case .overwrite, .overwriteAll, .overwriteAllOlder: return .overwrite
             case .skip, .skipAll: return .skip
             case .cancel: throw CancellationError()
@@ -306,7 +333,7 @@ nonisolated final class TransferEngine {
             break
         }
         // Ask, and for a file meeting a folder in the modes that compare files.
-        switch await resolveConflict(source, target) {
+        switch await resolveConflict(.local(source), .local(target)) {
         case .overwrite:
             return .overwrite
         case .overwriteAll:

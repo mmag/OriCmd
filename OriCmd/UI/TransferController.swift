@@ -165,13 +165,9 @@ final class TransferController {
         progress.cancel()
     }
 
-    private func askOverwrite(_ source: URL, _ target: URL) async -> ConflictDecision {
-        func isFolder(_ url: URL) -> Bool {
-            var info = stat()
-            return lstat(url.path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
-        }
-        if isFolder(source) != isFolder(target) {
-            return await askReplacingFolder(source, target, targetIsFolder: isFolder(target))
+    private func askOverwrite(_ source: ConflictItem, _ target: ConflictItem) async -> ConflictDecision {
+        if source.isFolder != target.isFolder {
+            return await askReplacingFolder(source, target)
         }
         let alert = NSAlert()
         alert.messageText = String(localized: "File already exists")
@@ -193,14 +189,14 @@ final class TransferController {
 
     /// A file meeting a folder of the same name (or the other way round): replacing
     /// removes the whole folder, so Return skips and "all" answers are not offered.
-    private func askReplacingFolder(_ source: URL, _ target: URL, targetIsFolder: Bool) async -> ConflictDecision {
+    private func askReplacingFolder(_ source: ConflictItem, _ target: ConflictItem) async -> ConflictDecision {
         let alert = NSAlert()
-        let name = target.lastPathComponent
+        let name = target.name
         alert.alertStyle = .warning
-        alert.messageText = targetIsFolder
+        alert.messageText = target.isFolder
             ? String(localized: "A folder named \u{201C}\(name)\u{201D} already exists")
             : String(localized: "A file named \u{201C}\(name)\u{201D} already exists")
-        alert.informativeText = targetIsFolder
+        alert.informativeText = target.isFolder
             ? String(localized: "Replacing it deletes the folder \(target.path) with everything in it and puts the file there.")
             : String(localized: "Replacing it deletes the file \(target.path) and puts the folder there.")
         alert.addButton(withTitle: String(localized: "Skip"))
@@ -215,10 +211,9 @@ final class TransferController {
         }
     }
 
-    private func describe(_ url: URL) -> String {
-        let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
-        let size = values?.fileSize.map { String(localized: "\(Int64($0).formatted(.number.grouping(.automatic))) bytes") } ?? ""
-        let date = values?.contentModificationDate?.formatted(date: .numeric, time: .shortened) ?? ""
-        return "\(url.path)\n\(size)   \(date)"
+    private func describe(_ item: ConflictItem) -> String {
+        let size = item.size.map { String(localized: "\($0.formatted(.number.grouping(.automatic))) bytes") } ?? ""
+        let date = item.modified?.formatted(date: .numeric, time: .shortened) ?? ""
+        return "\(item.path)\n\(size)   \(date)"
     }
 }

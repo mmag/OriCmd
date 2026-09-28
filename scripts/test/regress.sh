@@ -98,6 +98,10 @@ run fileoverfolder "alt+n wait text:otes escape f5 wait enter wait wait enter wa
 check "Overwrite all never replaces a folder by a file silently" "[ -f $R/notes.md/inside.txt ]"
 rm -f build/readme.orig build/notes.orig
 
+scripts/test/mkdata.sh; echo long > "$L/$(python3 -c "print('a'*246 + '.txt')")"
+run longname "alt+a wait text:aaaa escape f5 wait enter wait wait"
+check "F5 copies a file with a 250-character name" "[ \"\$(ls $R | grep -c aaaa)\" = 1 ]"
+
 scripts/test/mkdata.sh
 run clip "alt+n wait text:otes escape cmd+c tab cmd+v wait wait"
 check "Cmd+C / Cmd+V copies" "cmp -s $L/notes.md $R/notes.md"
@@ -139,6 +143,10 @@ check "SFTP rename never replaces an existing file" "[ \"\$(cat $L/readme.md)\" 
 scripts/test/mkdata.sh; (cd $R && touch "$(printf 'evil\n!date #')")
 run sftpnewline "$(connect sftp://oritest$PWD/$L) tab home down f5 wait enter wait wait"
 check "SFTP refuses names with line breaks" "! ls $L | grep -q evil"
+scripts/test/mkdata.sh; ln -s alpha $L/current; mkdir -p $R/current; echo new > $R/current/new.txt
+run sftpsymlinkfolder "$(connect sftp://oritest$PWD/$L) tab alt+c wait text:urrent escape f5 wait enter wait wait wait"
+check "SFTP upload into a server symlink to a folder" "[ -f $L/alpha/new.txt ]"
+
 # F6 to the server through a symlinked local path, one file inside kept: nothing local is lost.
 scripts/test/mkdata.sh; ln -s right build/testdata/linkright; mkdir -p $R/site $L/site
 echo local-index > $R/site/index.html; echo other > $R/site/other.txt; echo server-index > $L/site/index.html

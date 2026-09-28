@@ -210,18 +210,20 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
         var incomplete = Set<String>()
         /// `top` is the selected entry the item belongs to.
         func add(_ item: FileItem, remote: String, local: URL, top: String) async throws {
+            var existing = stat()
+            let exists = lstat(local.path, &existing) == 0
+            if exists, !item.isSymlink, (existing.st_mode & S_IFMT == S_IFDIR) != item.isDirectory {
+                throw RemoteError(String(localized:
+                    "\u{201C}\(item.name)\u{201D} is a folder on one side and a file on the other."))
+            }
             if item.isDirectory {
                 folders.append((item, local))
                 level.append((remote, local, top))
                 return
             }
-            var existing = stat()
-            if lstat(local.path, &existing) == 0 {
-                let localDate = Date(timeIntervalSince1970: TimeInterval(existing.st_mtimespec.tv_sec))
-                guard try await conflicts.replaces(item.url, local, sourceDate: item.modified, targetDate: localDate) else {
-                    incomplete.insert(top)
-                    return
-                }
+            if exists, try await !conflicts.replaces(.remote(item), .local(local)) {
+                incomplete.insert(top)
+                return
             }
             let command = item.isSymlink ? "-get -Rp" : "get -p"
             let (source, target) = (try Self.quoted(remote), try Self.quoted(local.path))

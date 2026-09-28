@@ -144,19 +144,20 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
                 let path = RemotePath.join(folder, item.name)
                 let target = local.appending(path: item.name)
                 let top = top ?? item.name
+                var existing = stat()
+                let exists = lstat(target.path, &existing) == 0
+                if exists, !item.isSymlink, (existing.st_mode & S_IFMT == S_IFDIR) != item.isDirectory {
+                    throw RemoteError(String(localized:
+                        "\u{201C}\(item.name)\u{201D} is a folder on one side and a file on the other."))
+                }
                 if item.isDirectory {
                     folders.append(target)
                     try await plan(try await list(path), from: path, to: target, top: top)
                     continue
                 }
-                var existing = stat()
-                if lstat(target.path, &existing) == 0 {
-                    let localDate = Date(timeIntervalSince1970: TimeInterval(existing.st_mtimespec.tv_sec))
-                    guard try await conflicts.replaces(item.url, target, sourceDate: item.modified,
-                                                       targetDate: localDate) else {
-                        incomplete.insert(top)
-                        continue
-                    }
+                if exists, try await !conflicts.replaces(.remote(item), .local(target)) {
+                    incomplete.insert(top)
+                    continue
                 }
                 files.append(PlannedFile(source: path, target: target.path, size: item.size))
             }
