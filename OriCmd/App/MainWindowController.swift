@@ -25,6 +25,7 @@ final class MainWindowController: NSWindowController {
         }
         super.init(window: window)
         window.onDropApplications = { [weak self] urls in self?.buttonBar.addApplications(urls) }
+        window.onCustomizeToolbar = { [weak self] in self?.buttonBar.hidesApplicationsInPalette = true }
     }
 
     /// Puts applications on the button bar (dropped there, or "Add to Button Bar").

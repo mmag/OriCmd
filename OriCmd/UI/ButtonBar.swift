@@ -37,6 +37,12 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
 
     let toolbar = NSToolbar(identifier: "ButtonBar")
 
+    /// While the Customize palette is open, applications are not offered in it:
+    /// they come onto the bar by dragging an .app there, and one dragged off the
+    /// bar into the palette would stay there with no way to remove it.
+    var hidesApplicationsInPalette = false
+    private var paletteObservation: NSKeyValueObservation?
+
     override init() {
         super.init()
         toolbar.delegate = self
@@ -44,6 +50,14 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
         toolbar.allowsUserCustomization = true
         // Saved in the standard defaults: test runs must not change the user's toolbar.
         toolbar.autosavesConfiguration = !AppDefaults.isTestRun
+        paletteObservation = toolbar.observe(\.customizationPaletteIsRunning) { [weak self] toolbar, _ in
+            MainActor.assumeIsolated {
+                guard let self, !toolbar.customizationPaletteIsRunning else { return }
+                self.hidesApplicationsInPalette = false
+                // The applications are those left on the bar.
+                ToolbarApps.all = toolbar.items.compactMap { ToolbarApps.path(from: $0.itemIdentifier) }
+            }
+        }
     }
 
     /// The applications offered on the bar are the ones on it: one removed in any
@@ -67,7 +81,7 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         Self.buttons.map { NSToolbarItem.Identifier($0.0.rawValue) }
             + UserCommands.all.map { NSToolbarItem.Identifier(Self.userPrefix + $0.id.uuidString) }
-            + ToolbarApps.all.map(ToolbarApps.identifier)
+            + (hidesApplicationsInPalette ? [] : ToolbarApps.all.map(ToolbarApps.identifier))
             + [.space, .flexibleSpace]
     }
 

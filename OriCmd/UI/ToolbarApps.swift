@@ -107,6 +107,13 @@ final class AppButton: NSButton {
 /// The main window: applications dropped on its toolbar become buttons.
 final class MainWindow: NSWindow, NSDraggingDestination {
     var onDropApplications: (([URL]) -> Void)?
+    /// Called before the Customize Toolbar palette opens.
+    var onCustomizeToolbar: (() -> Void)?
+
+    override func runToolbarCustomizationPalette(_ sender: Any?) {
+        onCustomizeToolbar?()
+        super.runToolbarCustomizationPalette(sender)
+    }
 
     /// The toolbar takes right clicks for its own "Customize Toolbar" menu before
     /// its buttons see them: on an application's button its menu is shown instead.
