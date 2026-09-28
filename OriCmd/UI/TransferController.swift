@@ -3,7 +3,8 @@ import AppKit
 /// Runs a long file operation (copy, move, pack, unpack) with a Total Commander
 /// style progress sheet and "File already exists" prompts.
 final class TransferController {
-    typealias Work = @Sendable (TransferProgress, @escaping TransferEngine.ConflictHandler) async throws -> [URL]
+    /// Runs off the main thread (so the progress window stays live), whatever the caller.
+    typealias Work = @concurrent @Sendable (TransferProgress, @escaping TransferEngine.ConflictHandler) async throws -> [URL]
 
     private let title: String
     private let failureTitle: String

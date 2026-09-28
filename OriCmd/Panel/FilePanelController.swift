@@ -28,6 +28,8 @@ final class FilePanelController: NSViewController {
         let url: URL
         var folder: String
         var entries: [ArchiveEntry]
+        /// Size and date of the archive file when `entries` were read.
+        var stamp: [Int64] = []
 
         var displayPath: String { folder.isEmpty ? url.path : url.path + "/" + folder }
 
@@ -78,8 +80,33 @@ final class FilePanelController: NSViewController {
     var sortOrder = SortOrder() {
         didSet {
             panelView.headerView.sortOrder = sortOrder
+            if sortOrder.column.needsMetadata && entries.count > 100 && entriesOrder != sortOrder {
+                sortInBackground()
+            } else {
+                refreshList(selecting: listView.currentItem?.name)
+            }
+        }
+    }
+
+    /// Sorting by a metadata column reads every file; for bigger folders that
+    /// happens in the background and the list is re-sorted when done.
+    private func sortInBackground() {
+        let order = sortOrder
+        let entries = self.entries
+        let generation = loadGeneration
+        Task {
+            let sorted = await Self.sort(entries, by: order)
+            // Dropped if the folder was reloaded or another order chosen meanwhile.
+            guard generation == loadGeneration, sortOrder == order else { return }
+            self.entries = sorted
+            entriesOrder = order
             refreshList(selecting: listView.currentItem?.name)
         }
+    }
+
+    @concurrent
+    private nonisolated static func sort(_ entries: [FileItem], by order: SortOrder) async -> [FileItem] {
+        order.sorted(entries)
     }
 
     var showsHidden = false {
@@ -513,25 +540,57 @@ final class FilePanelController: NSViewController {
     // MARK: - Archives
 
     /// Shows the contents of an archive as a folder (Enter / Ctrl+PgDn on it).
+    /// Shows an archive as a folder. It is read in the background (a big tar.gz is
+    /// decompressed as a whole), and a folder load still under way is dropped.
     func openArchive(_ url: URL) {
-        do {
-            let entries = try ArchiveReader.entries(of: url)
-            listView.setMarked([])
-            archive = ArchiveLocation(url: url, folder: "", entries: entries)
-            showArchiveFolder(selecting: nil)
-        } catch {
-            Prompt.error(String(localized: "Cannot open archive \u{201C}\(url.lastPathComponent)\u{201D}"), error,
-                         in: view.window)
+        loadGeneration += 1
+        let generation = loadGeneration
+        Task {
+            do {
+                let (entries, stamp) = try await Self.readArchive(url)
+                guard generation == loadGeneration else { return }
+                listView.setMarked([])
+                archive = ArchiveLocation(url: url, folder: "", entries: entries, stamp: stamp)
+                showArchiveFolder(selecting: nil)
+            } catch {
+                guard generation == loadGeneration else { return }
+                Prompt.error(String(localized: "Cannot open archive \u{201C}\(url.lastPathComponent)\u{201D}"), error,
+                             in: view.window)
+            }
         }
     }
 
-    private func reopenArchive(_ location: ArchiveLocation, selecting name: String? = nil) {
-        guard let entries = try? ArchiveReader.entries(of: location.url) else {
-            load(directory)
+    /// Reads the archive again, unless it has not changed since (the folder
+    /// holding it may change for other reasons).
+    private func reopenArchive(_ location: ArchiveLocation, selecting name: String? = nil, force: Bool = false) {
+        if !force, !location.stamp.isEmpty, Self.stamp(of: location.url) == location.stamp {
             return
         }
-        archive?.entries = entries
-        showArchiveFolder(selecting: name ?? listView.currentItem?.name)
+        loadGeneration += 1
+        let generation = loadGeneration
+        Task {
+            let result = try? await Self.readArchive(location.url)
+            guard generation == loadGeneration, archive?.url == location.url else { return }
+            guard let (entries, stamp) = result else {
+                load(directory)
+                return
+            }
+            archive?.entries = entries
+            archive?.stamp = stamp
+            showArchiveFolder(selecting: name ?? listView.currentItem?.name)
+        }
+    }
+
+    @concurrent
+    private nonisolated static func readArchive(_ url: URL) async throws -> ([ArchiveEntry], [Int64]) {
+        let stamp = stamp(of: url)
+        return (try ArchiveReader.entries(of: url), stamp)
+    }
+
+    private nonisolated static func stamp(of url: URL) -> [Int64] {
+        var info = stat()
+        guard stat(url.path, &info) == 0 else { return [] }
+        return [Int64(info.st_size), Int64(info.st_mtimespec.tv_sec), Int64(info.st_mtimespec.tv_nsec)]
     }
 
     /// Changes the archive shown in this panel (with a progress sheet), then
@@ -548,7 +607,7 @@ final class FilePanelController: NSViewController {
                 return [url]
             }
             if let current = self.archive, current.url == url {
-                reopenArchive(current, selecting: name)
+                reopenArchive(current, selecting: name, force: true)
             }
             completion?(!done.isEmpty)
         }

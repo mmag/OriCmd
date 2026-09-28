@@ -5,6 +5,14 @@ nonisolated enum SortColumn: String, CaseIterable, Sendable {
     // Optional columns from file metadata (Show → header context menu).
     case kind, created, dimensions, duration, tags
 
+    /// Sorting by it reads every file's metadata (Spotlight, image headers).
+    var needsMetadata: Bool {
+        switch self {
+        case .kind, .created, .dimensions, .duration, .tags: true
+        default: false
+        }
+    }
+
     static let extras: [SortColumn] = [.kind, .created, .dimensions, .duration, .tags]
 }
 

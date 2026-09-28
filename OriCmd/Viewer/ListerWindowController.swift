@@ -12,8 +12,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         case text, hex, preview
     }
 
-    private static let textLimit = 32 * 1024 * 1024
-    private static let hexLimit = 256 * 1024
+    private nonisolated static let textLimit = 32 * 1024 * 1024
+    private nonisolated static let hexLimit = 256 * 1024
     private static var openControllers: [ListerWindowController] = []
 
     private var url: URL
@@ -23,6 +23,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
     private let scrollView = NSTextView.scrollableTextView()
     private var textView: NSTextView { scrollView.documentView as! NSTextView }
     private var preview: QLPreviewView?
+    /// Only the latest requested text or hex view is shown.
+    private var loadToken = 0
 
     /// Shows `url`; N / P step through `siblings` (the other files of its folder).
     /// `title` replaces the path in the window title (for files from servers and archives).
@@ -126,14 +128,19 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         guard let window else { return }
         self.mode = mode
         switch mode {
-        case .text:
-            textView.string = Self.text(of: url)
-            setWrapping(wrapsLines)
+        case .text, .hex:
+            // Up to 32 MB of text: read and decoded off the main thread.
+            textView.string = ""
+            setWrapping(mode == .text ? wrapsLines : false)
             window.contentView = scrollView
-        case .hex:
-            textView.string = Self.hexDump(of: url)
-            setWrapping(false)
-            window.contentView = scrollView
+            loadToken += 1
+            let token = loadToken
+            let url = self.url
+            Task {
+                let content = await Self.content(of: url, hex: mode == .hex)
+                guard token == loadToken else { return }
+                textView.string = content
+            }
         case .preview:
             if preview == nil {
                 preview = QLPreviewView(frame: .zero, style: .normal)
@@ -165,7 +172,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Content
 
-    private static func head(of url: URL, limit: Int) -> (data: Data, size: Int) {
+    @concurrent
+    private nonisolated static func content(of url: URL, hex: Bool) async -> String {
+        hex ? hexDump(of: url) : text(of: url)
+    }
+
+    private nonisolated static func head(of url: URL, limit: Int) -> (data: Data, size: Int) {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return (Data(), 0) }
         defer { try? handle.close() }
         let size = (try? handle.seekToEnd()).map(Int.init) ?? 0
@@ -177,7 +189,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         !head(of: url, limit: 8192).data.contains(0)
     }
 
-    private static func text(of url: URL) -> String {
+    private nonisolated static func text(of url: URL) -> String {
         let (data, size) = head(of: url, limit: textLimit)
         var result = TextDecoding.string(from: data)
         if size > data.count {
@@ -186,13 +198,13 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         return result
     }
 
-    private static func truncationNote(shown: Int, of size: Int) -> String {
+    private nonisolated static func truncationNote(shown: Int, of size: Int) -> String {
         let shownText = shown.formatted()
         let sizeText = size.formatted()
         return String(localized: "[… showing the first \(shownText) of \(sizeText) bytes]")
     }
 
-    private static func hexDump(of url: URL) -> String {
+    private nonisolated static func hexDump(of url: URL) -> String {
         let (data, size) = head(of: url, limit: hexLimit)
         var lines: [String] = []
         lines.reserveCapacity(data.count / 16 + 2)
