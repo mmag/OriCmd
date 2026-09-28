@@ -7,8 +7,8 @@ import AppKit
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `click:Button_Title`,
-///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`. Only played when both panel
-///   directories are given, so a test run never touches real files.
+///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
+///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
 ///   `<name>-sheet.png`) is rendered there after the keys are played.
 /// - `ORICMD_QUIT`: exit when done (even with a sheet open).
@@ -58,9 +58,15 @@ enum DebugAutomation {
                 } else if token.hasPrefix("rightclickapp:") {
                     // Right-clicks the toolbar button of an application; the menu shown is
                     // written to <snapshot>-menu.txt and its item named after "|" is chosen.
+                    // No menu shown (no such button, or a sheet is open) leaves the file empty.
                     let parts = String(token.dropFirst(14)).replacingOccurrences(of: "_", with: " ")
                         .split(separator: "|", maxSplits: 1).map(String.init)
-                    guard let button = window.toolbar?.items.compactMap({ $0.view as? AppButton })
+                    if let snapshot {
+                        try? "".write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
+                                      atomically: true, encoding: .utf8)
+                    }
+                    guard let mainWindow = window as? MainWindow,
+                          let button = window.toolbar?.items.compactMap({ $0.view as? AppButton })
                             .first(where: { ToolbarApps.name(of: $0.path) == parts[0] }),
                           let event = NSEvent.mouseEvent(
                             with: .rightMouseDown, location: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil),
@@ -87,7 +93,7 @@ enum DebugAutomation {
                             }
                         }
                     }
-                    window.sendEvent(event)
+                    _ = mainWindow.showAppButtonMenu(for: event)
                     NotificationCenter.default.removeObserver(observer)
                 } else if token.hasPrefix("importini:") {
                     _ = try? KeyBindings.importTotalCommanderShortcuts(from: URL(filePath: String(token.dropFirst(10))))

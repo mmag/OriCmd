@@ -37,12 +37,6 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
 
     let toolbar = NSToolbar(identifier: "ButtonBar")
 
-    /// While the Customize palette is open, applications are not offered in it:
-    /// they come onto the bar by dragging an .app there, and one dragged off the
-    /// bar into the palette would stay there with no way to remove it.
-    var hidesApplicationsInPalette = false
-    private var paletteObservation: NSKeyValueObservation?
-
     override init() {
         super.init()
         toolbar.delegate = self
@@ -50,28 +44,6 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
         toolbar.allowsUserCustomization = true
         // Saved in the standard defaults: test runs must not change the user's toolbar.
         toolbar.autosavesConfiguration = !AppDefaults.isTestRun
-        paletteObservation = toolbar.observe(\.customizationPaletteIsRunning) { [weak self] toolbar, _ in
-            MainActor.assumeIsolated {
-                guard let self, !toolbar.customizationPaletteIsRunning else { return }
-                self.hidesApplicationsInPalette = false
-                // The applications are those left on the bar.
-                ToolbarApps.all = toolbar.items.compactMap { ToolbarApps.path(from: $0.itemIdentifier) }
-            }
-        }
-    }
-
-    /// The applications offered on the bar are the ones on it: one removed in any
-    /// way (its menu, or dragged off while customizing) leaves the palette too.
-    func toolbarWillAddItem(_ notification: Notification) {
-        guard let item = notification.userInfo?["item"] as? NSToolbarItem,
-              let path = ToolbarApps.path(from: item.itemIdentifier), !ToolbarApps.all.contains(path) else { return }
-        ToolbarApps.all.append(path)
-    }
-
-    func toolbarDidRemoveItem(_ notification: Notification) {
-        guard let item = notification.userInfo?["item"] as? NSToolbarItem,
-              let path = ToolbarApps.path(from: item.itemIdentifier) else { return }
-        ToolbarApps.all.removeAll { $0 == path }
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -81,7 +53,6 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         Self.buttons.map { NSToolbarItem.Identifier($0.0.rawValue) }
             + UserCommands.all.map { NSToolbarItem.Identifier(Self.userPrefix + $0.id.uuidString) }
-            + (hidesApplicationsInPalette ? [] : ToolbarApps.all.map(ToolbarApps.identifier))
             + [.space, .flexibleSpace]
     }
 
@@ -132,17 +103,18 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
 }
 
 extension ButtonBar {
-    /// Puts dropped applications on the bar (each once), after the other buttons.
+    /// Puts applications on the bar (each once), after the other buttons, and
+    /// shows the bar if it was hidden.
     func addApplications(_ urls: [URL]) {
-        for url in urls where ToolbarApps.isApplication(url) {
-            let path = url.standardizedFileURL.path
-            let identifier = ToolbarApps.identifier(for: path)
+        let applications = urls.map { $0.resolvingSymlinksInPath().standardizedFileURL }.filter(ToolbarApps.isApplication)
+        guard !applications.isEmpty else { return }
+        for url in applications {
+            let identifier = ToolbarApps.identifier(for: url.path)
+            // A second item with the same identifier would be an exception.
             guard !toolbar.items.contains(where: { $0.itemIdentifier == identifier }) else { continue }
-            if !ToolbarApps.all.contains(path) {
-                ToolbarApps.all.append(path)
-            }
             toolbar.insertItem(withItemIdentifier: identifier, at: toolbar.items.count)
         }
+        toolbar.isVisible = true
     }
 
     func removeApplication(_ path: String) {
@@ -150,7 +122,6 @@ extension ButtonBar {
         while let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == identifier }) {
             toolbar.removeItem(at: index)
         }
-        ToolbarApps.all.removeAll { $0 == path }
     }
 }
 

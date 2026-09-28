@@ -131,6 +131,15 @@ run assoc "alt+r wait text:eadme escape f4 wait enter wait alt+n wait text:otes 
 sleep 2  # the programs run in a login shell, which may still be starting
 check "associations for Enter / F3 / F4" "[ -f $L/readme.txt.opened ] && [ -f $L/readme.txt.edited ] && [ -f $L/notes.md.viewed ]"
 
+# Application buttons, with the empty gamma.app (never started); an empty menu file means no menu.
+scripts/test/mkdata.sh; rm -f build/shots/reg-app{menu,remove,sheet}-menu.txt
+run appmenu "dropapp:$PWD/$L/gamma.app wait rightclickapp:gamma"
+check "app button: right click shows its menu" "grep -qx 'Remove from Button Bar' build/shots/reg-appmenu-menu.txt"
+run appremove "dropapp:$PWD/$L/gamma.app wait rightclickapp:gamma|Remove_from_Button_Bar wait rightclickapp:gamma"
+check "app button: Remove from Button Bar" "[ -f build/shots/reg-appremove-menu.txt ] && [ ! -s build/shots/reg-appremove-menu.txt ]"
+run appsheet "dropapp:$PWD/$L/gamma.app wait f7 wait rightclickapp:gamma"
+check "app button: no menu under a sheet" "[ -f build/shots/reg-appsheet-menu.txt ] && [ ! -s build/shots/reg-appsheet-menu.txt ]"
+
 scripts/test/servers.sh start
 connect() { echo "cmd:connectToServer wait cmd+a text:$1 enter wait $2 wait wait"; }
 

@@ -2,16 +2,11 @@ import AppKit
 
 /// Applications put on the button bar by dragging them there, as programs on
 /// the button bar of a classic two-panel manager: a click starts one, files
-/// dropped on its button open in it.
+/// dropped on its button open in it. The bar's own saved configuration is the
+/// list of them; they are not offered in the Customize palette, so one taken
+/// off the bar is gone.
 enum ToolbarApps {
-    private static let key = "ToolbarApps"
     private static let prefix = "app."
-
-    /// Paths of the applications, in the order they were added.
-    static var all: [String] {
-        get { AppDefaults.store.stringArray(forKey: key) ?? [] }
-        set { AppDefaults.store.set(newValue, forKey: key) }
-    }
 
     static func identifier(for path: String) -> NSToolbarItem.Identifier {
         NSToolbarItem.Identifier(prefix + path)
@@ -21,12 +16,16 @@ enum ToolbarApps {
         identifier.rawValue.hasPrefix(prefix) ? String(identifier.rawValue.dropFirst(prefix.count)) : nil
     }
 
+    /// An application bundle: a folder (or a link to one) named *.app.
     static func isApplication(_ url: URL) -> Bool {
         url.pathExtension.lowercased() == "app"
+            && (try? url.resolvingSymlinksInPath().resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
     }
 
+    /// "Safari" for /Applications/Safari.app.
     static func name(of path: String) -> String {
-        FileManager.default.displayName(atPath: path).replacingOccurrences(of: ".app", with: "")
+        let name = FileManager.default.displayName(atPath: path)
+        return name.lowercased().hasSuffix(".app") ? (name as NSString).deletingPathExtension : name
     }
 }
 
@@ -45,6 +44,7 @@ final class AppButton: NSButton {
         imageScaling = .scaleProportionallyDown
         bezelStyle = .toolbar
         toolTip = ToolbarApps.name(of: path)
+        setAccessibilityLabel(toolTip)
         target = self
         action = #selector(launch(_:))
         registerForDraggedTypes([.fileURL])
@@ -66,12 +66,20 @@ final class AppButton: NSButton {
     }
 
     @objc private func launch(_ sender: Any?) {
-        let url = URL(filePath: path, directoryHint: .isDirectory)
-        let window = self.window
-        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+        NSWorkspace.shared.openApplication(at: URL(filePath: path, directoryHint: .isDirectory),
+                                           configuration: NSWorkspace.OpenConfiguration(),
+                                           completionHandler: failureHandler())
+    }
+
+    /// Reports a failed start (the application was moved or deleted, …) over
+    /// the main window: in full screen the toolbar is in a window of its own.
+    private func failureHandler() -> @Sendable (NSRunningApplication?, Error?) -> Void {
+        let name = ToolbarApps.name(of: path)
+        let window = NSApp.mainWindow ?? self.window
+        return { _, error in
             guard let error else { return }
             Task { @MainActor in
-                Prompt.error(String(localized: "Cannot open \u{201C}\(ToolbarApps.name(of: url.path))\u{201D}"), error, in: window)
+                Prompt.error(String(localized: "Cannot open \u{201C}\(name)\u{201D}"), error, in: window)
             }
         }
     }
@@ -91,15 +99,16 @@ final class AppButton: NSButton {
             as? [URL]) ?? []
     }
 
+    /// A button whose application is gone takes nothing.
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        files(in: sender).isEmpty ? [] : .generic
+        files(in: sender).isEmpty || !FileManager.default.fileExists(atPath: path) ? [] : .generic
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let urls = files(in: sender)
         guard !urls.isEmpty else { return false }
         NSWorkspace.shared.open(urls, withApplicationAt: URL(filePath: path, directoryHint: .isDirectory),
-                                configuration: NSWorkspace.OpenConfiguration())
+                                configuration: NSWorkspace.OpenConfiguration(), completionHandler: failureHandler())
         return true
     }
 }
@@ -107,30 +116,37 @@ final class AppButton: NSButton {
 /// The main window: applications dropped on its toolbar become buttons.
 final class MainWindow: NSWindow, NSDraggingDestination {
     var onDropApplications: (([URL]) -> Void)?
-    /// Called before the Customize Toolbar palette opens.
-    var onCustomizeToolbar: (() -> Void)?
 
-    override func runToolbarCustomizationPalette(_ sender: Any?) {
-        onCustomizeToolbar?()
-        super.runToolbarCustomizationPalette(sender)
+    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType,
+                  defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+        // The toolbar takes right clicks for its own "Customize Toolbar" menu before
+        // its buttons see them. Watched for the whole application, not in sendEvent:
+        // in full screen the toolbar is in a window of its own. The main window lives
+        // as long as the application, so the monitor is never removed.
+        NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .leftMouseDown]) { [weak self] event in
+            self?.showAppButtonMenu(for: event) == true ? nil : event
+        }
     }
 
-    /// The toolbar takes right clicks for its own "Customize Toolbar" menu before
-    /// its buttons see them: on an application's button its menu is shown instead.
-    override func sendEvent(_ event: NSEvent) {
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    /// Shows the menu of the application button under a right (or Control-) click,
+    /// unless a sheet or a modal window is open. Returns whether it did.
+    func showAppButtonMenu(for event: NSEvent) -> Bool {
         let isContextClick = event.type == .rightMouseDown
             || (event.type == .leftMouseDown && event.modifierFlags.contains(.control))
-        if isContextClick, let button = appButton(at: event.locationInWindow), let menu = button.menu {
-            NSMenu.popUpContextMenu(menu, with: event, for: button)
-            return
-        }
-        super.sendEvent(event)
-    }
-
-    private func appButton(at point: NSPoint) -> AppButton? {
-        toolbar?.items.lazy.compactMap { $0.view as? AppButton }.first { button in
-            button.window === self && button.bounds.contains(button.convert(point, from: nil))
-        }
+        guard isContextClick, attachedSheet == nil, NSApp.modalWindow == nil, let eventWindow = event.window,
+              let button = toolbar?.items.lazy.compactMap({ $0.view as? AppButton }).first(where: { button in
+                  button.window === eventWindow && !button.isHiddenOrHasHiddenAncestor
+                      && button.bounds.contains(button.convert(event.locationInWindow, from: nil))
+              }),
+              let menu = button.menu else { return false }
+        NSMenu.popUpContextMenu(menu, with: event, for: button)
+        return true
     }
 
     private func applications(in info: NSDraggingInfo) -> [URL] {
@@ -139,9 +155,9 @@ final class MainWindow: NSWindow, NSDraggingDestination {
         return urls.filter(ToolbarApps.isApplication)
     }
 
-    /// The toolbar is the part of the window above the content.
+    /// The toolbar, when shown, is the part of the window above the content.
     private func isOverToolbar(_ info: NSDraggingInfo) -> Bool {
-        info.draggingLocation.y >= contentLayoutRect.maxY
+        toolbar?.isVisible == true && info.draggingLocation.y >= contentLayoutRect.maxY
     }
 
     private func operation(for info: NSDraggingInfo) -> NSDragOperation {
