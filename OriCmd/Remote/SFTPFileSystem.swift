@@ -261,12 +261,12 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     /// Uploads file by file (creating the folders first), so the progress counts bytes.
     func upload(_ files: [URL], to path: String, progress: TransferProgress,
                 conflicts: RemoteConflicts) async throws -> Set<URL> {
-        let kept = try await keptOnServer(files, in: path, conflicts: conflicts, progress: progress)
+        let check = try await checkUpload(files, into: path, conflicts: conflicts, progress: progress)
         var commands: [String] = []
         var planned: [PlannedFile] = []
         var folderModes: [(remote: String, mode: Int)] = []
         func add(_ url: URL, remote: String) throws {
-            guard !kept.contains(url.path) else { return }
+            guard !check.kept.contains(url.path) else { return }
             let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isRegularFileKey,
                                                            .fileSizeKey])
             let (local, target) = (try Self.quoted(url.path), try Self.quoted(remote))
@@ -276,7 +276,9 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
             } else if values?.isDirectory == true {
                 commands.append("-mkdir \(target)")
                 planned.append(PlannedFile(source: url.path, target: remote, size: 0))
-                if let mode = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.posixPermissions] as? Int {
+                // Folders that exist on the server keep their permissions.
+                if !check.existingFolders.contains(remote),
+                   let mode = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.posixPermissions] as? Int {
                     folderModes.append((remote, mode))
                 }
                 let children = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
@@ -304,8 +306,8 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
             let text = try? await sftp(["ls -ln \(target)"])
             return text.flatMap { LongListing.items(from: $0, baseURL: baseURL).first?.size }
         }
-        // Kept files leave their folders incomplete.
-        return Set(files.filter { file in !kept.contains { $0 == file.path || $0.hasPrefix(file.path + "/") } })
+        // Kept files leave the selected items holding them incomplete.
+        return Set(files.enumerated().filter { !check.incomplete.contains($0.offset) }.map(\.element))
     }
 
     /// Runs one command per planned file in a single sftp session. sftp echoes

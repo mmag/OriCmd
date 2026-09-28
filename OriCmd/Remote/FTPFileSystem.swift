@@ -179,11 +179,11 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
     /// Creates the folders first, then sends file by file.
     func upload(_ files: [URL], to path: String, progress: TransferProgress,
                 conflicts: RemoteConflicts) async throws -> Set<URL> {
-        let kept = try await keptOnServer(files, in: path, conflicts: conflicts, progress: progress)
+        let check = try await checkUpload(files, into: path, conflicts: conflicts, progress: progress)
         var folders: [String] = []
         var planned: [PlannedFile] = []
         func plan(_ url: URL, into path: String) throws {
-            guard !kept.contains(url.path) else { return }
+            guard !check.kept.contains(url.path) else { return }
             try checkRemoteName(url.lastPathComponent)
             let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .fileSizeKey])
             let remote = RemotePath.join(path, url.lastPathComponent)
@@ -213,7 +213,7 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
             }
         }
         meter.finish()
-        return Set(files.filter { file in !kept.contains { $0 == file.path || $0.hasPrefix(file.path + "/") } })
+        return Set(files.enumerated().filter { !check.incomplete.contains($0.offset) }.map(\.element))
     }
 
     func makeDirectory(_ path: String) async throws {

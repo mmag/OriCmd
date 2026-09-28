@@ -67,39 +67,57 @@ nonisolated final class RemoteConflicts: Sendable {
     }
 }
 
+/// What an upload must leave out, found before it starts.
+nonisolated struct UploadCheck: Sendable {
+    /// Local files not to send (they exist on the server and are kept), as the
+    /// traversal of the local folders names them.
+    var kept: Set<String> = []
+    /// Indices of the selected items that have something kept (moving must keep
+    /// them locally).
+    var incomplete: Set<Int> = []
+    /// Server folders that existed already (their permissions are left alone).
+    var existingFolders: Set<String> = []
+}
+
 extension RemoteFileSystem {
     /// Before an upload: the local files not to send because they exist in `path`
-    /// on the server and are to be kept. Only folders that exist on the server are listed.
-    func keptOnServer(_ files: [URL], in path: String, conflicts: RemoteConflicts,
-                      progress: TransferProgress) async throws -> Set<String> {
-        var kept = Set<String>()
-        var level: [(locals: [URL], remote: String)] = [(files, path)]
+    /// on the server and are to be kept. Only folders that exist on the server are
+    /// listed; a symbolic link on the server standing for a folder is entered.
+    func checkUpload(_ files: [URL], into path: String, conflicts: RemoteConflicts,
+                     progress: TransferProgress) async throws -> UploadCheck {
+        var check = UploadCheck()
+        var level: [(locals: [URL], remote: String, top: Int?)] = [(files, path, nil)]
         while !level.isEmpty {
-            var next: [(locals: [URL], remote: String)] = []
-            for (locals, remote) in level {
+            var next: [(locals: [URL], remote: String, top: Int?)] = []
+            for (locals, remote, top) in level {
                 if progress.isCancelled { throw CancellationError() }
                 var existing: [String: FileItem] = [:]
                 for item in try await list(remote) { existing[item.name] = item }
-                for url in locals {
+                for (index, url) in locals.enumerated() {
+                    let top = top ?? index
                     guard let item = existing[url.lastPathComponent] else { continue }
                     let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey,
                                                                    .contentModificationDateKey])
                     let isFolder = values?.isDirectory == true && values?.isSymbolicLink != true
-                    if isFolder && item.isDirectory {
+                    let serverPath = RemotePath.join(remote, item.name)
+                    if isFolder && (item.isDirectory || item.isSymlink) {
+                        // Listing it next tells whether a link leads to a folder (else it fails).
+                        check.existingFolders.insert(serverPath)
                         let children = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
-                        next.append((children, RemotePath.join(remote, item.name)))
+                        next.append((children, serverPath, top))
                     } else if isFolder != item.isDirectory {
                         throw RemoteError(String(localized:
                             "\u{201C}\(item.name)\u{201D} is a folder on one side and a file on the other."))
                     } else if try await !conflicts.replaces(url, item.url, sourceDate: values?.contentModificationDate,
                                                             targetDate: item.modified) {
-                        kept.insert(url.path)
+                        check.kept.insert(url.path)
+                        check.incomplete.insert(top)
                     }
                 }
             }
             level = next
         }
-        return kept
+        return check
     }
 }
 

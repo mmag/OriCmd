@@ -139,6 +139,13 @@ check "SFTP rename never replaces an existing file" "[ \"\$(cat $L/readme.md)\" 
 scripts/test/mkdata.sh; (cd $R && touch "$(printf 'evil\n!date #')")
 run sftpnewline "$(connect sftp://oritest$PWD/$L) tab home down f5 wait enter wait wait"
 check "SFTP refuses names with line breaks" "! ls $L | grep -q evil"
+# F6 to the server through a symlinked local path, one file inside kept: nothing local is lost.
+scripts/test/mkdata.sh; ln -s right build/testdata/linkright; mkdir -p $R/site $L/site
+echo local-index > $R/site/index.html; echo other > $R/site/other.txt; echo server-index > $L/site/index.html
+RIGHT_PANEL=$PWD/build/testdata/linkright run sftpmovekept \
+  "$(connect sftp://oritest$PWD/$L) tab alt+s wait text:ite escape f6 wait enter wait wait click:Skip wait wait wait"
+check "SFTP F6 keeps a folder with a skipped file" "[ \"\$(cat $R/site/index.html)\" = local-index ] && [ \"\$(cat $L/site/index.html)\" = server-index ] && [ -f $L/site/other.txt ]"
+rm -f build/testdata/linkright
 scripts/test/servers.sh stop
 
 echo "passed: $pass, failed: $fail"
