@@ -23,6 +23,12 @@ final class SettingsWindowController: NSWindowController {
             item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
             tabs.addTabViewItem(item)
         }
+        // One width for all panes (that of the widest): switching panes only
+        // changes the height, as in the system's settings windows.
+        let width = panes.map { $0.0.view.fittingSize.width }.max() ?? 0
+        for (pane, _, _) in panes {
+            (pane as? SettingsPane)?.fix(width: width)
+        }
         let window = NSWindow(contentViewController: tabs)
         window.styleMask = [.titled, .closable]
         window.toolbarStyle = .preference
@@ -86,6 +92,13 @@ class SettingsPane: NSViewController {
 
     /// Adds the rows of the pane.
     func build() {}
+
+    /// Lays the pane out at `width`; its height follows from that.
+    func fix(width: CGFloat) {
+        view.widthAnchor.constraint(equalToConstant: width).isActive = true
+        view.layoutSubtreeIfNeeded()
+        preferredContentSize = NSSize(width: width, height: view.fittingSize.height)
+    }
 
     func section(_ title: String) {
         if !rows.isEmpty {
