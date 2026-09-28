@@ -108,6 +108,24 @@ final class AppButton: NSButton {
 final class MainWindow: NSWindow, NSDraggingDestination {
     var onDropApplications: (([URL]) -> Void)?
 
+    /// The toolbar takes right clicks for its own "Customize Toolbar" menu before
+    /// its buttons see them: on an application's button its menu is shown instead.
+    override func sendEvent(_ event: NSEvent) {
+        let isContextClick = event.type == .rightMouseDown
+            || (event.type == .leftMouseDown && event.modifierFlags.contains(.control))
+        if isContextClick, let button = appButton(at: event.locationInWindow), let menu = button.menu {
+            NSMenu.popUpContextMenu(menu, with: event, for: button)
+            return
+        }
+        super.sendEvent(event)
+    }
+
+    private func appButton(at point: NSPoint) -> AppButton? {
+        toolbar?.items.lazy.compactMap { $0.view as? AppButton }.first { button in
+            button.window === self && button.bounds.contains(button.convert(point, from: nil))
+        }
+    }
+
     private func applications(in info: NSDraggingInfo) -> [URL] {
         let urls = (info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
             as? [URL]) ?? []

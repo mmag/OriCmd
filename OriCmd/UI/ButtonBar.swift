@@ -46,6 +46,20 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
         toolbar.autosavesConfiguration = !AppDefaults.isTestRun
     }
 
+    /// The applications offered on the bar are the ones on it: one removed in any
+    /// way (its menu, or dragged off while customizing) leaves the palette too.
+    func toolbarWillAddItem(_ notification: Notification) {
+        guard let item = notification.userInfo?["item"] as? NSToolbarItem,
+              let path = ToolbarApps.path(from: item.itemIdentifier), !ToolbarApps.all.contains(path) else { return }
+        ToolbarApps.all.append(path)
+    }
+
+    func toolbarDidRemoveItem(_ notification: Notification) {
+        guard let item = notification.userInfo?["item"] as? NSToolbarItem,
+              let path = ToolbarApps.path(from: item.itemIdentifier) else { return }
+        ToolbarApps.all.removeAll { $0 == path }
+    }
+
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         Self.defaultItems
     }

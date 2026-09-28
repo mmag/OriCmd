@@ -55,6 +55,40 @@ enum DebugAutomation {
                     let name = String(token.dropFirst(9)).replacingOccurrences(of: "_", with: " ")
                     (window.toolbar?.items.compactMap { $0.view as? AppButton }
                         .first { ToolbarApps.name(of: $0.path) == name })?.performClick(nil)
+                } else if token.hasPrefix("rightclickapp:") {
+                    // Right-clicks the toolbar button of an application; the menu shown is
+                    // written to <snapshot>-menu.txt and its item named after "|" is chosen.
+                    let parts = String(token.dropFirst(14)).replacingOccurrences(of: "_", with: " ")
+                        .split(separator: "|", maxSplits: 1).map(String.init)
+                    guard let button = window.toolbar?.items.compactMap({ $0.view as? AppButton })
+                            .first(where: { ToolbarApps.name(of: $0.path) == parts[0] }),
+                          let event = NSEvent.mouseEvent(
+                            with: .rightMouseDown, location: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil),
+                            modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+                    else { continue }
+                    let choice = parts.count > 1 ? parts[1] : nil
+                    let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification,
+                                                                          object: nil, queue: nil) { note in
+                        nonisolated(unsafe) let tracked = note.object as? NSMenu
+                        MainActor.assumeIsolated {
+                            guard let menu = tracked else { return }
+                            if let snapshot {
+                                try? menu.items.map { $0.isSeparatorItem ? "---" : $0.title }.joined(separator: "\n")
+                                    .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
+                                           atomically: true, encoding: .utf8)
+                            }
+                            let item = menu.items.first { $0.title == choice }
+                            RunLoop.main.perform(inModes: [.eventTracking, .default]) {
+                                menu.cancelTracking()
+                                if let item, let index = menu.items.firstIndex(of: item) {
+                                    menu.performActionForItem(at: index)
+                                }
+                            }
+                        }
+                    }
+                    window.sendEvent(event)
+                    NotificationCenter.default.removeObserver(observer)
                 } else if token.hasPrefix("importini:") {
                     _ = try? KeyBindings.importTotalCommanderShortcuts(from: URL(filePath: String(token.dropFirst(10))))
                 } else if token.hasPrefix("click:") {
