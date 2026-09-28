@@ -122,19 +122,28 @@ nonisolated final class TransferEngine {
         var target = target
 
         let sourcePath = source.standardizedFileURL.path
-        let standardTarget = target.standardizedFileURL.path
-        if sourcePath == standardTarget {
-            if job.kind == .move { return true }
-            throw TransferError(message: String(localized: "Cannot copy \u{201C}\(source.lastPathComponent)\u{201D} onto itself."))
-        }
-        if standardTarget.hasPrefix(sourcePath + "/") {
-            throw TransferError(message: String(localized: "Cannot copy \u{201C}\(source.lastPathComponent)\u{201D} into itself."))
-        }
-
         var sourceInfo = stat()
         guard lstat(sourcePath, &sourceInfo) == 0 else { throw TransferError.posix(sourcePath) }
         let isFolder = sourceInfo.st_mode & S_IFMT == S_IFDIR
         let name = source.lastPathComponent
+
+        // The same file under another path (letter case, /tmp and /private/tmp, a
+        // symbolic link to the folder): moving only renames it, copying is refused.
+        // Paths cannot tell this; the file system identity can.
+        var existing = stat()
+        if lstat(target.path, &existing) == 0, existing.st_dev == sourceInfo.st_dev, existing.st_ino == sourceInfo.st_ino {
+            guard job.kind == .move else {
+                throw TransferError(message: String(localized: "Cannot copy \u{201C}\(name)\u{201D} onto itself."))
+            }
+            if source.lastPathComponent != target.lastPathComponent || sourcePath != target.standardizedFileURL.path,
+               Darwin.rename(sourcePath, target.path) != 0 {
+                throw TransferError.posix(sourcePath)
+            }
+            return true
+        }
+        if isFolder, Self.folder(target.deletingLastPathComponent(), isInside: sourceInfo) {
+            throw TransferError(message: String(localized: "Cannot copy \u{201C}\(name)\u{201D} into itself."))
+        }
 
         // "Only files of this type".
         var insideIncludedFolder = insideIncludedFolder
@@ -155,11 +164,16 @@ nonisolated final class TransferEngine {
         if isFolder && targetIsFolder {
             return try await merge(source, into: target, insideIncludedFolder: insideIncludedFolder, created: false)
         }
+        // A file that replaces another file takes its place in one step at the end
+        // (rename), so a failed or cancelled copy leaves the old one; a folder is
+        // removed first.
         if targetExists {
             switch try await decide(source, target, sourceInfo: sourceInfo, targetInfo: targetInfo) {
             case .overwrite:
                 if options.overwritesLocked { Self.unlock(target, recursively: targetIsFolder) }
-                try FileManager.default.removeItem(at: target)
+                if isFolder || targetIsFolder {
+                    try FileManager.default.removeItem(at: target)
+                }
             case .skip:
                 return skipped(source)
             case .rename(let newTarget):
@@ -176,6 +190,7 @@ nonisolated final class TransferEngine {
             if options.overwritesLocked, flags & UInt32(UF_IMMUTABLE) != 0 {
                 chflags(sourcePath, flags & ~UInt32(UF_IMMUTABLE))
             }
+            // rename(2) replaces an existing file atomically.
             if Darwin.rename(sourcePath, targetPath) == 0 {
                 if flags & UInt32(UF_IMMUTABLE) != 0 { chflags(targetPath, flags) }
                 let size = Self.totalSize(of: URL(filePath: targetPath))
@@ -192,9 +207,19 @@ nonisolated final class TransferEngine {
             return try await merge(source, into: target, insideIncludedFolder: insideIncludedFolder, created: true)
         }
 
-        try copyFile(sourcePath, to: targetPath, size: Int64(sourceInfo.st_size))
-        if options.verify {
-            try verify(sourcePath, targetPath)
+        // The copy is written under a temporary name next to the target and renamed
+        // when complete: an interrupted copy never looks like a finished file.
+        let partial = target.deletingLastPathComponent()
+            .appending(path: ".\(target.lastPathComponent).oricmd-\(UUID().uuidString.prefix(8))").path
+        do {
+            try copyFile(sourcePath, to: partial, size: Int64(sourceInfo.st_size))
+            if options.verify {
+                try verify(sourcePath, partial)
+            }
+            guard Darwin.rename(partial, targetPath) == 0 else { throw TransferError.posix(targetPath) }
+        } catch {
+            unlink(partial)
+            throw error
         }
         if job.kind == .move {
             if options.overwritesLocked, sourceInfo.st_flags & UInt32(UF_IMMUTABLE) != 0 {
@@ -249,6 +274,16 @@ nonisolated final class TransferEngine {
 
     private func decide(_ source: URL, _ target: URL, sourceInfo: stat, targetInfo: stat) async throws -> Resolution {
         let bothFiles = sourceInfo.st_mode & S_IFMT != S_IFDIR && targetInfo.st_mode & S_IFMT != S_IFDIR
+        // A file and a folder of the same name: never decided by an "all" mode,
+        // since replacing would delete a whole folder (or put a file over one).
+        if !bothFiles {
+            if mode == .skipAll { return .skip }
+            switch await resolveConflict(source, target) {
+            case .overwrite, .overwriteAll, .overwriteAllOlder: return .overwrite
+            case .skip, .skipAll: return .skip
+            case .cancel: throw CancellationError()
+            }
+        }
         switch mode {
         case .overwriteAll:
             return .overwrite
@@ -286,6 +321,20 @@ nonisolated final class TransferEngine {
             return bothFiles && Self.modified(sourceInfo) <= Self.modified(targetInfo) ? .skip : .overwrite
         case .cancel:
             throw CancellationError()
+        }
+    }
+
+    /// Whether `folder` (or one of the folders above it) is the folder `info`
+    /// describes — copying that folder there would copy it into itself.
+    private static func folder(_ folder: URL, isInside info: stat) -> Bool {
+        var path = folder.standardizedFileURL.path
+        while true {
+            var current = stat()
+            if stat(path, &current) == 0, current.st_dev == info.st_dev, current.st_ino == info.st_ino {
+                return true
+            }
+            guard path != "/", !path.isEmpty else { return false }
+            path = (path as NSString).deletingLastPathComponent
         }
     }
 

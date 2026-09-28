@@ -31,6 +31,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Updater.check(interactive: true, window: mainWindowController?.window)
     }
 
+    /// An interrupted copy leaves only a hidden partial file, but the rest of the
+    /// operation is lost: quitting asks while operations run or wait in the queue.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let running = TransferController.runningCount + TransferQueue.shared.waitingCount
+        guard running > 0 else { return .terminateNow }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "File operations are still running")
+        alert.informativeText = String(localized: "Quitting stops them; files not copied yet stay where they were.")
+        alert.addButton(withTitle: String(localized: "Continue Working"))
+        let quit = alert.addButton(withTitle: String(localized: "Quit Anyway"))
+        quit.hasDestructiveAction = true
+        return alert.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }

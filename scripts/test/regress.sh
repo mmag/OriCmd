@@ -69,6 +69,23 @@ scripts/test/mkdata.sh; mkdir $R/d1 $R/d2
 run allfolders "tab home down space space tab alt+n wait text:otes escape f5 wait click:Options_>> wait click:Copy_to_all_2_selected_folders_in_the_target_panel enter wait wait wait"
 check "F5 to all selected target folders" "cmp -s $L/notes.md $R/d1/notes.md && cmp -s $L/notes.md $R/d2/notes.md"
 
+# Data safety: the same file under another path, a file meeting a folder.
+scripts/test/mkdata.sh; cp $L/readme.txt build/readme.orig
+run casemove "alt+r wait text:eadme escape f6 wait text:$PWD/$L/README.txt enter wait wait"
+check "F6 changing only the letter case renames" "ls $L | grep -qx README.txt && cmp -s $L/README.txt build/readme.orig"
+
+scripts/test/mkdata.sh; ln -s left build/testdata/link; cp $L/notes.md build/notes.orig
+defaults write ru.themmag.OriCmd.tests CopyOverwriteMode -int 2
+run selfcopy "alt+n wait text:otes escape f5 wait text:$PWD/build/testdata/link/ enter wait wait"
+check "F5 onto itself through a symlink keeps the file" "cmp -s $L/notes.md build/notes.orig"
+rm -f build/testdata/link
+
+scripts/test/mkdata.sh; mkdir -p $R/notes.md; echo keep > $R/notes.md/inside.txt
+defaults write ru.themmag.OriCmd.tests CopyOverwriteMode -int 2
+run fileoverfolder "alt+n wait text:otes escape f5 wait enter wait wait enter wait wait"
+check "Overwrite all never replaces a folder by a file silently" "[ -f $R/notes.md/inside.txt ]"
+rm -f build/readme.orig build/notes.orig
+
 scripts/test/mkdata.sh
 run clip "alt+n wait text:otes escape cmd+c tab cmd+v wait wait"
 check "Cmd+C / Cmd+V copies" "cmp -s $L/notes.md $R/notes.md"

@@ -16,6 +16,8 @@ final class SyncWindowController: NSWindowController {
     private let table = SyncTableView()
 
     private var items: [SyncItem] = []
+    /// The folders the current `items` were compared in (the fields may change since).
+    private var comparedRoots: (left: URL, right: URL)?
     private var visibleRows: [Int] = []
     private var comparison: TransferProgress?
     private var onFinish: (() -> Void)?
@@ -56,6 +58,8 @@ final class SyncWindowController: NSWindowController {
 
     private func buildContent() {
         subfoldersBox.state = .on
+        leftField.delegate = self
+        rightField.delegate = self
         for box in [contentBox] {
             box.target = self
             box.action = #selector(compare(_:))
@@ -134,6 +138,7 @@ final class SyncWindowController: NSWindowController {
             guard comparison === flag else { return }
             comparison = nil
             items = result
+            comparedRoots = (left, right)
             reloadRows()
         }
     }
@@ -182,9 +187,7 @@ final class SyncWindowController: NSWindowController {
     // MARK: - Synchronizing
 
     @objc private func synchronize(_ sender: Any?) {
-        guard let window else { return }
-        let left = URL(filePath: (leftField.stringValue as NSString).expandingTildeInPath)
-        let right = URL(filePath: (rightField.stringValue as NSString).expandingTildeInPath)
+        guard let window, let (left, right) = comparedRoots else { return }
         let copies: [(source: URL, folder: URL, size: Int64)] = items.compactMap { item in
             switch item.action {
             case .toRight:
@@ -204,14 +207,17 @@ final class SyncWindowController: NSWindowController {
             Task {
                 let controller = TransferController(title: String(localized: "Synchronizing"),
                                                     failureTitle: String(localized: "Synchronization failed"), window: window)
-                _ = await controller.run(source: left.path, target: right.path) { progress, _ in
+                _ = await controller.run(source: left.path, target: right.path) { progress, resolveConflict in
                     let total = copies.reduce(Int64(0)) { $0 + $1.size }
                     progress.update { $0.totalBytes = total }
+                    // Files replace files without asking; a file meeting a folder is still asked about.
+                    var options = TransferOptions()
+                    options.overwrite = .overwriteAll
                     for copy in copies {
-                        let job = TransferJob(kind: .copy, sources: [copy.source], destination: copy.folder, newName: nil)
-                        _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false) { _, _ in
-                            .overwriteAll
-                        }.run()
+                        let job = TransferJob(kind: .copy, sources: [copy.source], destination: copy.folder, newName: nil,
+                                              options: options)
+                        _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
+                                                     resolveConflict: resolveConflict).run()
                     }
                     return copies.map(\.source)
                 }
@@ -266,5 +272,21 @@ private final class SyncTableView: NSTableView {
         } else {
             super.keyDown(with: event)
         }
+    }
+}
+
+extension SyncWindowController: NSTextFieldDelegate {
+    /// Another folder typed in: the old comparison no longer applies to it.
+    func controlTextDidChange(_ notification: Notification) {
+        guard notification.object as? NSTextField === leftField || notification.object as? NSTextField === rightField else {
+            return
+        }
+        comparison?.cancel()
+        comparison = nil
+        items = []
+        comparedRoots = nil
+        reloadRows()
+        syncButton.isEnabled = false
+        statusLabel.stringValue = String(localized: "Press Compare to compare these folders.")
     }
 }

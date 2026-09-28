@@ -24,6 +24,9 @@ final class TransferController {
     /// Queued operations start in their own window right away.
     var startsInBackground = false
 
+    /// Operations under way (quitting asks while there are any).
+    private(set) static var runningCount = 0
+
     init(title: String, failureTitle: String, window: NSWindow) {
         self.title = title
         self.failureTitle = failureTitle
@@ -48,6 +51,8 @@ final class TransferController {
     /// Shows the progress sheet while `work` runs; returns its result.
     /// Errors are reported to the user; cancellation returns an empty list.
     func run(source: String, target: String, _ work: @escaping Work) async -> [URL] {
+        Self.runningCount += 1
+        defer { Self.runningCount -= 1 }
         progress.update {
             $0.source = source
             $0.target = target
@@ -160,6 +165,13 @@ final class TransferController {
     }
 
     private func askOverwrite(_ source: URL, _ target: URL) async -> ConflictDecision {
+        func isFolder(_ url: URL) -> Bool {
+            var info = stat()
+            return lstat(url.path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
+        }
+        if isFolder(source) != isFolder(target) {
+            return await askReplacingFolder(source, target, targetIsFolder: isFolder(target))
+        }
         let alert = NSAlert()
         alert.messageText = String(localized: "File already exists")
         alert.informativeText = String(localized: "Overwrite:\n\(describe(target))\n\nWith:\n\(describe(source))")
@@ -174,6 +186,30 @@ final class TransferController {
         case 2: return .skip
         case 3: return .skipAll
         case 4: return .overwriteAllOlder
+        default: return .cancel
+        }
+    }
+
+    /// A file meeting a folder of the same name (or the other way round): replacing
+    /// removes the whole folder, so Return skips and "all" answers are not offered.
+    private func askReplacingFolder(_ source: URL, _ target: URL, targetIsFolder: Bool) async -> ConflictDecision {
+        let alert = NSAlert()
+        let name = target.lastPathComponent
+        alert.alertStyle = .warning
+        alert.messageText = targetIsFolder
+            ? String(localized: "A folder named \u{201C}\(name)\u{201D} already exists")
+            : String(localized: "A file named \u{201C}\(name)\u{201D} already exists")
+        alert.informativeText = targetIsFolder
+            ? String(localized: "Replacing it deletes the folder \(target.path) with everything in it and puts the file there.")
+            : String(localized: "Replacing it deletes the file \(target.path) and puts the folder there.")
+        alert.addButton(withTitle: String(localized: "Skip"))
+        let replace = alert.addButton(withTitle: String(localized: "Replace"))
+        replace.hasDestructiveAction = true
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        let response = await alert.beginSheetModal(for: sheet)
+        switch response {
+        case .alertFirstButtonReturn: return .skip
+        case .alertSecondButtonReturn: return .overwrite
         default: return .cancel
         }
     }

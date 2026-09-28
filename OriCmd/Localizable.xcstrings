@@ -221,6 +221,26 @@
         }
       }
     },
+    "A file named “%@” already exists": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл «%@» уже существует"
+          }
+        }
+      }
+    },
+    "A folder named “%@” already exists": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка «%@» уже существует"
+          }
+        }
+      }
+    },
     "About %@": {
       "localizations": {
         "ru": {
@@ -1101,6 +1121,16 @@
         }
       }
     },
+    "Continue Working": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить работу"
+          }
+        }
+      }
+    },
     "Copy %@ to:": {
       "localizations": {
         "ru": {
@@ -1907,6 +1937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Имя файла:"
+          }
+        }
+      }
+    },
+    "File operations are still running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё идут файловые операции"
           }
         }
       }
@@ -3271,6 +3311,16 @@
         }
       }
     },
+    "Press Compare to compare these folders.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите «Сравнить», чтобы сравнить эти папки."
+          }
+        }
+      }
+    },
     "Press the new keys for “%@” (Esc cancels)": {
       "localizations": {
         "ru": {
@@ -3407,6 +3457,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Завершить %@"
+          }
+        }
+      }
+    },
+    "Quit Anyway": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё равно выйти"
+          }
+        }
+      }
+    },
+    "Quitting stops them; files not copied yet stay where they were.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выход прервёт их; ещё не скопированные файлы останутся на месте."
           }
         }
       }
@@ -3561,12 +3631,42 @@
         }
       }
     },
+    "Replace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить"
+          }
+        }
+      }
+    },
     "Replace with:": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Заменить на:"
+          }
+        }
+      }
+    },
+    "Replacing it deletes the file %@ and puts the folder there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Замена удалит файл %@ и поставит на его место папку."
+          }
+        }
+      }
+    },
+    "Replacing it deletes the folder %@ with everything in it and puts the file there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Замена удалит папку %@ со всем содержимым и поставит на её место файл."
           }
         }
       }
