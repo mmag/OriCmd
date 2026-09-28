@@ -52,7 +52,8 @@ nonisolated enum ProcessRunner {
             }
         }
         while process.isRunning {
-            if progress?.isCancelled == true {
+            // Cancelled through the progress window, or the task was (Esc while listing).
+            if progress?.isCancelled == true || Task.isCancelled {
                 process.terminate()
                 process.waitUntilExit()
                 throw CancellationError()

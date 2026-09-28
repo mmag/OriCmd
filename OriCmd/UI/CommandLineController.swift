@@ -101,10 +101,12 @@ final class CommandLineController: NSObject {
         }
     }
 
+    /// Leaves plain names as they are and quotes everything else (spaces, shell
+    /// characters, line breaks, a leading "-", zsh's "=" and "^").
     private static func quoted(_ string: String) -> String {
-        string.contains(where: { " '\"$`\\()&;|<>*?[]{}!#~".contains($0) })
-            ? "'" + string.replacingOccurrences(of: "'", with: "'\\''") + "'"
-            : string
+        let plain = !string.isEmpty && !string.hasPrefix("-")
+            && string.unicodeScalars.allSatisfy { $0.properties.isAlphabetic || "0123456789._/+,:@%".unicodeScalars.contains($0) }
+        return plain ? string : "'" + string.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     // MARK: - Execution
@@ -193,8 +195,12 @@ extension CommandLineController: NSComboBoxDelegate {
 
 /// Runs shell commands the way Total Commander runs programs from its command line.
 enum ShellRunner {
+    /// The user's shell when it is sh-compatible (the parameters are quoted for
+    /// sh: in fish or csh the quoting would differ), else zsh.
     private static var shell: String {
-        ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        let compatible = ["sh", "bash", "zsh", "ksh", "dash"]
+        return compatible.contains((shell as NSString).lastPathComponent) ? shell : "/bin/zsh"
     }
 
     /// Runs detached in the user's login shell; reports a failure with its stderr.

@@ -763,7 +763,10 @@ extension MainViewController: NSMenuItemValidation {
                 NSSound.beep()
                 return
             }
-            AppDefaults.store.set(address, forKey: key)
+            // Remembered for next time, but never with a password typed into the address.
+            var remembered = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            remembered?.password = nil
+            AppDefaults.store.set(remembered?.string ?? address, forKey: key)
             if self?.connectRemote(url, password: nil) == true {
                 return
             }

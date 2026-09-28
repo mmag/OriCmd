@@ -159,12 +159,16 @@ final class MultiRenameWindowController: NSWindowController {
                 return item.name
             }
         }
-        let renamedNames = Set(items.map { $0.name.lowercased() })
+        // Names are compared within their own folder (files may come from several).
+        func key(_ name: String, in folder: URL) -> String {
+            folder.standardizedFileURL.path + "/" + name.lowercased()
+        }
+        let renamedNames = Set(items.map { key($0.name, in: $0.url.deletingLastPathComponent()) })
         var seen: [String: Int] = [:]
         conflicts = []
         for (index, name) in newNames.enumerated() {
-            let key = name.lowercased()
             let folder = items[index].url.deletingLastPathComponent()
+            let key = key(name, in: folder)
             let invalid = name.isEmpty || name == "." || name == ".." || name.contains("/")
             let taken = !renamedNames.contains(key) && FileManager.default.fileExists(atPath: folder.appending(path: name).path)
             if invalid || taken { conflicts.insert(index) }

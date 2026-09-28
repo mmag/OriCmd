@@ -51,7 +51,9 @@ nonisolated final class FileSearch: Sendable {
             guard lstat(url.path, &info) == 0 else { continue }
             let isFolder = info.st_mode & S_IFMT == S_IFDIR
 
-            if FileMask.matches(name, query.masks) && (query.text.isEmpty || (!isFolder && contains(url))) {
+            // Text is only looked for in regular files: a FIFO or a device would block or never end.
+            let isRegular = info.st_mode & S_IFMT == S_IFREG
+            if FileMask.matches(name, query.masks) && (query.text.isEmpty || (isRegular && contains(url))) {
                 state.withLock { $0.found.append(url) }
             }
             state.withLock { $0.scannedCount += 1 }

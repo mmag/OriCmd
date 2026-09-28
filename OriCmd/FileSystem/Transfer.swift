@@ -213,7 +213,8 @@ nonisolated final class TransferEngine {
             .appending(path: ".\(target.lastPathComponent).oricmd-\(UUID().uuidString.prefix(8))").path
         do {
             try copyFile(sourcePath, to: partial, size: Int64(sourceInfo.st_size))
-            if options.verify {
+            // Only regular files are read back (a symbolic link is copied as a link).
+            if options.verify, sourceInfo.st_mode & S_IFMT == S_IFREG {
                 try verify(sourcePath, partial)
             }
             guard Darwin.rename(partial, targetPath) == 0 else { throw TransferError.posix(targetPath) }
@@ -416,7 +417,8 @@ nonisolated final class TransferEngine {
         copyfile_state_set(state, UInt32(COPYFILE_STATE_STATUS_CTX), Unmanaged.passUnretained(progress).toOpaque())
 
         // COPYFILE_CLONE clones on APFS and falls back to a full copy with metadata.
-        let flags = options.copiesAttributes ? COPYFILE_CLONE : COPYFILE_DATA | COPYFILE_STAT
+        // NOFOLLOW: a symbolic link is copied as a link, not as what it points to.
+        let flags = options.copiesAttributes ? COPYFILE_CLONE : COPYFILE_DATA | COPYFILE_STAT | COPYFILE_NOFOLLOW
         let result = copyfile(source, target, state, copyfile_flags_t(flags))
         let failure = errno
         progress.update {

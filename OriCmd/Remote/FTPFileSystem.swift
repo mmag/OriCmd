@@ -67,8 +67,11 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
     /// reports how much of the file is done.
     private func curl(_ arguments: [String], progress: TransferProgress? = nil,
                       onPercent: (@Sendable (Double) -> Void)? = nil) async throws -> ProcessRunner.Output {
+        // curl's config syntax: a line break in the password would end the line.
         func escaped(_ text: String) -> String {
             text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "\r", with: "\\r")
+                .replacingOccurrences(of: "\t", with: "\\t")
         }
         var options = [onPercent == nil ? "-s" : "-#", "-S", "-K", "-", "--connect-timeout", "20"]
         if requiresTLS {

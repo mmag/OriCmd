@@ -28,6 +28,15 @@ nonisolated struct AttributeChange: Sendable {
         guard lstat(path, &info) == 0 else { throw TransferError.posix(path) }
         let isSymlink = info.st_mode & S_IFMT == S_IFLNK
 
+        // A folder's contents are changed after the folder when the change opens it
+        // (reading and entering it may only become possible now), and before it when
+        // the change takes the owner's read or enter right away.
+        let descends = includesSubfolders && info.st_mode & S_IFMT == S_IFDIR
+        let closesFolder = [S_IRUSR, S_IXUSR].contains { permissions[$0] == false }
+        if descends && closesFolder {
+            try applyToContents(of: url, progress: progress)
+        }
+
         // A locked file cannot be changed: unlock first, lock last.
         var flags = info.st_flags
         if locked == false || (locked == nil && flags & UInt32(UF_IMMUTABLE) != 0 && needsWrite) {
@@ -57,10 +66,14 @@ nonisolated struct AttributeChange: Sendable {
             try setFlags(flags, path)
         }
 
-        if includesSubfolders && info.st_mode & S_IFMT == S_IFDIR {
-            for name in try DirectoryListing.names(in: url) {
-                try apply(to: url.appending(path: name), progress: progress)
-            }
+        if descends && !closesFolder {
+            try applyToContents(of: url, progress: progress)
+        }
+    }
+
+    private func applyToContents(of folder: URL, progress: TransferProgress) throws {
+        for name in try DirectoryListing.names(in: folder) {
+            try apply(to: folder.appending(path: name), progress: progress)
         }
     }
 

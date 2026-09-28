@@ -20,7 +20,7 @@ nonisolated enum ArchiveEditor {
     /// archive, so two at once would lose the first one's change.
     @concurrent
     static func apply(_ edit: Edit, to archive: URL, progress: TransferProgress) async throws {
-        try await ArchiveEditQueue.shared.run(archive.standardizedFileURL.path) {
+        try await SerialTasks.shared.run(archive.standardizedFileURL.path) {
             try await applyNow(edit, to: archive, progress: progress)
         }
     }
@@ -91,9 +91,9 @@ nonisolated enum ArchiveEditor {
     }
 }
 
-/// Runs the operations on one key (an archive path) one at a time, in order.
-actor ArchiveEditQueue {
-    static let shared = ArchiveEditQueue()
+/// Runs the operations on one key (an archive path, a server) one at a time, in order.
+actor SerialTasks {
+    static let shared = SerialTasks()
     private var tails: [String: Task<Void, Never>] = [:]
 
     func run(_ key: String, _ body: @escaping @Sendable () async throws -> Void) async throws {

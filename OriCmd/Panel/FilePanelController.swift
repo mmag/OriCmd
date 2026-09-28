@@ -1139,7 +1139,14 @@ extension FilePanelController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
-        MultiRenameWindowController.show(for: items) { [weak self] in self?.reread() }
+        // In branch view and search results names carry their folder ("sub/file.txt"):
+        // the tool works on the file names themselves.
+        let plain = items.map { item in
+            FileItem(name: item.url.lastPathComponent, url: item.url, isDirectory: item.isDirectory,
+                     isPackage: item.isPackage, isSymlink: item.isSymlink, isHidden: item.isHidden,
+                     size: item.size, modified: item.modified, mode: item.mode)
+        }
+        MultiRenameWindowController.show(for: plain) { [weak self] in self?.reread() }
     }
 
     // MARK: - Attributes
@@ -1424,14 +1431,22 @@ extension FilePanelController: NSMenuItemValidation {
                 progress, resolveConflict in
                 let total = urls.reduce(Int64(0)) { $0 + TransferEngine.totalSize(of: $1) }
                 progress.update { $0.totalBytes = total }
+                // Items from another folder go in one job, so "Overwrite All" / "Skip All"
+                // hold for all of them; items of this folder become "name copy".
+                var others: [URL] = []
                 for url in urls {
-                    var newName: String?
-                    if url.deletingLastPathComponent().standardizedFileURL.path == destination.standardizedFileURL.path {
-                        if moving { continue }
-                        newName = Self.copyName(for: url.lastPathComponent, in: destination)
+                    guard url.deletingLastPathComponent().standardizedFileURL.path == destination.standardizedFileURL.path else {
+                        others.append(url)
+                        continue
                     }
-                    let job = TransferJob(kind: moving ? .move : .copy, sources: [url], destination: destination,
-                                          newName: newName)
+                    if moving { continue }
+                    let job = TransferJob(kind: .copy, sources: [url], destination: destination,
+                                          newName: Self.copyName(for: url.lastPathComponent, in: destination))
+                    _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
+                                                 resolveConflict: resolveConflict).run()
+                }
+                if !others.isEmpty {
+                    let job = TransferJob(kind: moving ? .move : .copy, sources: others, destination: destination, newName: nil)
                     _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
                                                  resolveConflict: resolveConflict).run()
                 }
@@ -1997,6 +2012,12 @@ extension FilePanelController: FileListViewDelegate {
         if let archive {
             applyArchiveEdit(.rename(archive.path(of: item.name), to: newName), selecting: newName)
             return
+        }
+        // Branch view and search results show "sub/file.txt": the folder part stays.
+        var newName = newName
+        if let slash = item.name.lastIndex(of: "/") {
+            let folderPart = String(item.name[...slash])
+            if newName.hasPrefix(folderPart) { newName.removeFirst(folderPart.count) }
         }
         do {
             let url = try FileOperations.rename(item.url, to: newName)

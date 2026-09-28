@@ -38,8 +38,18 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
         user.map { "\($0)@\(host)" } ?? host
     }
 
+    /// The control sockets live in a private folder (0700, random name): a
+    /// predictable path in /tmp could be taken by another user first. $TMPDIR
+    /// would be tidier but too long for a socket path.
+    private static let controlDirectory: String = {
+        var template = Array("/tmp/oricmd-XXXXXX".utf8CString)
+        return template.withUnsafeMutableBufferPointer { buffer in
+            mkdtemp(buffer.baseAddress!).map { String(cString: $0) }
+        } ?? FileManager.default.temporaryDirectory.path
+    }()
+
     private var options: [String] {
-        var options = ["-o", "ControlPath=/tmp/oricmd-%C", "-o", "StrictHostKeyChecking=accept-new",
+        var options = ["-o", "ControlPath=\(Self.controlDirectory)/%C", "-o", "StrictHostKeyChecking=accept-new",
                        "-o", "ConnectTimeout=20", "-o", "ServerAliveInterval=30"]
         #if DEBUG
         if let config = ProcessInfo.processInfo.environment["ORICMD_SSH_CONFIG"] {
@@ -62,11 +72,7 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     /// Starts the master connection (asking for a password if needed) and
     /// returns the absolute folder to show first.
     func connect() async throws -> String {
-        let check = try await ProcessRunner.run("/usr/bin/ssh", ["-O", "check"] + options + portOption("-p") + [destination],
-                                                environment: environment)
-        if check.status != 0 {
-            try await startMaster()
-        }
+        try await ensureMaster()
         if startPath.isEmpty {
             let output = try await sftp(["pwd"])
             if let line = output.split(whereSeparator: \.isNewline).first(where: { $0.hasPrefix("Remote working directory: ") }) {
@@ -75,6 +81,19 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
             return "/"
         }
         return startPath
+    }
+
+    /// The master connection ends after ten idle minutes (and Disconnect in another
+    /// panel ends it too): commands start it again first, with the saved password,
+    /// instead of letting ssh ask for it on every command.
+    private func ensureMaster() async throws {
+        try await SerialTasks.shared.run("ssh-master " + displayName) { [self] in
+            let check = try await ProcessRunner.run("/usr/bin/ssh", ["-O", "check"] + options + portOption("-p")
+                                                    + ["--", destination], environment: environment)
+            if check.status != 0 {
+                try await startMaster()
+            }
+        }
     }
 
     /// `ssh -f -N` authenticates, then leaves a background master holding the
@@ -99,7 +118,7 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/ssh")
         process.arguments = ["-f", "-N", "-o", "ControlMaster=auto", "-o", "ControlPersist=600"]
-            + options + portOption("-p") + [destination]
+            + options + portOption("-p") + ["--", destination]
         process.environment = environment
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
@@ -117,7 +136,7 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     func disconnect() {
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/ssh")
-        process.arguments = ["-O", "exit"] + options + portOption("-p") + [destination]
+        process.arguments = ["-O", "exit"] + options + portOption("-p") + ["--", destination]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         try? process.run()
@@ -128,8 +147,9 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     /// Runs sftp batch commands over the master connection.
     private func sftp(_ commands: [String], progress: TransferProgress? = nil,
                       onOutput: (@Sendable (Data) -> Void)? = nil) async throws -> String {
+        try await ensureMaster()
         let output = try await ProcessRunner.run(
-            "/usr/bin/sftp", ["-q", "-b", "-"] + options + portOption("-P") + [destination],
+            "/usr/bin/sftp", ["-q", "-b", "-"] + options + portOption("-P") + ["--", destination],
             input: commands.joined(separator: "\n") + "\n", environment: environment, progress: progress,
             onOutput: onOutput
         )
@@ -340,11 +360,48 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
             _ = try await sftp(quotedFiles.map { "rm \($0)" })
         }
         if !folders.isEmpty {
-            let command = "rm -rf -- " + folders.map(UserCommand.quoted).joined(separator: " ")
-            let output = try await ProcessRunner.run("/usr/bin/ssh", options + portOption("-p") + [destination, command],
-                                                     environment: environment)
-            guard output.status == 0 else { throw RemoteError(output.errors) }
+            var usesShell = true
+            #if DEBUG
+            usesShell = ProcessInfo.processInfo.environment["ORICMD_SFTP_NO_SHELL"] == nil
+            #endif
+            if usesShell {
+                let command = "rm -rf -- " + folders.map(UserCommand.quoted).joined(separator: " ")
+                try await ensureMaster()
+                let output = try await ProcessRunner.run("/usr/bin/ssh",
+                                                         options + portOption("-p") + ["--", destination, command],
+                                                         environment: environment)
+                if output.status == 0 { return }
+            }
+            // SFTP-only accounts (internal-sftp) have no shell: remove through sftp itself.
+            try await deleteRecursively(folders)
         }
+    }
+
+    /// Lists the folders level by level, then removes the files and the folders,
+    /// the deepest first.
+    private func deleteRecursively(_ roots: [String]) async throws {
+        var files: [String] = []
+        var folders = roots
+        var level = roots
+        while !level.isEmpty {
+            var next: [String] = []
+            for (folder, items) in zip(level, try await list(level)) {
+                for item in items {
+                    let path = RemotePath.join(folder, item.name)
+                    if item.isDirectory {
+                        folders.append(path)
+                        next.append(path)
+                    } else {
+                        files.append(path)
+                    }
+                }
+            }
+            level = next
+        }
+        var commands = try files.map { "rm " + (try Self.quoted($0)) }
+        // A folder's path is longer than its parent's: longest first empties children first.
+        commands += try folders.sorted { $0.count > $1.count }.map { "rmdir " + (try Self.quoted($0)) }
+        _ = try await sftp(commands)
     }
 }
 
@@ -362,8 +419,9 @@ nonisolated enum Askpass {
             on run argv
               set promptText to item 1 of argv
               if promptText contains "(yes/no" then
-                display dialog promptText buttons {"No", "Yes"} default button "Yes" with title "OriCmd" with icon caution
-                return "yes"
+                set answer to button returned of (display dialog promptText buttons {"No", "Yes"} default button "Yes" with title "OriCmd" with icon caution)
+                if answer is "Yes" then return "yes"
+                return "no"
               end if
               return text returned of (display dialog promptText default answer "" with hidden answer with title "OriCmd")
             end run

@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Settings.applyAppearance()
+        Task { await Self.removeOldTemporaryFolders() }
         NSApp.mainMenu = MainMenu.make()
         for name in [KeyBindings.didChange, UserCommands.didChange] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
@@ -24,6 +25,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             try? await Task.sleep(for: .seconds(5))
             Updater.checkIfDue(window: mainWindowController?.window)
+        }
+    }
+
+    /// Files opened from archives and servers are unpacked or downloaded into
+    /// "OriCmd-…" temporary folders; those older than a day are removed.
+    @concurrent
+    private nonisolated static func removeOldTemporaryFolders() async {
+        let manager = FileManager.default
+        let folder = manager.temporaryDirectory
+        let limit = Date().addingTimeInterval(-24 * 60 * 60)
+        let items = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for item in items where item.lastPathComponent.hasPrefix("OriCmd-") {
+            let modified = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            if let modified, modified < limit {
+                try? manager.removeItem(at: item)
+            }
         }
     }
 
