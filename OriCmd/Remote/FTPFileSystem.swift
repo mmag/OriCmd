@@ -103,6 +103,8 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
 
     /// Runs FTP commands (MKD, DELE, RMD, RNFR/RNTO) after logging in.
     private func quote(_ commands: [String]) async throws {
+        // A line break in a path would end the FTP command and start another one.
+        for command in commands { try checkRemoteName(command) }
         _ = try await curl(commands.flatMap { ["-Q", $0] } + ["--list-only", url(for: "/", directory: true)])
     }
 
@@ -128,23 +130,35 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
     }
 
     /// Lists the folders first (so the progress knows the total), then fetches file by file.
-    func download(_ items: [FileItem], from folder: String, to local: URL, progress: TransferProgress) async throws {
+    func download(_ items: [FileItem], from folder: String, to local: URL, progress: TransferProgress,
+                  conflicts: RemoteConflicts) async throws -> Set<String> {
         var folders: [URL] = []
         var files: [PlannedFile] = []
-        func plan(_ items: [FileItem], from folder: String, to local: URL) async throws {
+        var incomplete = Set<String>()
+        func plan(_ items: [FileItem], from folder: String, to local: URL, top: String?) async throws {
             for item in items {
                 if progress.isCancelled { throw CancellationError() }
                 let path = RemotePath.join(folder, item.name)
                 let target = local.appending(path: item.name)
+                let top = top ?? item.name
                 if item.isDirectory {
                     folders.append(target)
-                    try await plan(try await list(path), from: path, to: target)
-                } else {
-                    files.append(PlannedFile(source: path, target: target.path, size: item.size))
+                    try await plan(try await list(path), from: path, to: target, top: top)
+                    continue
                 }
+                var existing = stat()
+                if lstat(target.path, &existing) == 0 {
+                    let localDate = Date(timeIntervalSince1970: TimeInterval(existing.st_mtimespec.tv_sec))
+                    guard try await conflicts.replaces(item.url, target, sourceDate: item.modified,
+                                                       targetDate: localDate) else {
+                        incomplete.insert(top)
+                        continue
+                    }
+                }
+                files.append(PlannedFile(source: path, target: target.path, size: item.size))
             }
         }
-        try await plan(items, from: folder, to: local)
+        try await plan(items, from: folder, to: local, top: nil)
         for folder in folders {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         }
@@ -156,27 +170,32 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
             }
         }
         meter.finish()
+        return Set(items.map(\.name)).subtracting(incomplete)
     }
 
     /// Creates the folders first, then sends file by file.
-    func upload(_ files: [URL], to path: String, progress: TransferProgress) async throws {
+    func upload(_ files: [URL], to path: String, progress: TransferProgress,
+                conflicts: RemoteConflicts) async throws -> Set<URL> {
+        let kept = try await keptOnServer(files, in: path, conflicts: conflicts, progress: progress)
         var folders: [String] = []
         var planned: [PlannedFile] = []
-        func plan(_ url: URL, into path: String) {
+        func plan(_ url: URL, into path: String) throws {
+            guard !kept.contains(url.path) else { return }
+            try checkRemoteName(url.lastPathComponent)
             let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .fileSizeKey])
             let remote = RemotePath.join(path, url.lastPathComponent)
             if values?.isDirectory == true {
                 folders.append(remote)
                 let children = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
                 for child in children.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-                    plan(child, into: remote)
+                    try plan(child, into: remote)
                 }
             } else if values?.isRegularFile == true {
                 planned.append(PlannedFile(source: url.path, target: path, size: Int64(values?.fileSize ?? 0)))
             }
         }
         for file in files {
-            plan(file, into: path)
+            try plan(file, into: path)
         }
         for folder in folders {
             if progress.isCancelled { throw CancellationError() }
@@ -191,13 +210,19 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
             }
         }
         meter.finish()
+        return Set(files.filter { file in !kept.contains { $0 == file.path || $0.hasPrefix(file.path + "/") } })
     }
 
     func makeDirectory(_ path: String) async throws {
         try await quote(["MKD \(path)"])
     }
 
+    /// Many FTP servers replace an existing target on RNTO: the name is checked first.
     func rename(_ path: String, to newPath: String) async throws {
+        let name = (newPath as NSString).lastPathComponent
+        if try await list(RemotePath.parent(of: newPath)).contains(where: { $0.name == name }) {
+            throw RemoteError(String(localized: "\u{201C}\(name)\u{201D} already exists."))
+        }
         try await quote(["RNFR \(path)", "RNTO \(newPath)"])
     }
 

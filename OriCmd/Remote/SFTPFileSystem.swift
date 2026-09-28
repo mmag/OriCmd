@@ -138,8 +138,9 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     }
 
     /// Quotes a path for sftp's command parser.
-    private static func quoted(_ path: String) -> String {
-        "\"" + path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    private static func quoted(_ path: String) throws -> String {
+        try checkRemoteName(path)
+        return "\"" + path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 
     private var baseURL: URL {
@@ -152,14 +153,16 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     }
 
     func list(_ path: String) async throws -> [FileItem] {
-        let text = try await sftp(["cd \(Self.quoted(path))", "ls -lan"])
+        let folder = try Self.quoted(path)
+        let text = try await sftp(["cd \(folder)", "ls -lan"])
         let lines = text.split(whereSeparator: \.isNewline).filter { !$0.hasPrefix("sftp>") }.joined(separator: "\n")
         return LongListing.items(from: lines, baseURL: baseURL.appending(path: path))
     }
 
     /// Lists several folders in one session: one listing per path, in order.
     private func list(_ paths: [String]) async throws -> [[FileItem]] {
-        let text = try await sftp(paths.flatMap { ["cd \(Self.quoted($0))", "ls -lan"] })
+        let folders = try paths.map(Self.quoted)
+        let text = try await sftp(folders.flatMap { ["cd \($0)", "ls -lan"] })
         var chunks: [[Substring]] = []
         var collecting = false
         for line in text.split(whereSeparator: \.isNewline) {
@@ -178,31 +181,45 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
 
     /// Downloads file by file (folders are listed first, level by level), so
     /// the progress counts bytes; symbolic links are fetched as sftp resolves them.
-    func download(_ items: [FileItem], from folder: String, to destination: URL, progress: TransferProgress) async throws {
+    func download(_ items: [FileItem], from folder: String, to destination: URL, progress: TransferProgress,
+                  conflicts: RemoteConflicts) async throws -> Set<String> {
         var folders: [(item: FileItem, local: URL)] = []
         var files: [PlannedFile] = []
         var commands: [String] = []
-        var level: [(remote: String, local: URL)] = []
-        func add(_ item: FileItem, remote: String, local: URL) {
+        var level: [(remote: String, local: URL, top: String)] = []
+        var incomplete = Set<String>()
+        /// `top` is the selected entry the item belongs to.
+        func add(_ item: FileItem, remote: String, local: URL, top: String) async throws {
             if item.isDirectory {
                 folders.append((item, local))
-                level.append((remote, local))
-            } else {
-                let command = item.isSymlink ? "-get -Rp" : "get -p"
-                commands.append("\(command) \(Self.quoted(remote)) \(Self.quoted(local.path))")
-                files.append(PlannedFile(source: remote, target: local.path, size: item.isSymlink ? 0 : item.size))
+                level.append((remote, local, top))
+                return
             }
+            var existing = stat()
+            if lstat(local.path, &existing) == 0 {
+                let localDate = Date(timeIntervalSince1970: TimeInterval(existing.st_mtimespec.tv_sec))
+                guard try await conflicts.replaces(item.url, local, sourceDate: item.modified, targetDate: localDate) else {
+                    incomplete.insert(top)
+                    return
+                }
+            }
+            let command = item.isSymlink ? "-get -Rp" : "get -p"
+            let (source, target) = (try Self.quoted(remote), try Self.quoted(local.path))
+            commands.append("\(command) \(source) \(target)")
+            files.append(PlannedFile(source: remote, target: local.path, size: item.isSymlink ? 0 : item.size))
         }
         for item in items {
-            add(item, remote: RemotePath.join(folder, item.name), local: destination.appending(path: item.name))
+            try await add(item, remote: RemotePath.join(folder, item.name), local: destination.appending(path: item.name),
+                          top: item.name)
         }
         while !level.isEmpty {
             if progress.isCancelled { throw CancellationError() }
             let current = level
             level = []
-            for ((remote, local), children) in zip(current, try await list(current.map(\.remote))) {
+            for ((remote, local, top), children) in zip(current, try await list(current.map(\.remote))) {
                 for child in children {
-                    add(child, remote: RemotePath.join(remote, child.name), local: local.appending(path: child.name))
+                    try await add(child, remote: RemotePath.join(remote, child.name),
+                                  local: local.appending(path: child.name), top: top)
                 }
             }
         }
@@ -218,48 +235,57 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
             try? FileManager.default.setAttributes([.posixPermissions: Int(item.mode & 0o7777),
                                                     .modificationDate: item.modified], ofItemAtPath: local.path)
         }
+        return Set(items.map(\.name)).subtracting(incomplete)
     }
 
     /// Uploads file by file (creating the folders first), so the progress counts bytes.
-    func upload(_ files: [URL], to path: String, progress: TransferProgress) async throws {
+    func upload(_ files: [URL], to path: String, progress: TransferProgress,
+                conflicts: RemoteConflicts) async throws -> Set<URL> {
+        let kept = try await keptOnServer(files, in: path, conflicts: conflicts, progress: progress)
         var commands: [String] = []
         var planned: [PlannedFile] = []
         var folderModes: [(remote: String, mode: Int)] = []
-        func add(_ url: URL, remote: String) {
+        func add(_ url: URL, remote: String) throws {
+            guard !kept.contains(url.path) else { return }
             let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isRegularFileKey,
                                                            .fileSizeKey])
+            let (local, target) = (try Self.quoted(url.path), try Self.quoted(remote))
             if values?.isSymbolicLink == true {
-                commands.append("-put -Rp \(Self.quoted(url.path)) \(Self.quoted(remote))")
+                commands.append("-put -Rp \(local) \(target)")
                 planned.append(PlannedFile(source: url.path, target: remote, size: 0))
             } else if values?.isDirectory == true {
-                commands.append("-mkdir \(Self.quoted(remote))")
+                commands.append("-mkdir \(target)")
                 planned.append(PlannedFile(source: url.path, target: remote, size: 0))
                 if let mode = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.posixPermissions] as? Int {
                     folderModes.append((remote, mode))
                 }
                 let children = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
                 for child in children.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-                    add(child, remote: RemotePath.join(remote, child.lastPathComponent))
+                    try add(child, remote: RemotePath.join(remote, child.lastPathComponent))
                 }
             } else if values?.isRegularFile == true {
-                commands.append("put -p \(Self.quoted(url.path)) \(Self.quoted(remote))")
+                commands.append("put -p \(local) \(target)")
                 planned.append(PlannedFile(source: url.path, target: remote, size: Int64(values?.fileSize ?? 0)))
             }
         }
         for file in files {
-            add(file, remote: RemotePath.join(path, file.lastPathComponent))
+            try add(file, remote: RemotePath.join(path, file.lastPathComponent))
         }
         // Folder permissions last, as `put -Rp` kept them (a read-only folder is filled first).
         for (remote, mode) in folderModes.reversed() {
-            commands.append("-chmod \(String(mode & 0o7777, radix: 8)) \(Self.quoted(remote))")
+            let target = try Self.quoted(remote)
+            commands.append("-chmod \(String(mode & 0o7777, radix: 8)) \(target)")
             planned.append(PlannedFile(source: remote, target: remote, size: 0))
         }
         // The server is only asked about big files, once a second.
         try await transfer(commands, files: planned, progress: progress, pollInterval: .seconds(1)) { [weak self] file in
             guard let self, file.size >= 4 << 20 else { return nil }
-            let text = try? await sftp(["ls -ln \(Self.quoted(file.target))"])
+            guard let target = try? Self.quoted(file.target) else { return nil }
+            let text = try? await sftp(["ls -ln \(target)"])
             return text.flatMap { LongListing.items(from: $0, baseURL: baseURL).first?.size }
         }
+        // Kept files leave their folders incomplete.
+        return Set(files.filter { file in !kept.contains { $0 == file.path || $0.hasPrefix(file.path + "/") } })
     }
 
     /// Runs one command per planned file in a single sftp session. sftp echoes
@@ -294,11 +320,15 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     }
 
     func makeDirectory(_ path: String) async throws {
-        _ = try await sftp(["mkdir \(Self.quoted(path))"])
+        let folder = try Self.quoted(path)
+        _ = try await sftp(["mkdir \(folder)"])
     }
 
     func rename(_ path: String, to newPath: String) async throws {
-        _ = try await sftp(["rename \(Self.quoted(path)) \(Self.quoted(newPath))"])
+        // -l: the plain SFTP rename, which refuses to replace an existing entry
+        // (OpenSSH's default posix-rename would silently overwrite it).
+        let (source, target) = (try Self.quoted(path), try Self.quoted(newPath))
+        _ = try await sftp(["rename -l \(source) \(target)"])
     }
 
     /// Files through sftp; folders (sftp cannot remove them recursively) with `rm -rf`.
@@ -306,7 +336,8 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
         let files = items.filter { !$0.isDirectory }.map { RemotePath.join(folder, $0.name) }
         let folders = items.filter(\.isDirectory).map { RemotePath.join(folder, $0.name) }
         if !files.isEmpty {
-            _ = try await sftp(files.map { "rm \(Self.quoted($0))" })
+            let quotedFiles = try files.map(Self.quoted)
+            _ = try await sftp(quotedFiles.map { "rm \($0)" })
         }
         if !folders.isEmpty {
             let command = "rm -rf -- " + folders.map(UserCommand.quoted).joined(separator: " ")

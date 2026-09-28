@@ -1,4 +1,5 @@
 import AppKit
+import os
 
 @MainActor
 protocol FilePanelControllerDelegate: AnyObject {
@@ -406,7 +407,9 @@ final class FilePanelController: NSViewController {
         let controller = TransferController(title: String(localized: "Downloading"),
                                             failureTitle: String(localized: "Download failed"), window: window)
         let done = await controller.run(source: path, target: folder.path) { progress, _ in
-            try await remote.fileSystem.download([item], from: remote.path, to: folder, progress: progress)
+            // A new, empty folder: nothing to ask about.
+            _ = try await remote.fileSystem.download([item], from: remote.path, to: folder, progress: progress,
+                                                     conflicts: RemoteConflicts(nil))
             return [folder]
         }
         return done.isEmpty ? nil : folder.appending(path: item.name)
@@ -421,12 +424,14 @@ final class FilePanelController: NSViewController {
             let controller = TransferController(title: String(localized: "Uploading"),
                                                 failureTitle: String(localized: "Upload failed"), window: window)
             let done = await controller.run(source: urls.first?.deletingLastPathComponent().path ?? "",
-                                            target: remote.fileSystem.displayName + target) { progress, _ in
-                try await remote.fileSystem.upload(urls, to: target, progress: progress)
+                                            target: remote.fileSystem.displayName + target) { progress, resolveConflict in
+                let completed = try await remote.fileSystem.upload(urls, to: target, progress: progress,
+                                                                   conflicts: RemoteConflicts(resolveConflict))
+                // Moving deletes only what reached the server completely.
                 if moving {
-                    try await FileOperations.deletePermanently(urls)
+                    try await FileOperations.deletePermanently(urls.filter(completed.contains))
                 }
-                return urls
+                return urls.filter(completed.contains)
             }
             if !done.isEmpty {
                 loadRemote(remote.path, selecting: urls.first?.lastPathComponent)
@@ -440,16 +445,20 @@ final class FilePanelController: NSViewController {
         guard let remote, let window = view.window else { return false }
         let controller = TransferController(title: String(localized: "Downloading"),
                                             failureTitle: String(localized: "Download failed"), window: window)
-        let done = await controller.run(source: remote.displayPath, target: folder.path) { progress, _ in
+        let completed = OSAllocatedUnfairLock(initialState: Set<String>())
+        let done = await controller.run(source: remote.displayPath, target: folder.path) { progress, resolveConflict in
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            try await remote.fileSystem.download(items, from: remote.path, to: folder, progress: progress)
+            let names = try await remote.fileSystem.download(items, from: remote.path, to: folder, progress: progress,
+                                                             conflicts: RemoteConflicts(resolveConflict))
+            completed.withLock { $0 = names }
+            // Moving deletes on the server only what arrived completely (skipped files stay).
             if moving {
-                try await remote.fileSystem.delete(items, in: remote.path)
+                try await remote.fileSystem.delete(items.filter { names.contains($0.name) }, in: remote.path)
             }
             return [folder]
         }
         if !done.isEmpty {
-            listView.setMarked(listView.marked.subtracting(items.map(\.name)))
+            listView.setMarked(listView.marked.subtracting(completed.withLock { $0 }))
             if moving {
                 loadRemote(remote.path, selecting: nil)
             }
@@ -1915,6 +1924,12 @@ extension FilePanelController: FileListViewDelegate {
     func fileList(_ list: FileListView, rename item: FileItem, to newName: String) {
         guard newName != item.name else { return }
         if let remote {
+            // Servers would replace an existing entry of that name.
+            if listView.items.contains(where: { $0.name == newName && !$0.isParent }) {
+                Prompt.error(String(localized: "Cannot rename \u{201C}\(item.name)\u{201D}"),
+                             RemoteError(String(localized: "\u{201C}\(newName)\u{201D} already exists.")), in: view.window)
+                return
+            }
             runOnServer(selecting: newName) {
                 try await remote.fileSystem.rename(remote.path(of: item.name), to: remote.path(of: newName))
             }

@@ -412,12 +412,41 @@ extension MainViewController: NSMenuItemValidation {
                     in: window) { [weak self] text, separateFolders in
             guard let self, !text.isEmpty else { return }
             let destination = Self.resolveFolder(text, base: source.directory)
-            unpack(archives.map { archive in
+            let jobs = archives.map { archive in
                 let folder = separateFolders
                     ? destination.appending(path: ArchiveReader.baseName(of: archive.name)) : destination
-                return (archive.url, [], "", folder)
-            }, total: nil)
+                return (url: archive.url, paths: [String](), base: "", destination: folder)
+            }
+            // Unpacking replaces existing files: ask first, as for the other operations.
+            Task {
+                let existing = await Self.existingEntries(jobs.map { ($0.url, $0.destination) })
+                guard !existing.isEmpty else {
+                    self.unpack(jobs, total: nil)
+                    return
+                }
+                let what = existing.count == 1 ? String(localized: "\u{201C}\(existing[0])\u{201D}")
+                    : String(localized: "\(existing.count) files/folders")
+                Prompt.confirm(String(localized: "\(what) already exists. Replace?"),
+                               okTitle: String(localized: "Overwrite"), in: window) {
+                    self.unpack(jobs, total: nil)
+                }
+            }
         }
+    }
+
+    /// Top-level entries of the archives that already exist in their destinations.
+    @concurrent
+    private nonisolated static func existingEntries(_ archives: [(url: URL, destination: URL)]) async -> [String] {
+        var existing: [String] = []
+        for (url, destination) in archives {
+            let names = Set(((try? ArchiveReader.entries(of: url)) ?? []).compactMap {
+                $0.path.split(separator: "/").first.map(String.init)
+            })
+            existing += names.sorted().filter {
+                FileManager.default.fileExists(atPath: destination.appending(path: $0).path)
+            }
+        }
+        return existing
     }
 
     /// Alt+F5: packs the selection into a new archive; the suffix picks the format.

@@ -12,12 +12,103 @@ protocol RemoteFileSystem: AnyObject, Sendable {
     func connect() async throws -> String
     func disconnect()
     func list(_ path: String) async throws -> [FileItem]
-    /// Downloads entries of `folder` (folders recursively) into the local `destination`.
-    func download(_ items: [FileItem], from folder: String, to destination: URL, progress: TransferProgress) async throws
-    func upload(_ files: [URL], to path: String, progress: TransferProgress) async throws
+    /// Downloads entries of `folder` (folders recursively) into the local `destination`,
+    /// asking `conflicts` about files that exist there. Returns the names of the
+    /// entries transferred completely (nothing inside skipped).
+    func download(_ items: [FileItem], from folder: String, to destination: URL, progress: TransferProgress,
+                  conflicts: RemoteConflicts) async throws -> Set<String>
+    /// Uploads local files and folders into `path`, asking `conflicts` about files
+    /// that exist on the server. Returns the files uploaded completely.
+    func upload(_ files: [URL], to path: String, progress: TransferProgress,
+                conflicts: RemoteConflicts) async throws -> Set<URL>
     func makeDirectory(_ path: String) async throws
     func delete(_ items: [FileItem], in folder: String) async throws
     func rename(_ path: String, to newPath: String) async throws
+}
+
+/// Existing files met by a server transfer: the answers of the usual "File
+/// already exists" question, remembered for the whole operation ("all" answers).
+nonisolated final class RemoteConflicts: Sendable {
+    private let resolve: TransferEngine.ConflictHandler?
+    private let mode = OSAllocatedUnfairLock(initialState: OverwriteMode.ask)
+
+    /// Without a handler everything is replaced (downloads into a new temporary folder).
+    init(_ resolve: TransferEngine.ConflictHandler?) {
+        self.resolve = resolve
+    }
+
+    /// Whether the existing `target` is replaced by `source`; false skips it.
+    func replaces(_ source: URL, _ target: URL, sourceDate: Date?, targetDate: Date?) async throws -> Bool {
+        guard let resolve else { return true }
+        let isOlder = (targetDate ?? .distantPast) < (sourceDate ?? .distantFuture)
+        switch mode.withLock({ $0 }) {
+        case .overwriteAll: return true
+        case .skipAll: return false
+        case .overwriteOlder: return isOlder
+        default: break
+        }
+        switch await resolve(source, target) {
+        case .overwrite:
+            return true
+        case .overwriteAll:
+            mode.withLock { $0 = .overwriteAll }
+            return true
+        case .skip:
+            return false
+        case .skipAll:
+            mode.withLock { $0 = .skipAll }
+            return false
+        case .overwriteAllOlder:
+            mode.withLock { $0 = .overwriteOlder }
+            return isOlder
+        case .cancel:
+            throw CancellationError()
+        }
+    }
+}
+
+extension RemoteFileSystem {
+    /// Before an upload: the local files not to send because they exist in `path`
+    /// on the server and are to be kept. Only folders that exist on the server are listed.
+    func keptOnServer(_ files: [URL], in path: String, conflicts: RemoteConflicts,
+                      progress: TransferProgress) async throws -> Set<String> {
+        var kept = Set<String>()
+        var level: [(locals: [URL], remote: String)] = [(files, path)]
+        while !level.isEmpty {
+            var next: [(locals: [URL], remote: String)] = []
+            for (locals, remote) in level {
+                if progress.isCancelled { throw CancellationError() }
+                var existing: [String: FileItem] = [:]
+                for item in try await list(remote) { existing[item.name] = item }
+                for url in locals {
+                    guard let item = existing[url.lastPathComponent] else { continue }
+                    let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey,
+                                                                   .contentModificationDateKey])
+                    let isFolder = values?.isDirectory == true && values?.isSymbolicLink != true
+                    if isFolder && item.isDirectory {
+                        let children = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
+                        next.append((children, RemotePath.join(remote, item.name)))
+                    } else if isFolder != item.isDirectory {
+                        throw RemoteError(String(localized:
+                            "\u{201C}\(item.name)\u{201D} is a folder on one side and a file on the other."))
+                    } else if try await !conflicts.replaces(url, item.url, sourceDate: values?.contentModificationDate,
+                                                            targetDate: item.modified) {
+                        kept.insert(url.path)
+                    }
+                }
+            }
+            level = next
+        }
+        return kept
+    }
+}
+
+/// Names with line breaks cannot be passed to sftp's batch mode or FTP commands
+/// (they would start a new command), so such transfers are refused.
+nonisolated func checkRemoteName(_ path: String) throws {
+    if path.contains(where: { $0 == "\n" || $0 == "\r" }) {
+        throw RemoteError(String(localized: "Names with line breaks cannot be used on servers: \(path.debugDescription)"))
+    }
 }
 
 nonisolated enum RemotePath {

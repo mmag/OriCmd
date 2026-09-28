@@ -2731,6 +2731,16 @@
         }
       }
     },
+    "Names with line breaks cannot be used on servers: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имена с переводом строки нельзя использовать на серверах: %@"
+          }
+        }
+      }
+    },
     "Net": {
       "localizations": {
         "ru": {
@@ -5335,12 +5345,32 @@
         }
       }
     },
+    "“%@” already exists.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» уже существует."
+          }
+        }
+      }
+    },
     "“%@” failed": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "«%@» завершилась с ошибкой"
+          }
+        }
+      }
+    },
+    "“%@” is a folder on one side and a file on the other.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» — папка с одной стороны и файл с другой."
           }
         }
       }

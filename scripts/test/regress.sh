@@ -46,6 +46,10 @@ scripts/test/mkdata.sh; (cd $L && /usr/bin/zip -q -r app.jar alpha)
 run jaredit "alt+a wait text:pp.j escape enter wait wait f7 wait text:newdir enter wait wait wait"
 check "Editing a .jar keeps it a zip" "file $L/app.jar | grep -q 'Zip archive' && bsdtar -tf $L/app.jar | grep -q '^newdir/'"
 
+scripts/test/mkdata.sh; (cd $L && /usr/bin/zip -q -r pack.zip alpha); mkdir -p $R/alpha; echo KEEP > $R/alpha/inside.txt
+run unpackask "alt+p wait text:ack.z escape alt+f9 wait enter wait escape wait wait"
+check "Alt+F9 asks before replacing existing files" "[ \"\$(cat $R/alpha/inside.txt)\" = KEEP ]"
+
 scripts/test/mkdata.sh
 run crc "alt+n wait text:otes escape cmd:cm_CRCcreate wait enter wait wait"
 check "checksum file verifies with shasum" "(cd $L && shasum -a 256 -c notes.md.sha256 >/dev/null 2>&1)"
@@ -124,6 +128,17 @@ check "SFTP uploads a folder" "diff -r $R/up $L/up >/dev/null && [ \"\$(stat -f 
 scripts/test/mkdata.sh
 run ftpdown "$(connect ftp://tester@127.0.0.1:2121/left 'text:secret enter wait') home down f5 wait enter wait wait wait"
 check "FTP downloads a folder" "diff -r $L/alpha $R/alpha >/dev/null"
+scripts/test/mkdata.sh; echo old > $R/notes.md
+run sftpskip "$(connect sftp://oritest$PWD/$L) alt+n wait text:otes escape f6 wait enter wait wait click:Skip wait wait"
+check "SFTP F6 keeps skipped files on both sides" "[ \"\$(cat $R/notes.md)\" = old ] && [ -f $L/notes.md ]"
+
+scripts/test/mkdata.sh; echo KEEP > $L/readme.md
+run sftprename "$(connect sftp://oritest$PWD/$L) alt+n wait text:otes escape shift+f6 wait text:readme enter wait wait"
+check "SFTP rename never replaces an existing file" "[ \"\$(cat $L/readme.md)\" = KEEP ] && [ -f $L/notes.md ]"
+
+scripts/test/mkdata.sh; (cd $R && touch "$(printf 'evil\n!date #')")
+run sftpnewline "$(connect sftp://oritest$PWD/$L) tab home down f5 wait enter wait wait"
+check "SFTP refuses names with line breaks" "! ls $L | grep -q evil"
 scripts/test/servers.sh stop
 
 echo "passed: $pass, failed: $fail"
