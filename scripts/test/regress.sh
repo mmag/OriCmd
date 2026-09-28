@@ -103,6 +103,21 @@ run longname "alt+a wait text:aaaa escape f5 wait enter wait wait"
 check "F5 copies a file with a 250-character name" "[ \"\$(ls $R | grep -c aaaa)\" = 1 ]"
 
 scripts/test/mkdata.sh
+run foldercase "home down f6 wait text:$PWD/$L/ALPHA enter wait wait"
+check "F6 changing only the case of a folder renames it" "ls $L | grep -qx ALPHA && [ -f $L/ALPHA/inside.txt ]"
+
+scripts/test/mkdata.sh; mkdir -p $R/alpha; ln $L/alpha/inside.txt $R/alpha/inside.txt; echo extra > $L/alpha/extra.txt
+defaults write ru.themmag.OriCmd.tests CopyOverwriteMode -int 2
+run hardlink "home down f5 wait enter wait wait"
+check "A hard link to the source inside the target does not stop copying" "[ -f $R/alpha/extra.txt ]"
+
+scripts/test/mkdata.sh; echo locked > $R/notes.md; chflags uchg $R/notes.md
+defaults write ru.themmag.OriCmd.tests CopyOverwriteMode -int 2
+run locked "alt+n wait text:otes escape f5 wait enter wait wait"
+check "A locked file is not replaced without the option" "[ \"\$(cat $R/notes.md)\" = locked ] && ls -lO $R/notes.md | grep -q uchg"
+chflags nouchg $R/notes.md
+
+scripts/test/mkdata.sh
 run clip "alt+n wait text:otes escape cmd+c tab cmd+v wait wait"
 check "Cmd+C / Cmd+V copies" "cmp -s $L/notes.md $R/notes.md"
 

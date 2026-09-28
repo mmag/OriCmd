@@ -545,7 +545,20 @@ final class FilePanelController: NSViewController {
     func openArchive(_ url: URL) {
         loadGeneration += 1
         let generation = loadGeneration
-        Task {
+        // A folder still loading is dropped, with its indicator; Esc stops this one.
+        loadTask?.cancel()
+        loadTask = Task {
+            let showsIndicator = Task {
+                try? await Task.sleep(for: .milliseconds(200))
+                if !Task.isCancelled && generation == loadGeneration { panelView.setLoading(true) }
+            }
+            defer {
+                showsIndicator.cancel()
+                if generation == loadGeneration {
+                    panelView.setLoading(false)
+                    loadTask = nil
+                }
+            }
             do {
                 let (entries, stamp) = try await Self.readArchive(url)
                 guard generation == loadGeneration else { return }
@@ -897,8 +910,14 @@ final class FilePanelController: NSViewController {
 
     private func refreshList(selecting name: String?, fallback: Int = 0) {
         if entriesOrder != sortOrder {
-            entries = sortOrder.sorted(entries)
-            entriesOrder = sortOrder
+            // Metadata sorts of big folders happen in the background; until then the
+            // list keeps its previous order.
+            if sortOrder.column.needsMetadata && entries.count > 100 {
+                sortInBackground()
+            } else {
+                entries = sortOrder.sorted(entries)
+                entriesOrder = sortOrder
+            }
         }
         var items = showsHidden ? entries : entries.filter { !$0.isHidden }
         if let filterMask {

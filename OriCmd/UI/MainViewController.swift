@@ -265,7 +265,8 @@ extension MainViewController: NSMenuItemValidation {
         guard let window = view.window else { return }
         var jobs: [TransferJob]
         if targetFolders.isEmpty {
-            let (destination, newName, mask) = Self.resolveTarget(result.target, itemCount: items.count, base: source.directory)
+            let (destination, newName, mask) = Self.resolveTarget(result.target, itemCount: items.count, base: source.directory,
+                                                                  source: items.count == 1 ? items[0].url : nil)
             var options = result.options
             options.renameMask = mask
             jobs = [TransferJob(kind: result.kind, sources: items.map(\.url), destination: destination, newName: newName,
@@ -419,34 +420,39 @@ extension MainViewController: NSMenuItemValidation {
             }
             // Unpacking replaces existing files: ask first, as for the other operations.
             Task {
-                let existing = await Self.existingEntries(jobs.map { ($0.url, $0.destination) })
+                let (existing, total) = await Self.existingEntries(jobs.map { ($0.url, $0.destination) })
                 guard !existing.isEmpty else {
-                    self.unpack(jobs, total: nil)
+                    self.unpack(jobs, total: total)
                     return
                 }
                 let what = existing.count == 1 ? String(localized: "\u{201C}\(existing[0])\u{201D}")
                     : String(localized: "\(existing.count) files/folders")
                 Prompt.confirm(String(localized: "\(what) already exists. Replace?"),
                                okTitle: String(localized: "Overwrite"), in: window) {
-                    self.unpack(jobs, total: nil)
+                    self.unpack(jobs, total: total)
                 }
             }
         }
     }
 
-    /// Top-level entries of the archives that already exist in their destinations.
+    /// Top-level entries of the archives that already exist in their destinations,
+    /// and the total size (so the archives are not read once more for the progress).
     @concurrent
-    private nonisolated static func existingEntries(_ archives: [(url: URL, destination: URL)]) async -> [String] {
+    private nonisolated static func existingEntries(_ archives: [(url: URL, destination: URL)]) async
+        -> (existing: [String], total: Int64) {
         var existing: [String] = []
+        var total: Int64 = 0
         for (url, destination) in archives {
-            let names = Set(((try? ArchiveReader.entries(of: url)) ?? []).compactMap {
+            let entries = (try? ArchiveReader.entries(of: url)) ?? []
+            total += entries.reduce(Int64(0)) { $0 + $1.size }
+            let names = Set(entries.compactMap {
                 $0.path.split(separator: "/").first.map(String.init)
             })
             existing += names.sorted().filter {
                 FileManager.default.fileExists(atPath: destination.appending(path: $0).path)
             }
         }
-        return existing
+        return (existing, total)
     }
 
     /// Alt+F5: packs the selection into a new archive; the suffix picks the format.
@@ -540,7 +546,7 @@ extension MainViewController: NSMenuItemValidation {
     /// path ending in "/" receives the items; otherwise a single item gets that name.
     /// A last part with wildcards ("*.*", "*.bak") is a mask for the new names.
     /// Relative paths are relative to the source folder.
-    static func resolveTarget(_ text: String, itemCount: Int, base: URL)
+    static func resolveTarget(_ text: String, itemCount: Int, base: URL, source: URL? = nil)
         -> (destination: URL, newName: String?, renameMask: RenameMask?) {
         var text = text
         var mask: RenameMask?
@@ -550,11 +556,12 @@ extension MainViewController: NSMenuItemValidation {
             text = String(text.dropLast(last.count))
             if text.isEmpty { text = "./" }
         }
-        let (destination, newName) = resolveTargetPath(text, itemCount: itemCount, base: base)
+        let (destination, newName) = resolveTargetPath(text, itemCount: itemCount, base: base, source: source)
         return (destination, newName, mask)
     }
 
-    private static func resolveTargetPath(_ text: String, itemCount: Int, base: URL) -> (destination: URL, newName: String?) {
+    private static func resolveTargetPath(_ text: String, itemCount: Int, base: URL,
+                                          source: URL?) -> (destination: URL, newName: String?) {
         var path = (text as NSString).expandingTildeInPath
         if !path.hasPrefix("/") {
             path = base.appending(path: path).path
@@ -562,10 +569,22 @@ extension MainViewController: NSMenuItemValidation {
         let url = URL(filePath: path).standardizedFileURL
         var isDirectory: ObjCBool = false
         let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        // The single item itself under another letter case ("Folder" → "folder"):
+        // a rename, not a move into it.
+        if itemCount == 1, !text.hasSuffix("/"), let source, isSameEntry(url, source) {
+            return (url.deletingLastPathComponent(), url.lastPathComponent)
+        }
         if text.hasSuffix("/") || (exists && isDirectory.boolValue) || itemCount > 1 {
             return (url, nil)
         }
         return (url.deletingLastPathComponent(), url.lastPathComponent)
+    }
+
+    private static func isSameEntry(_ a: URL, _ b: URL) -> Bool {
+        var first = stat()
+        var second = stat()
+        return lstat(a.path, &first) == 0 && lstat(b.path, &second) == 0
+            && first.st_dev == second.st_dev && first.st_ino == second.st_ino
     }
 
     /// Ctrl+Left/Right: shows the folder under the cursor (or the current folder)

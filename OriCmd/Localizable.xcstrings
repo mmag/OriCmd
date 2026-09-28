@@ -661,6 +661,16 @@
         }
       }
     },
+    "Cannot move “%@” into itself.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нельзя переместить «%@» внутрь самой себя."
+          }
+        }
+      }
+    },
     "Cannot open archive “%@”": {
       "localizations": {
         "ru": {
@@ -2297,6 +2307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Установить и перезапустить"
+          }
+        }
+      }
+    },
+    "Install the update when they have finished.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установите обновление, когда они закончатся."
           }
         }
       }
@@ -5371,6 +5391,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» — папка с одной стороны и файл с другой."
+          }
+        }
+      }
+    },
+    "“%@” is locked. Turn on “Overwrite/delete locked files” to replace it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» заблокирован. Чтобы заменить его, включите «Перезаписывать/удалять заблокированные файлы»."
           }
         }
       }

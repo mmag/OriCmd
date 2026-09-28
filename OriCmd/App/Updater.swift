@@ -188,6 +188,12 @@ enum Updater {
     /// Downloads the DMG, copies its app next to this one, then quits; a small
     /// script swaps the bundles once the app has exited and starts the new one.
     private static func install(_ version: String, from dmg: URL, window: NSWindow) {
+        // Installing ends with quitting: running operations would stop it half-way.
+        guard TransferController.runningCount == 0, TransferQueue.shared.waitingCount == 0 else {
+            Prompt.info(String(localized: "File operations are still running"),
+                        message: String(localized: "Install the update when they have finished."), in: window)
+            return
+        }
         let app = Bundle.main.bundleURL
         let staged = app.deletingLastPathComponent().appending(path: ".OriCmd-\(version)-update.app")
         let controller = TransferController(title: String(localized: "Downloading OriCmd \(version)"),

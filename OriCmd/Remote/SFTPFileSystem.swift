@@ -87,14 +87,19 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     /// panel ends it too): commands start it again first, with the saved password,
     /// instead of letting ssh ask for it on every command.
     private func ensureMaster() async throws {
+        // Checked at most every half minute (progress polls run commands every second).
+        if let last = masterChecked.withLock({ $0 }), Date().timeIntervalSince(last) < 30 { return }
         try await SerialTasks.shared.run("ssh-master " + displayName) { [self] in
             let check = try await ProcessRunner.run("/usr/bin/ssh", ["-O", "check"] + options + portOption("-p")
                                                     + ["--", destination], environment: environment)
             if check.status != 0 {
                 try await startMaster()
             }
+            masterChecked.withLock { $0 = Date() }
         }
     }
+
+    private let masterChecked = OSAllocatedUnfairLock<Date?>(initialState: nil)
 
     /// `ssh -f -N` authenticates, then leaves a background master holding the
     /// connection; its output must not go to pipes it would keep open.
@@ -134,6 +139,7 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     }
 
     func disconnect() {
+        masterChecked.withLock { $0 = nil }
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/ssh")
         process.arguments = ["-O", "exit"] + options + portOption("-p") + ["--", destination]
@@ -351,8 +357,12 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     func rename(_ path: String, to newPath: String) async throws {
         // -l: the plain SFTP rename, which refuses to replace an existing entry
         // (OpenSSH's default posix-rename would silently overwrite it).
+        // A change of letter case only is the same entry on a case-insensitive server,
+        // where -l (link + unlink) fails: that one goes through the ordinary rename.
+        // (The panel has already checked that no other entry has the new name.)
         let (source, target) = (try Self.quoted(path), try Self.quoted(newPath))
-        _ = try await sftp(["rename -l \(source) \(target)"])
+        let caseOnly = path != newPath && path.lowercased() == newPath.lowercased()
+        _ = try await sftp(["rename \(caseOnly ? "" : "-l ")\(source) \(target)"])
     }
 
     /// Files through sftp; folders (sftp cannot remove them recursively) with `rm -rf`.

@@ -34,12 +34,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private nonisolated static func removeOldTemporaryFolders() async {
         let manager = FileManager.default
         let folder = manager.temporaryDirectory
-        let limit = Date().addingTimeInterval(-24 * 60 * 60)
+        // A week: a file opened from an archive may still be open in an editor.
+        let limit = Date().addingTimeInterval(-7 * 24 * 60 * 60)
         let items = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
         for item in items where item.lastPathComponent.hasPrefix("OriCmd-") {
             let modified = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
             if let modified, modified < limit {
                 try? manager.removeItem(at: item)
+            }
+        }
+        // Folders of old SSH control sockets: rmdir only removes them once empty.
+        for name in (try? manager.contentsOfDirectory(atPath: "/tmp")) ?? [] where name.hasPrefix("oricmd-") {
+            var info = stat()
+            let path = "/tmp/" + name
+            if lstat(path, &info) == 0, info.st_uid == getuid(), info.st_mode & S_IFMT == S_IFDIR,
+               Double(info.st_mtimespec.tv_sec) < Date().timeIntervalSince1970 - 24 * 60 * 60 {
+                rmdir(path)
             }
         }
     }
@@ -63,8 +73,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return alert.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
     }
 
+    /// Closing the window quits, unless operations still run (in their own
+    /// windows); then OriCmd stays until they finish.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        TransferController.runningCount == 0 && TransferQueue.shared.waitingCount == 0
+    }
+
+    /// A click on the Dock icon brings the main window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        mainWindowController?.showWindow(nil)
+        return true
     }
 
     @objc func showStartMenuEditor(_ sender: Any?) {

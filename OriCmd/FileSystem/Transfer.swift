@@ -123,7 +123,7 @@ nonisolated final class TransferEngine {
         var done: [URL] = []
         for source in job.sources {
             let target = job.newName.map { job.destination.appending(path: $0) } ?? targetURL(for: source, in: job.destination)
-            if try await transfer(source, to: target, insideIncludedFolder: false) {
+            if try await transfer(source, to: target, insideIncludedFolder: false, topLevel: true) {
                 done.append(source)
             }
         }
@@ -143,7 +143,9 @@ nonisolated final class TransferEngine {
     }
 
     /// Returns false if the item (or something inside it) was skipped or filtered out.
-    private func transfer(_ source: URL, to target: URL, insideIncludedFolder: Bool) async throws -> Bool {
+    /// `topLevel`: one of the items the user chose (not something inside a folder).
+    private func transfer(_ source: URL, to target: URL, insideIncludedFolder: Bool,
+                          topLevel: Bool = false) async throws -> Bool {
         if progress.isCancelled { throw CancellationError() }
         var target = target
 
@@ -159,6 +161,8 @@ nonisolated final class TransferEngine {
         var existing = stat()
         if lstat(target.path, &existing) == 0, existing.st_dev == sourceInfo.st_dev, existing.st_ino == sourceInfo.st_ino {
             guard job.kind == .move else {
+                // Inside a folder this is a hard link to the source: nothing to copy.
+                if !topLevel { return skipped(source) }
                 throw TransferError(message: String(localized: "Cannot copy \u{201C}\(name)\u{201D} onto itself."))
             }
             if source.lastPathComponent != target.lastPathComponent || sourcePath != target.standardizedFileURL.path,
@@ -168,7 +172,9 @@ nonisolated final class TransferEngine {
             return true
         }
         if isFolder, Self.folder(target.deletingLastPathComponent(), isInside: sourceInfo) {
-            throw TransferError(message: String(localized: "Cannot copy \u{201C}\(name)\u{201D} into itself."))
+            throw TransferError(message: job.kind == .move
+                ? String(localized: "Cannot move \u{201C}\(name)\u{201D} into itself.")
+                : String(localized: "Cannot copy \u{201C}\(name)\u{201D} into itself."))
         }
 
         // "Only files of this type".
@@ -193,12 +199,22 @@ nonisolated final class TransferEngine {
         // A file that replaces another file takes its place in one step at the end
         // (rename), so a failed or cancelled copy leaves the old one; a folder is
         // removed first.
+        var unlocksTarget = false
         if targetExists {
             switch try await decide(source, target, sourceInfo: sourceInfo, targetInfo: targetInfo) {
             case .overwrite:
-                if options.overwritesLocked { Self.unlock(target, recursively: targetIsFolder) }
+                // A locked file is only unlocked at the moment it is replaced (a failed
+                // copy leaves it locked); without the option it is refused right away.
+                let targetLocked = targetInfo.st_flags & UInt32(UF_IMMUTABLE) != 0
+                if targetLocked && !options.overwritesLocked {
+                    throw TransferError(message: String(localized:
+                        "\u{201C}\(target.lastPathComponent)\u{201D} is locked. Turn on \u{201C}Overwrite/delete locked files\u{201D} to replace it."))
+                }
                 if isFolder || targetIsFolder {
+                    if options.overwritesLocked { Self.unlock(target, recursively: targetIsFolder) }
                     try FileManager.default.removeItem(at: target)
+                } else {
+                    unlocksTarget = targetLocked
                 }
             case .skip:
                 return skipped(source)
@@ -217,6 +233,7 @@ nonisolated final class TransferEngine {
                 chflags(sourcePath, flags & ~UInt32(UF_IMMUTABLE))
             }
             // rename(2) replaces an existing file atomically.
+            if unlocksTarget { chflags(targetPath, targetInfo.st_flags & ~UInt32(UF_IMMUTABLE)) }
             if Darwin.rename(sourcePath, targetPath) == 0 {
                 if flags & UInt32(UF_IMMUTABLE) != 0 { chflags(targetPath, flags) }
                 let size = Self.totalSize(of: URL(filePath: targetPath))
@@ -244,6 +261,7 @@ nonisolated final class TransferEngine {
             if options.verify, sourceInfo.st_mode & S_IFMT == S_IFREG {
                 try verify(sourcePath, partial)
             }
+            if unlocksTarget { chflags(targetPath, targetInfo.st_flags & ~UInt32(UF_IMMUTABLE)) }
             guard Darwin.rename(partial, targetPath) == 0 else { throw TransferError.posix(targetPath) }
         } catch {
             unlink(partial)
