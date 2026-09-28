@@ -74,6 +74,8 @@ final class MainViewController: NSViewController {
         fatalError("init(coder:) is not supported")
     }
 
+    var panels: [FilePanelController] { [leftPanel, rightPanel] }
+
     var inactivePanel: FilePanelController {
         activePanel === leftPanel ? rightPanel : leftPanel
     }

@@ -62,15 +62,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// operation is lost: quitting asks while operations run or wait in the queue.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let running = TransferController.runningCount + TransferQueue.shared.waitingCount
-        guard running > 0 else { return .terminateNow }
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = String(localized: "File operations are still running")
-        alert.informativeText = String(localized: "Quitting stops them; files not copied yet stay where they were.")
-        alert.addButton(withTitle: String(localized: "Continue Working"))
-        let quit = alert.addButton(withTitle: String(localized: "Quit Anyway"))
-        quit.hasDestructiveAction = true
-        return alert.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
+        if running > 0 {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = String(localized: "File operations are still running")
+            alert.informativeText = String(localized: "Quitting stops them; files not copied yet stay where they were.")
+            alert.addButton(withTitle: String(localized: "Continue Working"))
+            let quit = alert.addButton(withTitle: String(localized: "Quit Anyway"))
+            quit.hasDestructiveAction = true
+            guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
+        }
+        // Server terminals: the servers are asked whether programs still run in them.
+        let panels = (mainWindowController?.window?.contentViewController as? MainViewController)?.panels ?? []
+        let terminals = panels.flatMap(\.terminals)
+        guard terminals.contains(where: \.isRunning) else { return .terminateNow }
+        Task {
+            let programs = await FilePanelController.runningPrograms(in: terminals)
+            guard !programs.isEmpty else {
+                sender.reply(toApplicationShouldTerminate: true)
+                return
+            }
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = FilePanelController.runningTitle(programs)
+            alert.informativeText = programs.count == 1
+                ? String(localized: "Quitting stops it on the server.")
+                : String(localized: "Quitting stops them on the server.")
+            alert.addButton(withTitle: String(localized: "Continue Working"))
+            let quit = alert.addButton(withTitle: String(localized: "Quit Anyway"))
+            quit.hasDestructiveAction = true
+            sender.reply(toApplicationShouldTerminate: alert.runModal() == .alertSecondButtonReturn)
+        }
+        return .terminateLater
     }
 
     /// Closing the window quits, unless operations still run (in their own

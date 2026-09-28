@@ -58,9 +58,18 @@ final class FilePanelController: NSViewController {
         var sortOrder: SortOrder
         var backHistory: [HistoryEntry] = []
         var forwardHistory: [HistoryEntry] = []
+        /// The server shown in the tab, with its terminal: both stay while other tabs
+        /// are shown (`directory` is the local folder the tab goes back to).
+        var remote: RemoteLocation?
+        var terminal: ShellTerminalView?
+        var showsTerminal = false
 
         var title: String {
-            directory.path == "/" ? "/" : directory.lastPathComponent
+            if let remote {
+                let name = (remote.path as NSString).lastPathComponent
+                return name.isEmpty || name == "/" ? remote.fileSystem.displayName : name
+            }
+            return directory.path == "/" ? "/" : directory.lastPathComponent
         }
     }
 
@@ -131,11 +140,7 @@ final class FilePanelController: NSViewController {
         }
     }
 
-    private(set) var remote: RemoteLocation? {
-        didSet {
-            if remote?.fileSystem !== oldValue?.fileSystem { remoteDidChange() }
-        }
-    }
+    private(set) var remote: RemoteLocation?
 
     var searchResultsShown: Bool { searchResults != nil }
 
@@ -190,8 +195,8 @@ final class FilePanelController: NSViewController {
         panelView.pathBar.onClick = { [weak self] in self?.focus() }
         panelView.onGoToRoot = { [weak self] in self?.goToRoot() }
         panelView.onGoToParent = { [weak self] in self?.goToParent() }
-        panelView.onVolumeSelected = { [weak self] volume in self?.load(volume.url) }
-        panelView.driveBar.onSelect = { [weak self] url in self?.load(url) }
+        panelView.onVolumeSelected = { [weak self] volume in self?.openDrive(volume.url) }
+        panelView.driveBar.onSelect = { [weak self] url in self?.openDrive(url) }
         panelView.setDriveBarVisible(Settings.showsDriveButtons)
         panelView.tabBar.onSelect = { [weak self] index in self?.selectTab(index) }
         panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
@@ -203,6 +208,11 @@ final class FilePanelController: NSViewController {
             delegate?.filePanelDidBecomeActive(self)
         }
         panelView.terminalPane.onReconnect = { [weak self] in self?.openTerminal(focusing: true) }
+        panelView.terminalPane.onEndedAtOnce = { [weak self] terminal in
+            // An account without a shell (sftp only): the terminal opened by connecting hides again.
+            guard let self, terminal.opensQuietly, terminal === panelView.terminalPane.terminal else { return }
+            hideTerminal()
+        }
 
         load(directory)
         updateTabBar()
@@ -228,6 +238,9 @@ final class FilePanelController: NSViewController {
     /// Font or other appearance settings changed.
     func settingsDidChange() {
         panelView.setDriveBarVisible(Settings.showsDriveButtons)
+        for terminal in terminals {
+            terminal.font = TerminalPane.font
+        }
         listView.settingsDidChange()
         panelView.pathBar.needsDisplay = true
         panelView.headerView.needsDisplay = true
@@ -243,6 +256,10 @@ final class FilePanelController: NSViewController {
     /// The folder is read in the background (a slow network volume must not
     /// freeze the window); only the latest request is shown. Esc cancels it.
     func load(_ directory: URL, selecting name: String? = nil, recordingHistory: Bool = true) {
+        if remote != nil {
+            leaveServer { [weak self] in self?.load(directory, selecting: name, recordingHistory: recordingHistory) }
+            return
+        }
         let directory = directory.standardizedFileURL
         if directory != self.directory {
             isBranchView = false
@@ -320,11 +337,7 @@ final class FilePanelController: NSViewController {
             panelView.pathBar.showsMask = true
             listView.setMarked([])
         }
-        if remote != nil {
-            remote = nil
-            panelView.pathBar.showsMask = true
-            listView.setMarked([])
-        }
+        clearRemote()
         if archive != nil {
             archive = nil
             listView.setMarked([])
@@ -348,10 +361,8 @@ final class FilePanelController: NSViewController {
         }
         panelView.show(directory: directory, volumes: listing.volumes, freeSpace: listing.freeSpace)
         refreshList(selecting: name, fallback: isNewDirectory ? 0 : listView.cursor)
-        if tabs[activeTabIndex].directory != directory {
-            tabs[activeTabIndex].directory = directory
-            updateTabBar()
-        }
+        tabs[activeTabIndex].directory = directory
+        updateTabBar()
         delegate?.filePanelDidChangeDirectory(self)
     }
 
@@ -359,6 +370,11 @@ final class FilePanelController: NSViewController {
 
     /// Connects to a server and shows its first folder in this panel.
     func openRemote(_ fileSystem: any RemoteFileSystem) {
+        if remote != nil {
+            // Another server in this tab: the terminal of the one shown ends first.
+            leaveServer { [weak self] in self?.openRemote(fileSystem) }
+            return
+        }
         loadGeneration += 1
         let generation = loadGeneration
         loadTask?.cancel()
@@ -371,6 +387,10 @@ final class FilePanelController: NSViewController {
                 remote = RemoteLocation(fileSystem: fileSystem, path: path)
                 loadTask = nil
                 loadRemote(path, selecting: nil)
+                updateTabBar()
+                if fileSystem is SFTPFileSystem, Self.opensTerminal {
+                    openTerminal(focusing: false)
+                }
             } catch {
                 panelView.setLoading(false)
                 loadTask = nil
@@ -407,6 +427,7 @@ final class FilePanelController: NSViewController {
                 remote?.path = path
                 if isNewFolder {
                     listView.setMarked([])
+                    updateTabBar()
                 }
                 entries = items
                 entriesOrder = nil
@@ -506,12 +527,52 @@ final class FilePanelController: NSViewController {
     /// Net → Disconnect: leaves the server and shows the local folder again.
     @objc(cm_FtpDisconnect:)
     func ftpDisconnect(_ sender: Any?) {
-        guard let remote else {
+        guard let fileSystem = remote?.fileSystem else {
             NSSound.beep()
             return
         }
-        remote.fileSystem.disconnect()
-        load(directory)
+        leaveServer { [weak self] in
+            fileSystem.disconnect()
+            guard let self else { return }
+            load(directory)
+        }
+    }
+
+    /// A drive button (or the volume list) on a server tab opens the drive in a new
+    /// tab: the server keeps its tab.
+    private func openDrive(_ url: URL) {
+        if remote != nil {
+            openTab(url)
+        } else {
+            load(url)
+        }
+    }
+
+    /// Leaves the server shown in this tab: its terminal ends, after asking when a
+    /// program still runs there.
+    private func leaveServer(then proceed: @escaping () -> Void) {
+        let fileSystem = remote?.fileSystem
+        let tab = activeTabIndex
+        confirmClosing([panelView.terminalPane.terminal].compactMap { $0 }) { [weak self] in
+            // Nothing is left if the tab or its server changed meanwhile.
+            guard let self, activeTabIndex == tab, remote?.fileSystem === fileSystem else { return }
+            closeTerminal()
+            clearRemote()
+            proceed()
+        }
+    }
+
+    /// The tab shows no server any more. The server's entries are dropped at once:
+    /// until the local folder is listed they would stand for local paths.
+    private func clearRemote() {
+        guard remote != nil else { return }
+        remote = nil
+        entries = []
+        entriesOrder = nil
+        panelView.pathBar.showsMask = true
+        listView.setMarked([])
+        refreshList(selecting: nil)
+        updateTabBar()
     }
 
     // MARK: - Server terminal
@@ -531,14 +592,9 @@ final class FilePanelController: NSViewController {
     /// A session is being started; the focus goes to it when ready if asked for.
     private var terminalStart: (fileSystem: SFTPFileSystem, focusing: Bool)?
 
-    /// Another server (or none): the terminal of the previous one ends.
-    private func remoteDidChange() {
-        terminalStart = nil
-        panelView.terminalPane.stop()
-        panelView.setTerminalVisible(false)
-        if remote?.fileSystem is SFTPFileSystem, Self.opensTerminal {
-            openTerminal(focusing: false)
-        }
+    /// The terminals of the panel's tabs (the active tab's is the one shown).
+    var terminals: [ShellTerminalView] {
+        terminals(ofTabs: Array(tabs.indices))
     }
 
     /// Shows the terminal, starting a shell in the panel's folder unless one is running.
@@ -563,16 +619,74 @@ final class FilePanelController: NSViewController {
                 let command = try await fileSystem.shellCommand(in: remote.path)
                 guard let start = terminalStart, start.fileSystem === fileSystem else { return }
                 terminalStart = nil
-                pane.start(command)
+                if let ended = pane.terminal { pane.close(ended) }
+                let terminal = pane.start(command, over: fileSystem)
+                terminal.opensQuietly = !start.focusing
                 if start.focusing { pane.focus() }
             } catch {
                 guard terminalStart?.fileSystem === fileSystem else { return }
                 terminalStart = nil
-                panelView.setTerminalVisible(false)
+                hideTerminal()
                 Prompt.error(String(localized: "Cannot connect to \u{201C}\(fileSystem.displayName)\u{201D}"), error,
                              in: view.window)
             }
         }
+    }
+
+    /// Hides the terminal of the tab (its shell keeps running); the files get the focus.
+    private func hideTerminal() {
+        if panelView.terminalPane.hasFocus { focus() }
+        panelView.setTerminalVisible(false)
+    }
+
+    /// Ends the terminal of the tab and hides it.
+    private func closeTerminal() {
+        terminalStart = nil
+        hideTerminal()
+        if let terminal = panelView.terminalPane.terminal {
+            panelView.terminalPane.close(terminal)
+        }
+    }
+
+    /// Runs `proceed` once `terminals` may be closed: when programs still run in
+    /// them, the user is asked first.
+    func confirmClosing(_ terminals: [ShellTerminalView], proceed: @escaping () -> Void) {
+        guard terminals.contains(where: \.isRunning) else {
+            proceed()
+            return
+        }
+        Task {
+            let programs = await Self.runningPrograms(in: terminals)
+            guard !programs.isEmpty, let window = view.window else {
+                proceed()
+                return
+            }
+            Prompt.confirm(Self.runningTitle(programs),
+                           message: programs.count == 1
+                               ? String(localized: "Closing the terminal stops it on the server.")
+                               : String(localized: "Closing the terminals stops them on the server."),
+                           okTitle: String(localized: "Close Terminal"), in: window, completion: proceed)
+        }
+    }
+
+    /// The programs running in `terminals` instead of their shells, asked of the servers at once.
+    static func runningPrograms(in terminals: [ShellTerminalView]) async -> [String] {
+        let checks = terminals.filter(\.isRunning).map { terminal in
+            Task { await terminal.runningProgram() }
+        }
+        var programs: [String] = []
+        for check in checks {
+            if let program = await check.value { programs.append(program) }
+        }
+        return programs
+    }
+
+    /// "“apt” is still running in the terminal".
+    static func runningTitle(_ programs: [String]) -> String {
+        let names = programs.map { "\u{201C}\($0)\u{201D}" }.joined(separator: ", ")
+        return programs.count == 1
+            ? String(localized: "\(names) is still running in the terminal")
+            : String(localized: "Programs are still running in terminals: \(names)")
     }
 
     /// ⌃`: shows the terminal of the server and moves the focus there; from the
@@ -580,24 +694,35 @@ final class FilePanelController: NSViewController {
     @objc(cm_ServerTerminal:)
     func serverTerminal(_ sender: Any?) {
         if panelView.terminalPane.hasFocus {
-            panelView.setTerminalVisible(false)
+            hideTerminal()
             Self.opensTerminal = false
-            focus()
         } else {
             Self.opensTerminal = true
             openTerminal(focusing: true)
         }
     }
 
-    /// ⌃⌥`: types `cd` to the panel's folder into the terminal.
+    /// ⌃⌥`: goes to the panel's folder in the terminal. The `cd` is typed only at the
+    /// shell's prompt, which is cleared first (⌃E ⌃U); a program running there would
+    /// take it as input. The leading space keeps it out of the shell's history.
     @objc(cm_TerminalChangeDir:)
     func terminalChangeDir(_ sender: Any?) {
-        guard let remote, panelView.terminalPane.isRunning else {
+        let pane = panelView.terminalPane
+        guard let remote, let terminal = pane.terminal, terminal.isRunning,
+              !remote.path.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }) else {
             NSSound.beep()
             return
         }
         panelView.setTerminalVisible(true)
-        panelView.terminalPane.send("cd '" + remote.path.replacingOccurrences(of: "'", with: "'\\''") + "'\r")
+        Task {
+            if let program = await terminal.runningProgram() {
+                Prompt.info(Self.runningTitle([program]),
+                            message: String(localized: "The folder can be changed when it finishes."), in: view.window)
+                return
+            }
+            guard terminal === pane.terminal, terminal.isRunning else { return }
+            terminal.send(txt: "\u{05}\u{15} cd " + UserCommand.quoted(remote.path) + "\r")
+        }
     }
 
     // MARK: - Search results
@@ -822,9 +947,10 @@ final class FilePanelController: NSViewController {
         (tabs.map(\.directory.path), activeTabIndex)
     }
 
-    func openTab(_ directory: URL) {
+    /// Opens a tab for `directory`, or for the folder `remote` of a server.
+    func openTab(_ directory: URL, remote: RemoteLocation? = nil) {
         tabs[activeTabIndex] = currentTab()
-        tabs.insert(Tab(directory: directory, sortOrder: sortOrder), at: activeTabIndex + 1)
+        tabs.insert(Tab(directory: directory, sortOrder: sortOrder, remote: remote), at: activeTabIndex + 1)
         activateTab(at: activeTabIndex + 1)
     }
 
@@ -834,12 +960,22 @@ final class FilePanelController: NSViewController {
         activateTab(at: index)
     }
 
-    /// The last tab is never closed, as in Total Commander.
+    /// The last tab is never closed, as in Total Commander. A server tab's terminal
+    /// ends with it (after asking when a program still runs there).
     func closeTab(_ index: Int) {
         guard tabs.count > 1, tabs.indices.contains(index) else {
             NSSound.beep()
             return
         }
+        let terminal = terminals(ofTabs: [index]).first
+        confirmClosing([terminal].compactMap { $0 }) { [weak self] in
+            guard let self, tabs.count > 1, tabs.indices.contains(index) else { return }
+            if let terminal { panelView.terminalPane.close(terminal) }
+            removeTab(index)
+        }
+    }
+
+    private func removeTab(_ index: Int) {
         tabs.remove(at: index)
         if index == activeTabIndex {
             activateTab(at: min(index, tabs.count - 1))
@@ -871,23 +1007,36 @@ final class FilePanelController: NSViewController {
 
     @objc private func closeOtherTabs(_ sender: NSMenuItem) {
         selectTab(sender.tag)
-        let keep = tabs[activeTabIndex]
-        tabs = [keep]
-        activeTabIndex = 0
-        updateTabBar()
-        delegate?.filePanelDidChangeDirectory(self)
+        let others = terminals(ofTabs: tabs.indices.filter { $0 != activeTabIndex })
+        confirmClosing(others) { [weak self] in
+            guard let self else { return }
+            others.forEach(panelView.terminalPane.close)
+            let keep = tabs[activeTabIndex]
+            tabs = [keep]
+            activeTabIndex = 0
+            updateTabBar()
+            delegate?.filePanelDidChangeDirectory(self)
+        }
     }
 
+    /// A server tab is duplicated with its server (without the terminal).
     @objc private func duplicateTab(_ sender: NSMenuItem) {
         selectTab(sender.tag)
-        openTab(directory)
+        openTab(directory, remote: remote)
+    }
+
+    private func terminals(ofTabs indices: [Int]) -> [ShellTerminalView] {
+        indices.compactMap { $0 == activeTabIndex ? panelView.terminalPane.terminal : tabs[$0].terminal }
     }
 
     private func currentTab() -> Tab {
         Tab(directory: directory, selectedName: listView.currentItem?.name, sortOrder: sortOrder,
-            backHistory: backHistory, forwardHistory: forwardHistory)
+            backHistory: backHistory, forwardHistory: forwardHistory, remote: remote,
+            terminal: panelView.terminalPane.terminal, showsTerminal: panelView.isTerminalVisible)
     }
 
+    /// Shows the tab: its local folder, or its server with the terminal as it was left.
+    /// The terminal of the tab left keeps running there, hidden.
     private func activateTab(at index: Int) {
         activeTabIndex = index
         let tab = tabs[index]
@@ -896,13 +1045,29 @@ final class FilePanelController: NSViewController {
         if sortOrder != tab.sortOrder {
             sortOrder = tab.sortOrder
         }
-        load(tab.directory, selecting: tab.selectedName, recordingHistory: false)
+        terminalStart = nil
+        if panelView.terminalPane.hasFocus { focus() }
+        panelView.terminalPane.attach(tab.terminal)
+        panelView.setTerminalVisible(tab.terminal != nil && tab.showsTerminal)
+        if let server = tab.remote {
+            remote = server
+            directory = tab.directory
+            entries = []
+            listView.setMarked([])
+            refreshList(selecting: nil)
+            loadRemote(server.path, selecting: tab.selectedName)
+        } else {
+            clearRemote()
+            load(tab.directory, selecting: tab.selectedName, recordingHistory: false)
+        }
         updateTabBar()
         delegate?.filePanelDidChangeDirectory(self)
     }
 
+    /// The active tab's title follows the panel (a server folder, too).
     private func updateTabBar() {
-        panelView.setTabs(tabs.map(\.title), selected: activeTabIndex, visible: tabs.count > 1 || alwaysShowsTabBar)
+        let titles = tabs.indices.map { $0 == activeTabIndex ? currentTab().title : tabs[$0].title }
+        panelView.setTabs(titles, selected: activeTabIndex, visible: tabs.count > 1 || alwaysShowsTabBar)
     }
 
     func goBack() {
@@ -1146,12 +1311,19 @@ extension FilePanelController: NSMenuItemValidation {
 
     @objc(cm_OpenNewTab:)
     func openNewTab(_ sender: Any?) {
-        openTab(directory)
+        openTab(directory, remote: remote)
     }
 
-    /// Ctrl+Up: opens the folder under the cursor in a new tab.
+    /// Ctrl+Up: opens the folder under the cursor in a new tab (on the same server).
     @objc(cm_OpenDirInNewTab:)
     func openDirInNewTab(_ sender: Any?) {
+        if var location = remote {
+            if let item = listView.currentItem, item.isFolder {
+                location.path = item.isParent ? RemotePath.parent(of: location.path) : location.path(of: item.name)
+            }
+            openTab(directory, remote: location)
+            return
+        }
         guard let item = listView.currentItem, item.isFolder else {
             openTab(directory)
             return

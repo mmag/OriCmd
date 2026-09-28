@@ -6,7 +6,8 @@ import AppKit
 /// - `ORICMD_LEFT`, `ORICMD_RIGHT`: initial panel directories.
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
-///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `click:Button_Title`,
+///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
+///   button), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
 ///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
@@ -47,6 +48,9 @@ enum DebugAutomation {
                 } else if token.hasPrefix("drop:"), let list = window.firstResponder as? FileListView {
                     // Simulates dropping a file onto the focused panel.
                     _ = list.delegate?.fileList(list, drop: [URL(filePath: String(token.dropFirst(5)))], into: nil, moving: false)
+                } else if token.hasPrefix("drive:"), let main = window.contentViewController as? MainViewController {
+                    // Simulates a click on a drive button of the active panel.
+                    main.activePanel.panelView.driveBar.onSelect?(URL(filePath: String(token.dropFirst(6))))
                 } else if token.hasPrefix("dropapp:") {
                     // Simulates dropping an application onto the toolbar.
                     (window.windowController as? MainWindowController)?
@@ -173,6 +177,8 @@ enum DebugAutomation {
     /// Delivers a keystroke the way AppKit does: window key equivalents
     /// (default buttons), then menu key equivalents, then `keyDown`.
     private static func play(_ stroke: KeyStroke, in window: NSWindow) {
+        KeyboardLayout.simulatesNonLatinLayout = stroke.isRussian
+        defer { KeyboardLayout.simulatesNonLatinLayout = false }
         let target = topmost(window)
         for type in [NSEvent.EventType.keyDown, .keyUp] {
             guard let event = NSEvent.keyEvent(
@@ -291,6 +297,8 @@ private struct KeyStroke {
     var charactersIgnoringModifiers: String
     var keyCode: UInt16
     var modifiers: NSEvent.ModifierFlags = []
+    /// Typed with the Russian layout active ("ru+").
+    var isRussian = false
 
     init(characters: String, keyCode: UInt16) {
         self.characters = characters
@@ -320,9 +328,10 @@ private struct KeyStroke {
         "3": 20, "4": 21, "6": 22, "5": 23, "=": 24, "9": 25, "7": 26, "-": 27, "8": 28,
         "0": 29, "]": 30, "o": 31, "u": 32, "[": 33, "i": 34, "p": 35, "l": 37, "j": 38,
         "'": 39, "k": 40, ";": 41, "\\": 42, ",": 43, "/": 44, "n": 45, "m": 46, ".": 47, "`": 50,
+        "§": 10,
     ]
 
-    /// The Russian (PC) layout on the keys of the US one.
+    /// The Russian (PC) layout on the keys of the US one, if the real one is missing.
     private static let russian: [Character: Character] = Dictionary(uniqueKeysWithValues: zip(
         "qwertyuiop[]asdfghjkl;'zxcvbnm,.`", "йцукенгшщзхъфывапролджэячсмитьбюё"
     ))
@@ -350,10 +359,13 @@ private struct KeyStroke {
             }
         } else if key.count == 1 {
             self.init(characters: key, keyCode: Self.keyCodes[Character(key)] ?? 0)
-            // "ru+ctrl+d": the same key typed with the Russian layout active ("в").
-            if russian, let letter = Self.russian[Character(key)] {
-                characters = String(letter)
-                charactersIgnoringModifiers = String(letter)
+            // "ru+ctrl+d": the same key typed with the Russian – PC layout active ("в";
+            // "`" is "]" there on ISO keyboards, "ё" on ANSI ones).
+            if russian, let typed = KeyboardLayout.character(keyCode: keyCode, onLayout: "com.apple.keylayout.RussianWin")
+                ?? Self.russian[Character(key)].map(String.init) {
+                characters = typed
+                charactersIgnoringModifiers = typed
+                isRussian = true
             }
         } else {
             return nil

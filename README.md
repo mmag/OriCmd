@@ -251,13 +251,21 @@ the line above the terminal to resize it.
 | Key | Action |
 |---|---|
 | `` ⌃` `` | Go to the terminal (showing it); in the terminal, hide it and go back to the files |
-| `` ⌃⌥` `` | Type `cd` to the panel's folder into the terminal |
+| `` ⌃⌥` `` | Go to the panel's folder in the terminal (at the shell's prompt: what is typed there is cleared first) |
 
-While the terminal has the focus, every key without `⌘` goes to the shell —
-`Tab`, `Esc`, the function keys, `⌃C`; `⌘C`/`⌘V` copy and paste. When you go
-back to the files, the server folder is read again. After `exit`, `Return`
-connects again. OriCmd remembers whether you hid the terminal and opens the next
-connection the same way.
+The keys are tied to the key that types `` ` `` on the Latin layout, on any
+layout; on ISO keyboards the key under `Esc` (`§`, `ё` on Russian – PC) works
+too. While the terminal has the focus, every key without `⌘` goes to the
+shell — `Tab`, `Esc`, the function keys, `⌃C`; `⌘C`/`⌘V` copy and paste. When
+you go back to the files, the server folder is read again. After `exit`,
+`Return` connects again. OriCmd remembers whether you hid the terminal and
+opens the next connection the same way.
+
+A server lives in its tab: switching tabs keeps the connection and the shell
+(a command keeps running), a drive button on a server tab opens the drive in a
+new tab, and `⌘T` opens the same server folder. The terminal ends when you
+leave the server in its tab, disconnect, close the tab or quit; if a program is
+still running there (OriCmd asks the server), you are asked first.
 
 ### Mouse
 

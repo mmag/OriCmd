@@ -40,8 +40,7 @@ enum MainMenu {
         net.addItem(commandItem(.ftpConnect))
         net.addItem(item(String(localized: "Disconnect"), Command.ftpDisconnect.selector))
         net.addItem(.separator())
-        net.addItem(commandItem(.serverTerminal))
-        net.addItem(commandItem(.terminalChangeDir))
+        (commandItems(.serverTerminal) + commandItems(.terminalChangeDir)).forEach(net.addItem)
         net.addItem(.separator())
         net.addItem(item(String(localized: "Eject"), #selector(MainViewController.ejectVolume(_:)), "e"))
         mainMenu.addItem(container(for: net))
@@ -115,14 +114,7 @@ enum MainMenu {
         for (index, group) in groups.enumerated() {
             if index > 0 { menu.addItem(.separator()) }
             for command in group {
-                let shortcut = command.shortcut
-                menu.addItem(item(command.title, command.selector, shortcut?.key ?? "", shortcut?.modifiers ?? []))
-                for alias in command.aliases + KeyBindings.extras(for: command) where alias != shortcut {
-                    let hidden = item(command.title, command.selector, alias.key, alias.modifiers)
-                    hidden.isHidden = true
-                    hidden.allowsKeyEquivalentWhenHidden = true
-                    menu.addItem(hidden)
-                }
+                commandItems(command).forEach(menu.addItem)
             }
         }
         extra.forEach(menu.addItem)
@@ -168,6 +160,19 @@ enum MainMenu {
         }
         menu.addItem(item(String(localized: "Change Start Menu…"), #selector(AppDelegate.showStartMenuEditor(_:))))
         return menu
+    }
+
+    /// The command's item with its shortcut, plus hidden items for its other keys.
+    private static func commandItems(_ command: Command) -> [NSMenuItem] {
+        let shortcut = command.shortcut
+        var items = [item(command.title, command.selector, shortcut?.key ?? "", shortcut?.modifiers ?? [])]
+        for alias in command.aliases + KeyBindings.extras(for: command) where alias != shortcut {
+            let hidden = item(command.title, command.selector, alias.key, alias.modifiers)
+            hidden.isHidden = true
+            hidden.allowsKeyEquivalentWhenHidden = true
+            items.append(hidden)
+        }
+        return items
     }
 
     private static func commandItem(_ command: Command) -> NSMenuItem {

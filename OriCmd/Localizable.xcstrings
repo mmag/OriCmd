@@ -41,6 +41,16 @@
         }
       }
     },
+    "%@ is still running in the terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В терминале ещё работает %@"
+          }
+        }
+      }
+    },
     "%@ k / %@ k in %lld / %lld file(s), %lld / %lld dir(s)": {
       "localizations": {
         "ru": {
@@ -957,6 +967,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закрыть вкладку"
+          }
+        }
+      }
+    },
+    "Close Terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть терминал"
+          }
+        }
+      }
+    },
+    "Closing the terminal stops it on the server.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если закрыть терминал, она будет остановлена на сервере."
+          }
+        }
+      }
+    },
+    "Closing the terminals stops them on the server.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если закрыть терминалы, они будут остановлены на сервере."
           }
         }
       }
@@ -3421,6 +3461,16 @@
         }
       }
     },
+    "Programs are still running in terminals: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В терминалах ещё работают программы: %@"
+          }
+        }
+      }
+    },
     "Programs:": {
       "localizations": {
         "ru": {
@@ -3517,6 +3567,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Всё равно выйти"
+          }
+        }
+      }
+    },
+    "Quitting stops it on the server.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При выходе она будет остановлена на сервере."
+          }
+        }
+      }
+    },
+    "Quitting stops them on the server.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При выходе они будут остановлены на сервере."
           }
         }
       }
@@ -4521,6 +4591,16 @@
         }
       }
     },
+    "The folder can be changed when it finishes.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папку можно будет сменить, когда она завершится."
+          }
+        }
+      }
+    },
     "The panels contain the same files.": {
       "localizations": {
         "ru": {
@@ -5037,6 +5117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "[… показаны первые %1$@ из %2$@ байт]"
+          }
+        }
+      }
+    },
+    "a full-screen program": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "полноэкранная программа"
           }
         }
       }

@@ -255,8 +255,17 @@ enum Command: String, CaseIterable {
         case .srcLong: [.f(2, .control)]
         case .srcTree: [.f(8, .control)]
         case .srcThumbs: [.f(1, [.control, .shift])]
+        // The key under Esc of ISO keyboards ("§", "ё" on Russian – PC), where others have "`".
+        case .serverTerminal: [.ctrl("§")]
+        case .terminalChangeDir: [.ctrl("§", .option)]
         default: []
         }
+    }
+
+    /// Whether `event` is one of the command's keys (main, alias or the user's extra).
+    func matches(_ event: NSEvent) -> Bool {
+        guard let pressed = Shortcut(event: event) else { return false }
+        return ([shortcut].compactMap { $0 } + aliases + KeyBindings.extras(for: self)).contains(pressed)
     }
 
     /// Sends the command to the first responder that implements it.

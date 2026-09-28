@@ -190,6 +190,16 @@ run termcd "$(connect sftp://oritest$PWD/$L) home down enter wait wait ctrl+alt+
 check "terminal: Ctrl+Option+\` goes to the panel's folder" "[ -f $L/alpha/cd-made.txt ]"
 run termexit "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:exit enter wait wait enter wait wait wait text:touch space text:again.txt enter wait wait"
 check "terminal: Return after exit connects again" "[ -f $L/again.txt ]"
+run termiso "$(connect sftp://oritest$PWD/$L) wait ru+ctrl+§ text:touch space text:via-iso-key.txt enter wait wait"
+check "terminal: Ctrl+§ (ё on Russian – PC) works too" "[ -f $L/via-iso-key.txt ]"
+run termtabs "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:3; space text:touch space text:late.txt enter ctrl+\` drive:/ wait wait wait wait wait wait wait"
+check "terminal: a drive button opens a new tab, the shell keeps running" "[ -f $L/late.txt ]"
+run termbusy "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:30 enter wait ctrl+\` cmd:cm_FtpDisconnect wait wait wait"
+check "terminal: Disconnect asks while a program runs" "[ -f build/shots/reg-termbusy-sheet.png ]"
+run termidle "$(connect sftp://oritest$PWD/$L) wait ctrl+\` wait ctrl+\` cmd:cm_FtpDisconnect wait wait wait"
+check "terminal: Disconnect does not ask at the prompt" "[ -f build/shots/reg-termidle.png ] && [ ! -f build/shots/reg-termidle-sheet.png ]"
+run termcdbusy "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:30 enter wait ctrl+\` ctrl+alt+\` wait wait wait"
+check "terminal: Ctrl+Option+\` waits for the running program" "[ -f build/shots/reg-termcdbusy-sheet.png ]"
 scripts/test/servers.sh stop
 
 echo "passed: $pass, failed: $fail"

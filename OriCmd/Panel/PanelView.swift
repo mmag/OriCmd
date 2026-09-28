@@ -90,7 +90,9 @@ final class PanelView: NSView {
         tabBar.isHidden = true
         terminalHeight = terminalPane.heightAnchor.constraint(equalToConstant: 0)
         // A smaller window takes room from the terminal rather than from the file list.
-        terminalHeight.priority = .init(999)
+        terminalHeight.priority = .init(998)
+        let listMinimum = scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: TerminalPane.minimumListHeight)
+        listMinimum.priority = .init(999)
         terminalPane.heightConstraint = terminalHeight
         terminalPane.isHidden = true
         NSLayoutConstraint.activate([
@@ -134,6 +136,7 @@ final class PanelView: NSView {
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 60),
+            listMinimum,
 
             statusLabel.topAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: 3),
             statusLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
@@ -170,6 +173,7 @@ final class PanelView: NSView {
     /// file list some room.
     func setTerminalVisible(_ visible: Bool) {
         terminalPane.isHidden = !visible
+        terminalPane.isCollapsed = !visible
         let maximum = max(TerminalPane.minimumHeight, bounds.height - TerminalPane.minimumListHeight)
         terminalHeight.constant = visible ? min(TerminalPane.preferredHeight, maximum) : 0
     }

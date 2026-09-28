@@ -102,13 +102,37 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     private let masterChecked = OSAllocatedUnfairLock<Date?>(initialState: nil)
 
     /// A login shell on the server in `directory`, over the master connection (so
-    /// nothing is asked again). Without the master ssh asks in the terminal itself.
+    /// nothing is asked again; without it ssh asks in the terminal itself). /bin/sh
+    /// starts it whatever the login shell is (csh, fish), first reporting its process
+    /// number in a private escape sequence; `exec` keeps that number for the shell.
     func shellCommand(in directory: String) async throws -> ShellCommand {
         try await ensureMaster()
-        let quoted = "'" + directory.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        let script = "printf \"\\033]\(ShellCommand.shellPIDCode);%s\\007\" \"$$\"; "
+            + "cd -- \"$1\" 2>/dev/null; exec \"${SHELL:-/bin/sh}\" -l"
+        let command = "exec /bin/sh -c " + UserCommand.quoted(script) + " oricmd " + UserCommand.quoted(directory)
         return ShellCommand(executable: "/usr/bin/ssh",
-                            arguments: ["-t"] + options + portOption("-p")
-                                + ["--", destination, "cd \(quoted) 2>/dev/null; exec \"$SHELL\" -l"])
+                            arguments: ["-t"] + options + portOption("-p") + ["--", destination, command])
+    }
+
+    /// What runs in the foreground of the terminal whose shell is `pid` on the server:
+    /// nil while the shell itself waits for a command, else the program's name.
+    /// Throws when the server cannot tell (no `ps` with `tpgid`, no answer in seconds).
+    func foregroundProgram(ofShell pid: Int) async throws -> String? {
+        let script = "g=$(ps -o tpgid= -p \(pid) | tr -d \" \"); [ -n \"$g\" ] || exit 3; "
+            + "[ \"$g\" = \(pid) ] || ps -o comm= -p \"$g\""
+        let arguments = options + portOption("-p") + ["--", destination, "exec /bin/sh -c " + UserCommand.quoted(script)]
+        let run = Task { [environment] in
+            try await ProcessRunner.run("/usr/bin/ssh", arguments, environment: environment)
+        }
+        let timeout = Task {
+            try await Task.sleep(for: .seconds(4))
+            run.cancel()
+        }
+        defer { timeout.cancel() }
+        let output = try await run.value
+        guard output.status == 0 else { throw RemoteError(output.errors) }
+        let name = String(decoding: output.output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : (name as NSString).lastPathComponent
     }
 
     /// `ssh -f -N` authenticates, then leaves a background master holding the
