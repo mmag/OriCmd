@@ -1514,6 +1514,12 @@ extension FilePanelController: NSMenuItemValidation {
 
     // MARK: - Context menu
 
+    /// Context menu of applications: a button on the bar that starts them.
+    @objc private func addToButtonBar(_ sender: Any?) {
+        let apps = selectedItems.map(\.url).filter(ToolbarApps.isApplication)
+        (view.window?.windowController as? MainWindowController)?.addApplications(apps)
+    }
+
     private func contextMenu(for items: [FileItem]) -> NSMenu {
         let menu = NSMenu()
         @discardableResult
@@ -1533,6 +1539,9 @@ extension FilePanelController: NSMenuItemValidation {
             add(Command.list.title, Command.list.selector)
             if archive == nil {
                 add(String(localized: "Show in Finder"), #selector(revealInFinder(_:)), target: self)
+            }
+            if archive == nil, remote == nil, items.contains(where: { ToolbarApps.isApplication($0.url) }) {
+                add(String(localized: "Add to Button Bar"), #selector(addToButtonBar(_:)), target: self)
             }
             menu.addItem(.separator())
             if archive == nil {

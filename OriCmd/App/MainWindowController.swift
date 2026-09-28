@@ -5,7 +5,7 @@ final class MainWindowController: NSWindowController {
     private let buttonBar = ButtonBar()
 
     init() {
-        let window = NSWindow(
+        let window = MainWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
@@ -17,11 +17,19 @@ final class MainWindowController: NSWindowController {
         // Buttons start at the left, like Total Commander's button bar.
         window.titleVisibility = .hidden
         window.contentViewController = MainViewController()
+        // Applications dropped on the toolbar become buttons.
+        window.registerForDraggedTypes([.fileURL])
         window.minSize = NSSize(width: 640, height: 400)
         if !window.rememberFrame(as: Self.frameAutosaveName) {
             window.center()
         }
         super.init(window: window)
+        window.onDropApplications = { [weak self] urls in self?.buttonBar.addApplications(urls) }
+    }
+
+    /// Puts applications on the button bar (dropped there, or "Add to Button Bar").
+    func addApplications(_ urls: [URL]) {
+        buttonBar.addApplications(urls)
     }
 
     @available(*, unavailable)

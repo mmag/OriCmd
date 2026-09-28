@@ -6,7 +6,8 @@ import AppKit
 /// - `ORICMD_LEFT`, `ORICMD_RIGHT`: initial panel directories.
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
-///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `click:Button_Title`. Only played when both panel
+///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `click:Button_Title`,
+///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`. Only played when both panel
 ///   directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
 ///   `<name>-sheet.png`) is rendered there after the keys are played.
@@ -45,6 +46,15 @@ enum DebugAutomation {
                 } else if token.hasPrefix("drop:"), let list = window.firstResponder as? FileListView {
                     // Simulates dropping a file onto the focused panel.
                     _ = list.delegate?.fileList(list, drop: [URL(filePath: String(token.dropFirst(5)))], into: nil, moving: false)
+                } else if token.hasPrefix("dropapp:") {
+                    // Simulates dropping an application onto the toolbar.
+                    (window.windowController as? MainWindowController)?
+                        .addApplications([URL(filePath: String(token.dropFirst(8)))])
+                } else if token.hasPrefix("clickapp:") {
+                    // Clicks the toolbar button of that application.
+                    let name = String(token.dropFirst(9)).replacingOccurrences(of: "_", with: " ")
+                    (window.toolbar?.items.compactMap { $0.view as? AppButton }
+                        .first { ToolbarApps.name(of: $0.path) == name })?.performClick(nil)
                 } else if token.hasPrefix("importini:") {
                     _ = try? KeyBindings.importTotalCommanderShortcuts(from: URL(filePath: String(token.dropFirst(10))))
                 } else if token.hasPrefix("click:") {

@@ -281,6 +281,16 @@
         }
       }
     },
+    "Add to Button Bar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить на панель кнопок"
+          }
+        }
+      }
+    },
     "Add “%@”": {
       "localizations": {
         "ru": {
@@ -677,6 +687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся открыть архив «%@»"
+          }
+        }
+      }
+    },
+    "Cannot open “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть «%@»"
           }
         }
       }
@@ -3567,6 +3587,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Удалить"
+          }
+        }
+      }
+    },
+    "Remove from Button Bar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать с панели кнопок"
           }
         }
       }

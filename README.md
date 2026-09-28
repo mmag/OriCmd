@@ -219,7 +219,11 @@ temporary folder). rar, iso, cab and others are read-only.
 
 Under the window title there is a button bar with frequent commands (reread,
 views, history, hotlist, find, multi-rename, synchronize, archives, Terminal).
-Right-click it → Customize Toolbar… to change it. Above each panel there are
+Right-click it → Customize Toolbar… to change it. Applications can go on it too:
+drag an `.app` from Finder or from a panel onto the button bar (or right-click an
+application → Add to Button Bar). A click on its button starts the application,
+files dropped on the button open in it; right-click for Show in Finder and Remove
+from Button Bar. Above each panel there are
 drive buttons: the startup volume, the home folder and mounted volumes (can be
 hidden in Settings).
 

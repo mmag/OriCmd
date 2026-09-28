@@ -1,7 +1,8 @@
 import AppKit
 
 /// Total Commander's button bar as a native, user-customizable toolbar.
-/// Each button sends a `cm_*` command through the responder chain.
+/// Each button sends a `cm_*` command through the responder chain; applications
+/// dragged onto it become buttons that start them (see ToolbarApps).
 final class ButtonBar: NSObject, NSToolbarDelegate {
     private static let buttons: [(Command, String)] = [
         (.rereadSource, "arrow.clockwise"),
@@ -41,7 +42,8 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
         toolbar.allowsUserCustomization = true
-        toolbar.autosavesConfiguration = true
+        // Saved in the standard defaults: test runs must not change the user's toolbar.
+        toolbar.autosavesConfiguration = !AppDefaults.isTestRun
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -51,6 +53,7 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         Self.buttons.map { NSToolbarItem.Identifier($0.0.rawValue) }
             + UserCommands.all.map { NSToolbarItem.Identifier(Self.userPrefix + $0.id.uuidString) }
+            + ToolbarApps.all.map(ToolbarApps.identifier)
             + [.space, .flexibleSpace]
     }
 
@@ -63,6 +66,17 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        if let path = ToolbarApps.path(from: identifier) {
+            let name = ToolbarApps.name(of: path)
+            let button = AppButton(path: path)
+            button.onRemove = { [weak self] path in self?.removeApplication(path) }
+            let item = NSToolbarItem(itemIdentifier: identifier)
+            item.label = name
+            item.paletteLabel = name
+            item.toolTip = name
+            item.view = button
+            return item
+        }
         if let id = Self.userCommandID(from: identifier) {
             guard let command = UserCommands.command(withID: id) else { return nil }
             let item = NSToolbarItem(itemIdentifier: identifier)
@@ -86,6 +100,29 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
         item.action = command.selector
         item.isBordered = true
         return item
+    }
+}
+
+extension ButtonBar {
+    /// Puts dropped applications on the bar (each once), after the other buttons.
+    func addApplications(_ urls: [URL]) {
+        for url in urls where ToolbarApps.isApplication(url) {
+            let path = url.standardizedFileURL.path
+            let identifier = ToolbarApps.identifier(for: path)
+            guard !toolbar.items.contains(where: { $0.itemIdentifier == identifier }) else { continue }
+            if !ToolbarApps.all.contains(path) {
+                ToolbarApps.all.append(path)
+            }
+            toolbar.insertItem(withItemIdentifier: identifier, at: toolbar.items.count)
+        }
+    }
+
+    func removeApplication(_ path: String) {
+        let identifier = ToolbarApps.identifier(for: path)
+        while let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == identifier }) {
+            toolbar.removeItem(at: index)
+        }
+        ToolbarApps.all.removeAll { $0 == path }
     }
 }
 
