@@ -131,7 +131,11 @@ final class FilePanelController: NSViewController {
         }
     }
 
-    private(set) var remote: RemoteLocation?
+    private(set) var remote: RemoteLocation? {
+        didSet {
+            if remote?.fileSystem !== oldValue?.fileSystem { remoteDidChange() }
+        }
+    }
 
     var searchResultsShown: Bool { searchResults != nil }
 
@@ -193,6 +197,12 @@ final class FilePanelController: NSViewController {
         panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
         panelView.tabBar.onContextMenu = { [weak self] index in self?.tabMenu(for: index) }
         panelView.quickSearchField.delegate = self
+        panelView.terminalPane.onFocus = { [weak self] in
+            guard let self else { return }
+            terminalWasFocused = true
+            delegate?.filePanelDidBecomeActive(self)
+        }
+        panelView.terminalPane.onReconnect = { [weak self] in self?.openTerminal(focusing: true) }
 
         load(directory)
         updateTabBar()
@@ -502,6 +512,92 @@ final class FilePanelController: NSViewController {
         }
         remote.fileSystem.disconnect()
         load(directory)
+    }
+
+    // MARK: - Server terminal
+
+    private static let terminalShownKey = "ServerTerminalShown"
+
+    /// Whether connecting to a server shows its terminal: the last choice made with ⌃`.
+    private static var opensTerminal: Bool {
+        get { AppDefaults.store.object(forKey: terminalShownKey) as? Bool ?? true }
+        set { AppDefaults.store.set(newValue, forKey: terminalShownKey) }
+    }
+
+    /// The terminal had the focus: its commands may have changed the folder,
+    /// which is read again when the files get the focus back.
+    private var terminalWasFocused = false
+
+    /// A session is being started; the focus goes to it when ready if asked for.
+    private var terminalStart: (fileSystem: SFTPFileSystem, focusing: Bool)?
+
+    /// Another server (or none): the terminal of the previous one ends.
+    private func remoteDidChange() {
+        terminalStart = nil
+        panelView.terminalPane.stop()
+        panelView.setTerminalVisible(false)
+        if remote?.fileSystem is SFTPFileSystem, Self.opensTerminal {
+            openTerminal(focusing: false)
+        }
+    }
+
+    /// Shows the terminal, starting a shell in the panel's folder unless one is running.
+    private func openTerminal(focusing: Bool) {
+        guard let remote, let fileSystem = remote.fileSystem as? SFTPFileSystem else {
+            NSSound.beep()
+            return
+        }
+        let pane = panelView.terminalPane
+        panelView.setTerminalVisible(true)
+        if pane.isRunning {
+            if focusing { pane.focus() }
+            return
+        }
+        if let start = terminalStart, start.fileSystem === fileSystem {
+            terminalStart?.focusing = start.focusing || focusing
+            return
+        }
+        terminalStart = (fileSystem, focusing)
+        Task {
+            do {
+                let command = try await fileSystem.shellCommand(in: remote.path)
+                guard let start = terminalStart, start.fileSystem === fileSystem else { return }
+                terminalStart = nil
+                pane.start(command)
+                if start.focusing { pane.focus() }
+            } catch {
+                guard terminalStart?.fileSystem === fileSystem else { return }
+                terminalStart = nil
+                panelView.setTerminalVisible(false)
+                Prompt.error(String(localized: "Cannot connect to \u{201C}\(fileSystem.displayName)\u{201D}"), error,
+                             in: view.window)
+            }
+        }
+    }
+
+    /// ⌃`: shows the terminal of the server and moves the focus there; from the
+    /// terminal, hides it and goes back to the files (the shell keeps running).
+    @objc(cm_ServerTerminal:)
+    func serverTerminal(_ sender: Any?) {
+        if panelView.terminalPane.hasFocus {
+            panelView.setTerminalVisible(false)
+            Self.opensTerminal = false
+            focus()
+        } else {
+            Self.opensTerminal = true
+            openTerminal(focusing: true)
+        }
+    }
+
+    /// ⌃⌥`: types `cd` to the panel's folder into the terminal.
+    @objc(cm_TerminalChangeDir:)
+    func terminalChangeDir(_ sender: Any?) {
+        guard let remote, panelView.terminalPane.isRunning else {
+            NSSound.beep()
+            return
+        }
+        panelView.setTerminalVisible(true)
+        panelView.terminalPane.send("cd '" + remote.path.replacingOccurrences(of: "'", with: "'\\''") + "'\r")
     }
 
     // MARK: - Search results
@@ -1889,6 +1985,11 @@ extension FilePanelController: NSMenuItemValidation {
             menuItem.state = viewMode == mode ? .on : .off
         } else if [.closeCurrentTab, .switchToNextTab, .switchToPreviousTab].contains(command) {
             return tabs.count > 1
+        } else if command == .serverTerminal {
+            menuItem.state = panelView.isTerminalVisible ? .on : .off
+            return remote?.fileSystem is SFTPFileSystem
+        } else if command == .terminalChangeDir {
+            return remote != nil && panelView.terminalPane.isRunning
         }
         return true
     }
@@ -2003,6 +2104,10 @@ extension FilePanelController: NSTextFieldDelegate {
 extension FilePanelController: FileListViewDelegate {
     func fileListDidBecomeActive(_ list: FileListView) {
         delegate?.filePanelDidBecomeActive(self)
+        if terminalWasFocused {
+            terminalWasFocused = false
+            if remote != nil { reread() }
+        }
     }
 
     func fileList(_ list: FileListView, openItemAt index: Int) {

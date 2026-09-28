@@ -134,6 +134,16 @@ final class MainWindow: NSWindow, NSDraggingDestination {
         fatalError("init(coder:) is not supported")
     }
 
+    /// A terminal under a panel tells its panel when it gets the focus (SwiftTerm's
+    /// view does not let subclasses see that).
+    override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+        let accepted = super.makeFirstResponder(responder)
+        if accepted, let terminal = responder as? ShellTerminalView {
+            (terminal.superview as? TerminalPane)?.onFocus?()
+        }
+        return accepted
+    }
+
     /// Shows the menu of the application button under a right (or Control-) click,
     /// unless a sheet or a modal window is open. Returns whether it did.
     func showAppButtonMenu(for event: NSEvent) -> Bool {

@@ -87,6 +87,13 @@ enum Command: String, CaseIterable {
     case reverseOrder = "cm_SrcNegOrder"
     case switchHidSys = "cm_SwitchHidSys"
 
+    // The terminal of a server under the panel (OriCmd's own)
+    case serverTerminal = "cm_ServerTerminal"
+    case terminalChangeDir = "cm_TerminalChangeDir"
+
+    /// Commands whose keys work while the terminal has the focus.
+    static let terminalCommands: [Command] = [.serverTerminal, .terminalChangeDir]
+
     init?(selector: Selector) {
         self.init(rawValue: String(NSStringFromSelector(selector).dropLast()))
     }
@@ -166,6 +173,8 @@ enum Command: String, CaseIterable {
         case .sortBySize: String(localized: "Sort by Size")
         case .reverseOrder: String(localized: "Reverse Order")
         case .switchHidSys: String(localized: "Show Hidden Files")
+        case .serverTerminal: String(localized: "Server Terminal")
+        case .terminalChangeDir: String(localized: "Terminal: Go to Panel Folder")
         }
     }
 
@@ -224,6 +233,8 @@ enum Command: String, CaseIterable {
         case .srcLong: .cmd("2")
         case .srcTree: .cmd("3")
         case .srcThumbs: .cmd("4")
+        case .serverTerminal: .ctrl("`")
+        case .terminalChangeDir: .ctrl("`", .option)
         default: nil
         }
     }

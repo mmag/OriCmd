@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0C1D00000000000000000022 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 0C1D00000000000000000021 /* SwiftTerm */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		0C1D00000000000000000001 /* OriCmd.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OriCmd.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C1D00000000000000000022 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = OriCmd;
 			packageProductDependencies = (
+				0C1D00000000000000000021 /* SwiftTerm */,
 			);
 			productName = OriCmd;
 			productReference = 0C1D00000000000000000001 /* OriCmd.app */;
@@ -95,6 +101,9 @@
 			);
 			mainGroup = 0C1D00000000000000000004;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0C1D00000000000000000020 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0C1D00000000000000000005 /* Products */;
 			projectDirPath = "";
@@ -247,6 +256,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0C1D00000000000000000020 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = {
+				kind = exactVersion;
+				version = 1.11.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0C1D00000000000000000021 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0C1D00000000000000000020 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0C1D0000000000000000000A /* Project object */;
 }

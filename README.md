@@ -18,7 +18,8 @@ keep working as always.
 - **Archives as folders:** zip, tar, 7z and more — browse, extract, pack and
   change files right inside an archive.
 - **Servers in a panel:** SFTP (through the system ssh, with keys and
-  passwords), FTP/FTPS, saved connections; smb, afp, NFS and WebDAV as volumes.
+  passwords) with the server's terminal under the files, FTP/FTPS, saved
+  connections; smb, afp, NFS and WebDAV as volumes.
 - **Tools:** text, hex and Quick Look viewer (`F3`), compare files by content,
   synchronize directories, multi-rename, find files, checksums, attributes.
 - **Make it yours:** your own keyboard shortcuts (including import from
@@ -75,6 +76,9 @@ Requires macOS 14+ and Xcode.
 ```sh
 xcodebuild -project OriCmd.xcodeproj -scheme OriCmd -configuration Debug build
 ```
+
+The terminal is [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (a Swift
+package; Xcode fetches it on the first build).
 
 The icon is drawn by `swift scripts/make-icon.swift`.
 
@@ -238,6 +242,23 @@ files onto the server panel work. Transfers go file by file with byte progress
 (current file and total). SFTP keeps permissions and dates of files and folders,
 FTP keeps the dates of downloaded files.
 
+#### Server terminal
+
+An SFTP panel is split in two: the files on top, the server's shell below, opened
+in the panel's folder over the same connection (nothing is asked again). Drag
+the line above the terminal to resize it.
+
+| Key | Action |
+|---|---|
+| `` ⌃` `` | Go to the terminal (showing it); in the terminal, hide it and go back to the files |
+| `` ⌃⌥` `` | Type `cd` to the panel's folder into the terminal |
+
+While the terminal has the focus, every key without `⌘` goes to the shell —
+`Tab`, `Esc`, the function keys, `⌃C`; `⌘C`/`⌘V` copy and paste. When you go
+back to the files, the server folder is read again. After `exit`, `Return`
+connects again. OriCmd remembers whether you hid the terminal and opens the next
+connection the same way.
+
 ### Mouse
 
 Right-click (or `Ctrl`-click) opens the context menu: open, open with, view,
@@ -325,7 +346,9 @@ image (needs `gh auth login`).
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE).
+GPL-3.0 — see [LICENSE](LICENSE). The terminal uses
+[SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (MIT License; its notice
+is in About OriCmd).
 
 OriCmd is not affiliated with Ghisler Software GmbH. Total Commander is a
 trademark of its owner.

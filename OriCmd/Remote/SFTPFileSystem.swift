@@ -101,6 +101,16 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
 
     private let masterChecked = OSAllocatedUnfairLock<Date?>(initialState: nil)
 
+    /// A login shell on the server in `directory`, over the master connection (so
+    /// nothing is asked again). Without the master ssh asks in the terminal itself.
+    func shellCommand(in directory: String) async throws -> ShellCommand {
+        try await ensureMaster()
+        let quoted = "'" + directory.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        return ShellCommand(executable: "/usr/bin/ssh",
+                            arguments: ["-t"] + options + portOption("-p")
+                                + ["--", destination, "cd \(quoted) 2>/dev/null; exec \"$SHELL\" -l"])
+    }
+
     /// `ssh -f -N` authenticates, then leaves a background master holding the
     /// connection; its output must not go to pipes it would keep open.
     @concurrent

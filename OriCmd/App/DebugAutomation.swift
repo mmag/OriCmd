@@ -10,7 +10,8 @@ import AppKit
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
 ///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
-///   `<name>-sheet.png`) is rendered there after the keys are played.
+///   `<name>-sheet.png`) is rendered there after the keys are played; a server
+///   terminal of the active panel as `<name>-terminal.png` and `.txt`.
 /// - `ORICMD_QUIT`: exit when done (even with a sheet open).
 enum DebugAutomation {
     private static var environment: [String: String] { ProcessInfo.processInfo.environment }
@@ -120,6 +121,15 @@ enum DebugAutomation {
             try? await Task.sleep(for: .milliseconds(400))
             if let snapshot {
                 save(window, to: snapshot)
+                // The active panel's terminal, as text and as a picture of its own
+                // (its layer's drawing does not show in the window's picture).
+                if let main = window.contentViewController as? MainViewController,
+                   let terminal = main.activePanel.panelView.terminalPane.terminal {
+                    try? main.activePanel.panelView.terminalPane.screenText?
+                        .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-terminal.txt"),
+                               atomically: true, encoding: .utf8)
+                    save(terminal, to: snapshot.replacingOccurrences(of: ".png", with: "-terminal.png"))
+                }
                 var sheet = window.attachedSheet
                 var suffix = "-sheet"
                 while let current = sheet {
@@ -264,8 +274,12 @@ enum DebugAutomation {
     }
 
     private static func save(_ window: NSWindow, to path: String) {
-        guard let view = window.contentView?.superview,
-              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        guard let view = window.contentView?.superview else { return }
+        save(view, to: path)
+    }
+
+    private static func save(_ view: NSView, to path: String) {
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(filePath: path))
     }

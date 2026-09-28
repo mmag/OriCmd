@@ -179,6 +179,17 @@ RIGHT_PANEL=$PWD/build/testdata/linkright run sftpmovekept \
   "$(connect sftp://oritest$PWD/$L) tab alt+s wait text:ite escape f6 wait enter wait wait click:Skip wait wait wait"
 check "SFTP F6 keeps a folder with a skipped file" "[ \"\$(cat $R/site/index.html)\" = local-index ] && [ \"\$(cat $L/site/index.html)\" = server-index ] && [ -f $L/site/other.txt ]"
 rm -f build/testdata/linkright
+
+# The server terminal under the panel: the test sshd's shell (this Mac's) in the test folder.
+scripts/test/mkdata.sh
+run termtype "$(connect sftp://oritest$PWD/$L) wait ru+ctrl+\` text:touch space text:made-in-terminal.txt enter wait wait"
+check "terminal: Ctrl+\` (any layout) types into the shell in the panel's folder" "[ -f $L/made-in-terminal.txt ]"
+run termkeys "$(connect sftp://oritest$PWD/$L) wait ctrl+\` f7 wait"
+check "terminal: F-keys go to the shell, not to commands" "[ -f build/shots/reg-termkeys.png ] && [ ! -f build/shots/reg-termkeys-sheet.png ]"
+run termcd "$(connect sftp://oritest$PWD/$L) home down enter wait wait ctrl+alt+\` ctrl+\` text:touch space text:cd-made.txt enter wait wait"
+check "terminal: Ctrl+Option+\` goes to the panel's folder" "[ -f $L/alpha/cd-made.txt ]"
+run termexit "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:exit enter wait wait enter wait wait wait text:touch space text:again.txt enter wait wait"
+check "terminal: Return after exit connects again" "[ -f $L/again.txt ]"
 scripts/test/servers.sh stop
 
 echo "passed: $pass, failed: $fail"

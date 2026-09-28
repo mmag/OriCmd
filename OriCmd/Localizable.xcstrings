@@ -3961,6 +3961,16 @@
         }
       }
     },
+    "Server Terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Терминал сервера"
+          }
+        }
+      }
+    },
     "Server address (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// for WebDAV):": {
       "localizations": {
         "ru": {
@@ -3997,6 +4007,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Службы"
+          }
+        }
+      }
+    },
+    "Session ended. Press Return to connect again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сеанс завершён. Нажмите Return, чтобы подключиться снова."
           }
         }
       }
@@ -4417,6 +4437,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Теги"
+          }
+        }
+      }
+    },
+    "Terminal: Go to Panel Folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Терминал: перейти в папку панели"
           }
         }
       }
