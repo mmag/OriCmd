@@ -39,6 +39,14 @@ run pack "home down alt+f5 wait enter wait wait"
 check "Alt+F5 packs" "bsdtar -tf $R/alpha.zip 2>/dev/null | grep -q inside.txt"
 
 scripts/test/mkdata.sh
+run packupper "home down alt+f5 wait text:ALPHA forwarddelete forwarddelete forwarddelete forwarddelete text:.ZIP enter wait wait"
+check "Alt+F5 to .ZIP makes a zip" "file $R/ALPHA.ZIP | grep -q 'Zip archive'"
+
+scripts/test/mkdata.sh; (cd $L && /usr/bin/zip -q -r app.jar alpha)
+run jaredit "alt+a wait text:pp.j escape enter wait wait f7 wait text:newdir enter wait wait wait"
+check "Editing a .jar keeps it a zip" "file $L/app.jar | grep -q 'Zip archive' && bsdtar -tf $L/app.jar | grep -q '^newdir/'"
+
+scripts/test/mkdata.sh
 run crc "alt+n wait text:otes escape cmd:cm_CRCcreate wait enter wait wait"
 check "checksum file verifies with shasum" "(cd $L && shasum -a 256 -c notes.md.sha256 >/dev/null 2>&1)"
 

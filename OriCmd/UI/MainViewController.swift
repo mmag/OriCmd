@@ -451,7 +451,7 @@ extension MainViewController: NSMenuItemValidation {
                     let controller = TransferController(title: String(localized: "Packing"),
                                                         failureTitle: String(localized: "Packing failed"), window: window)
                     _ = await controller.run(source: source.directory.path, target: archive.path) { progress, _ in
-                        try? FileManager.default.removeItem(at: archive)
+                        // The old archive is replaced only once the new one is complete.
                         try await ArchiveWriter.pack(names, in: source.directory, to: archive, progress: progress)
                         return []
                     }

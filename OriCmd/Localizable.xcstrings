@@ -4581,6 +4581,16 @@
         }
       }
     },
+    "Unknown archive type “%@”: use .zip, .tar.gz, .tar.bz2, .tar.xz, .tar or .7z.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неизвестный тип архива «%@»: используйте .zip, .tar.gz, .tar.bz2, .tar.xz, .tar или .7z."
+          }
+        }
+      }
+    },
     "Unpack": {
       "localizations": {
         "ru": {
@@ -5331,6 +5341,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» завершилась с ошибкой"
+          }
+        }
+      }
+    },
+    "“%@” was changed by another program meanwhile; nothing was written.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» тем временем изменила другая программа; ничего не записано."
           }
         }
       }

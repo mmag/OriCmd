@@ -12,17 +12,23 @@ nonisolated enum ArchiveEditor {
         case rename(String, to: String)
     }
 
-    private static let writableExtensions: Set<String> = ["zip", "jar", "tar", "tgz", "tbz", "tbz2", "txz", "7z"]
-    private static let writableSuffixes = [".tar.gz", ".tar.bz2", ".tar.xz"]
-
     static func isWritable(_ url: URL) -> Bool {
-        let name = url.lastPathComponent.lowercased()
-        return writableSuffixes.contains(where: name.hasSuffix) || writableExtensions.contains(url.pathExtension.lowercased())
+        ArchiveWriter.formatOptions(for: url.lastPathComponent) != nil
+    }
+
+    /// Changes of one archive run one after another: each unpacks the whole
+    /// archive, so two at once would lose the first one's change.
+    @concurrent
+    static func apply(_ edit: Edit, to archive: URL, progress: TransferProgress) async throws {
+        try await ArchiveEditQueue.shared.run(archive.standardizedFileURL.path) {
+            try await applyNow(edit, to: archive, progress: progress)
+        }
     }
 
     @concurrent
-    static func apply(_ edit: Edit, to archive: URL, progress: TransferProgress) async throws {
+    private static func applyNow(_ edit: Edit, to archive: URL, progress: TransferProgress) async throws {
         let manager = FileManager.default
+        let before = fingerprint(of: archive)
         let workspace = manager.temporaryDirectory.appending(path: "OriCmd-edit-\(UUID().uuidString)")
         let content = workspace.appending(path: "content")
         try manager.createDirectory(at: content, withIntermediateDirectories: true)
@@ -53,7 +59,12 @@ nonisolated enum ArchiveEditor {
         case .rename(let path, let newName):
             let source = content.appending(path: path)
             let target = source.deletingLastPathComponent().appending(path: newName)
-            guard !newName.isEmpty, !newName.contains("/"), !manager.fileExists(atPath: target.path) else {
+            // A name differing only in letter case is the same entry on this file system.
+            var existing = stat()
+            var current = stat()
+            let taken = lstat(target.path, &existing) == 0 && lstat(source.path, &current) == 0
+                && existing.st_ino != current.st_ino
+            guard !newName.isEmpty, !newName.contains("/"), !taken else {
                 throw CocoaError(.fileWriteFileExists, userInfo: [NSFilePathErrorKey: newName])
             }
             try manager.moveItem(at: source, to: target)
@@ -65,6 +76,33 @@ nonisolated enum ArchiveEditor {
         }
         let packed = workspace.appending(path: archive.lastPathComponent)
         try await ArchiveWriter.pack(names, in: content, to: packed, progress: progress)
+        guard fingerprint(of: archive) == before else {
+            throw ArchiveError(message: String(localized:
+                "\u{201C}\(archive.lastPathComponent)\u{201D} was changed by another program meanwhile; nothing was written."))
+        }
         _ = try manager.replaceItemAt(archive, withItemAt: packed)
+    }
+
+    /// Size and modification time, to notice changes made meanwhile.
+    private static func fingerprint(of url: URL) -> [Int64] {
+        var info = stat()
+        guard lstat(url.path, &info) == 0 else { return [] }
+        return [Int64(info.st_size), Int64(info.st_mtimespec.tv_sec), Int64(info.st_mtimespec.tv_nsec)]
+    }
+}
+
+/// Runs the operations on one key (an archive path) one at a time, in order.
+actor ArchiveEditQueue {
+    static let shared = ArchiveEditQueue()
+    private var tails: [String: Task<Void, Never>] = [:]
+
+    func run(_ key: String, _ body: @escaping @Sendable () async throws -> Void) async throws {
+        let previous = tails[key]
+        let task = Task {
+            await previous?.value
+            try await body()
+        }
+        tails[key] = Task { _ = try? await task.value }
+        try await task.value
     }
 }
