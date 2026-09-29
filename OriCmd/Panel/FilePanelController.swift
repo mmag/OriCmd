@@ -1780,7 +1780,37 @@ extension FilePanelController: NSMenuItemValidation {
         }
         let moving = forceMove || Self.cutClipboard?.changeCount == pasteboard.changeCount
         if moving { Self.cutClipboard = nil }
+        whenWritten(urls) { [weak self] in self?.paste(urls, moving: moving) }
+    }
 
+    /// Runs `proceed` once the programs that put `urls` on the clipboard (or drag them)
+    /// have written them (see FileCoordination). A wait longer than half a second
+    /// shows "Receiving the files…" with Cancel.
+    private func whenWritten(_ urls: [URL], then proceed: @escaping () -> Void) {
+        guard let window = view.window else { return }
+        let waiting = Task { try await FileCoordination.waitUntilWritten(urls) }
+        var closeProgress: (() -> Void)?
+        let showsProgress = Task {
+            try await Task.sleep(for: .milliseconds(500))
+            closeProgress = Prompt.progress(String(localized: "Receiving the files from the program that copied them…"),
+                                            in: window) { waiting.cancel() }
+        }
+        Task {
+            let result = await waiting.result
+            showsProgress.cancel()
+            closeProgress?()
+            switch result {
+            case .success:
+                proceed()
+            case .failure(let error) where !(error is CancellationError):
+                Prompt.error(String(localized: "Cannot paste the files"), error, in: window)
+            case .failure:
+                break
+            }
+        }
+    }
+
+    private func paste(_ urls: [URL], moving: Bool) {
         if remote != nil {
             upload(urls, moving: moving)
             return
@@ -2505,13 +2535,19 @@ extension FilePanelController: FileListViewDelegate {
     }
 
     func fileList(_ list: FileListView, drop urls: [URL], into folder: FileItem?, moving: Bool) -> Bool {
+        // Files dragged from another program may not be written yet (see FileCoordination).
+        whenWritten(urls) { [weak self] in self?.drop(urls, into: folder, moving: moving) }
+        return true
+    }
+
+    private func drop(_ urls: [URL], into folder: FileItem?, moving: Bool) {
         if let remote {
             let target = folder.map { $0.isParent ? RemotePath.parent(of: remote.path) : remote.path(of: $0.name) }
             upload(urls, to: target, moving: moving)
-            return true
+            return
         }
         if let archive, !(folder?.isParent == true && archive.folder.isEmpty) {
-            guard !refuseReadOnlyArchive() else { return false }
+            guard !refuseReadOnlyArchive() else { return }
             let target: String
             if let folder {
                 target = folder.isParent ? (archive.folder as NSString).deletingLastPathComponent : archive.path(of: folder.name)
@@ -2522,11 +2558,10 @@ extension FilePanelController: FileListViewDelegate {
                 guard succeeded, moving else { return }
                 Task { try? await FileOperations.deletePermanently(urls) }
             }
-            return true
+            return
         }
         let destination = archive != nil ? directory : (folder?.url ?? directory)
         transfer(urls, to: destination, moving: moving)
-        return true
     }
 
     /// Dragged files another program promised: it writes them into a private folder on

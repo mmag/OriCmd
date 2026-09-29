@@ -57,6 +57,15 @@ scripts/test/mkdata.sh; rm -rf build/testdata/placeholder
 run promisepaste "promise:$PWD/$L/readme.txt wait tab cmd+v wait wait wait"
 check "pasting promised files gets their contents, not placeholders" "cmp -s $L/readme.txt $R/readme.txt"
 rm -rf build/testdata/placeholder
+# Remote Desktop's own way: a zero-filled placeholder written only on a coordinated read.
+scripts/test/mkdata.sh
+run lazypaste "lazyfile:$PWD/$L/readme.txt wait tab cmd+v wait wait wait"
+check "pasting a file another program writes on demand gets its contents" "cmp -s $L/readme.txt $R/readme.txt"
+rm -rf build/testdata/placeholder
+scripts/test/mkdata.sh
+run lazydrop "lazyfile:$PWD/$L/readme.txt wait tab drop:$PWD/build/testdata/placeholder/readme.txt wait wait wait"
+check "dropping a file another program writes on demand gets its contents" "cmp -s $L/readme.txt $R/readme.txt"
+rm -rf build/testdata/placeholder
 
 scripts/test/mkdata.sh
 run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"

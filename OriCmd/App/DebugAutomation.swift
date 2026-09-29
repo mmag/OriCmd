@@ -9,7 +9,8 @@ import ApplicationServices
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `tabbardoubleclick` (the empty end of the tab bar), `promise:/path` (the file on the
-///   clipboard as Remote Desktop puts it: promised, plus a placeholder of zeros), `click:Button_Title`,
+///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
+///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
 ///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
@@ -63,6 +64,8 @@ enum DebugAutomation {
                                                       clickCount: 2, pressure: 1) {
                         bar.mouseDown(with: event)
                     }
+                } else if token.hasPrefix("lazyfile:") {
+                    offerLazyFile(URL(filePath: String(token.dropFirst(9))))
                 } else if token.hasPrefix("promise:") {
                     offerPromise(of: URL(filePath: String(token.dropFirst(8))))
                 } else if token.hasPrefix("dropapp:") {
@@ -295,6 +298,27 @@ enum DebugAutomation {
         return false
     }
 
+    private static var lazyFilePresenter: LazyFilePresenter?
+
+    /// Puts on the (test) clipboard a placeholder of `file`, zero-filled and sparse, that
+    /// is written only when someone reads it through file coordination.
+    private static func offerLazyFile(_ file: URL) {
+        let placeholders = file.deletingLastPathComponent().deletingLastPathComponent().appending(path: "placeholder")
+        try? FileManager.default.createDirectory(at: placeholders, withIntermediateDirectories: true)
+        let placeholder = placeholders.appending(path: file.lastPathComponent)
+        FileManager.default.createFile(atPath: placeholder.path, contents: nil)
+        let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        if let handle = try? FileHandle(forWritingTo: placeholder) {
+            try? handle.truncate(atOffset: UInt64(size))
+            try? handle.close()
+        }
+        let presenter = LazyFilePresenter(placeholder: placeholder, source: file)
+        NSFileCoordinator.addFilePresenter(presenter)
+        lazyFilePresenter = presenter
+        AppDefaults.pasteboard.clearContents()
+        AppDefaults.pasteboard.writeObjects([placeholder as NSURL])
+    }
+
     /// The file promised by `offerPromise` (the promise keeper is a C function), and the
     /// pasteboard reference that keeps the promise (released, it could not be kept).
     nonisolated(unsafe) private static var promisedFile: URL?
@@ -430,6 +454,30 @@ private struct KeyStroke {
             return nil
         }
         self.modifiers = modifiers
+    }
+}
+/// Writes the placeholder's contents when a coordinated reader asks (as Microsoft
+/// Remote Desktop does with the files it puts on the clipboard).
+nonisolated private final class LazyFilePresenter: NSObject, NSFilePresenter, @unchecked Sendable {
+    let presentedItemURL: URL?
+    let presentedItemOperationQueue = OperationQueue()
+    private let source: URL
+
+    init(placeholder: URL, source: URL) {
+        presentedItemURL = placeholder
+        self.source = source
+    }
+
+    func savePresentedItemChanges(completionHandler: @escaping (Error?) -> Void) {
+        guard let placeholder = presentedItemURL else { return completionHandler(nil) }
+        completionHandler(Result { try Data(contentsOf: source).write(to: placeholder) }.error)
+    }
+}
+
+nonisolated private extension Result where Failure == Error {
+    var error: Error? {
+        if case .failure(let error) = self { return error }
+        return nil
     }
 }
 #endif
