@@ -23,6 +23,14 @@ run rename "alt+n wait text:otes escape shift+f6 wait text:renamed enter wait"
 check "Shift+F6 renames in place" "[ -f $L/renamed.md ] && [ ! -f $L/notes.md ]"
 
 scripts/test/mkdata.sh
+run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"
+check "F2 renames in place (the extension kept)" "[ -f $L/by-f2.md ] && [ ! -f $L/notes.md ]"
+
+scripts/test/mkdata.sh
+run renamef2ext "alt+n wait text:otes escape f2 wait f2 text:txt enter wait"
+check "F2 again selects the extension" "[ -f $L/notes.txt ] && [ ! -f $L/notes.md ]"
+
+scripts/test/mkdata.sh
 run delete "alt+s wait text:cript escape shift+f8 wait enter wait wait"
 check "Shift+F8 deletes permanently" "[ ! -f $L/script.sh ]"
 

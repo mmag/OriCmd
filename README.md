@@ -160,7 +160,7 @@ shortcuts in parentheses.
 | `F5` | Copy (to the other panel by default) |
 | `Shift+F5` | Copy within the same folder under another name |
 | `F6` | Move / rename |
-| `Shift+F6` | Rename in place |
+| `Shift+F6`, `F2` | Rename in place (the name is selected; `F2` again selects the extension, then the whole name) |
 | `Ctrl+M` | Multi-Rename Tool: masks `[N]`, `[N2-5]`, `[E]`, `[C]`, `[P]`, `[YMD]`, `[hms]`, search and replace (including regular expressions), case, preview and undo |
 | `F7` (`⇧⌘N`) | New folder (`a/b/c` creates nested ones) |
 | `F8`, `Del` (`⌘⌫`) | Move to the Trash |

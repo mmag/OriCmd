@@ -2121,6 +2121,10 @@ extension FilePanelController: NSMenuItemValidation {
     /// ⇧F6: renames the entry under the cursor in place.
     @objc(cm_RenameOnly:)
     func renameOnly(_ sender: Any?) {
+        if listView.isRenaming {
+            listView.selectNextPartOfName()
+            return
+        }
         guard !refuseReadOnlyArchive() else { return }
         guard let item = listView.currentItem, !item.isParent else {
             NSSound.beep()

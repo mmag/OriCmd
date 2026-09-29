@@ -243,6 +243,8 @@ enum Command: String, CaseIterable {
     var aliases: [Shortcut] {
         switch self {
         case .mkDir: [.cmd("n", .shift)]
+        // Total Commander's "F2 = rename" option, as in Windows Explorer.
+        case .renameOnly: [.f(2)]
         case .rereadSource: [.ctrl("r")]
         case .sortByName: [.cmd("1", [.control, .option])]
         case .sortByExt: [.cmd("2", [.control, .option])]

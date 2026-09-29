@@ -179,6 +179,25 @@ final class FileListView: NSView {
         field.currentEditor()?.selectedRange = NSRange(location: 0, length: length)
     }
 
+    var isRenaming: Bool { renameField != nil }
+
+    /// F2 (or Shift+F6) again while renaming selects the next part of the name:
+    /// the name, the extension, the whole name.
+    func selectNextPartOfName() {
+        guard let field = renameField, let editor = field.currentEditor() else { return }
+        let text = field.stringValue as NSString
+        let all = NSRange(location: 0, length: text.length)
+        let dot = text.range(of: ".", options: .backwards)
+        guard renamedItem?.isFolder == false, dot.location != NSNotFound, dot.location > 0 else {
+            editor.selectedRange = all
+            return
+        }
+        let name = NSRange(location: 0, length: dot.location)
+        let ext = NSRange(location: dot.location + 1, length: text.length - dot.location - 1)
+        let current = editor.selectedRange
+        editor.selectedRange = current == name ? ext : (current == ext ? all : name)
+    }
+
     private func endRenaming(commit: Bool = false) {
         guard let field = renameField, let item = renamedItem else { return }
         renameField = nil
