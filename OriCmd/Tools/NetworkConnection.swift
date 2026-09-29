@@ -47,7 +47,10 @@ nonisolated enum NetworkConnection {
     /// wait of the mount (and the system's own error message).
     static func serverAnswers(_ url: URL, within timeout: TimeInterval = 5) async -> Bool {
         guard let host = url.host(), !host.isEmpty else { return true }
-        let ports = url.port.map { [UInt16($0)] } ?? defaultPorts(for: url.scheme?.lowercased() ?? "")
+        // A single-label name ("WINBOX") may be a NetBIOS name the mount resolves and
+        // this check cannot: it is left to the mount.
+        guard host.contains(".") || host.contains(":") || host == "localhost" else { return true }
+        let ports = url.port.flatMap { UInt16(exactly: $0) }.map { [$0] } ?? defaultPorts(for: url.scheme?.lowercased() ?? "")
         guard !ports.isEmpty else { return true }
         return await withTaskGroup(of: Bool.self) { group in
             for port in ports {
@@ -72,26 +75,34 @@ nonisolated enum NetworkConnection {
         }
     }
 
+    /// Whether `host` accepts a connection on `port`. A name that cannot be resolved
+    /// counts as answering: the mount knows more ways to find a server than this check.
+    /// Cancelling stops the attempt (the other port answered).
     private static func answers(host: String, port: UInt16, within timeout: TimeInterval) async -> Bool {
         guard let endpointPort = NWEndpoint.Port(rawValue: port) else { return false }
         let connection = NWConnection(host: NWEndpoint.Host(host), port: endpointPort, using: .tcp)
         let finished = OSAllocatedUnfairLock(initialState: false)
-        return await withCheckedContinuation { continuation in
-            let finish: @Sendable (Bool) -> Void = { answered in
-                guard finished.withLock({ done in defer { done = true }; return !done }) else { return }
-                connection.cancel()
-                continuation.resume(returning: answered)
-            }
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready: finish(true)
-                // Refused, no route, unknown name: Network keeps waiting to retry.
-                case .waiting, .failed, .cancelled: finish(false)
-                default: break
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let finish: @Sendable (Bool) -> Void = { answered in
+                    guard finished.withLock({ done in defer { done = true }; return !done }) else { return }
+                    connection.cancel()
+                    continuation.resume(returning: answered)
                 }
+                connection.stateUpdateHandler = { state in
+                    switch state {
+                    case .ready: finish(true)
+                    case .waiting(.dns), .failed(.dns): finish(true)
+                    // Refused or no route: Network keeps waiting to retry.
+                    case .waiting, .failed, .cancelled: finish(false)
+                    default: break
+                    }
+                }
+                connection.start(queue: .global())
+                DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { finish(false) }
             }
-            connection.start(queue: .global())
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { finish(false) }
+        } onCancel: {
+            connection.cancel()
         }
     }
 }

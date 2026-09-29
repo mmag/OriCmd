@@ -33,6 +33,10 @@ nonisolated enum PromisedFiles {
         var count = 0
         PasteboardGetItemCount(board, &count)
         var files: [URL] = []
+        // Only files written into our folder are taken: a program asked again for a promise
+        // it already kept may answer with the file of an earlier paste.
+        let inside = folder.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+        var elsewhere = 0
         for index in stride(from: 1, through: count, by: 1) {
             var item: PasteboardItemID?
             guard PasteboardGetItemIdentifier(board, index, &item) == noErr, let item else { continue }
@@ -41,7 +45,14 @@ nonisolated enum PromisedFiles {
             guard PasteboardCopyItemFlavorData(board, item, kPasteboardTypeFileURLPromise as CFString, &data) == noErr,
                   let bytes = data as Data?,
                   let url = URL(dataRepresentation: bytes, relativeTo: nil) else { continue }
+            guard url.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(inside) else {
+                elsewhere += 1
+                continue
+            }
             files.append(url)
+        }
+        if files.isEmpty && elsewhere > 0 {
+            throw RemoteError(String(localized: "The program that copied the files did not write them again. Copy them in that program once more."))
         }
         return files
     }

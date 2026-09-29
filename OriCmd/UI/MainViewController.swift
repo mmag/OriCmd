@@ -814,24 +814,33 @@ extension MainViewController: NSMenuItemValidation {
         remembered?.password = nil
         let shown = remembered?.string ?? address
         AppDefaults.store.set(shown, forKey: "LastServerAddress")
+        if let port = url.port, !(1...65535).contains(port) {
+            Prompt.info(String(localized: "Cannot connect to \u{201C}\(shown)\u{201D}"),
+                        message: String(localized: "The port must be a number from 1 to 65535."), in: window)
+            return
+        }
         // Only addresses that worked join the recent list, so typos do not.
         let connected = { Self.recentServers = [shown] + Self.recentServers.filter { $0 != shown } }
         if connectRemote(url, password: nil, onConnected: connected) {
             return
         }
-        mount(url, named: address, in: window, onMounted: connected)
+        mount(url, named: shown, in: window, onMounted: connected)
     }
 
     /// Mounts a network share, showing that it connects (with Cancel). A server that
     /// does not answer at all is reported at once instead of after the mount's long wait.
     private func mount(_ url: URL, named address: String, in window: NSWindow, onMounted: @escaping () -> Void) {
-        var closeProgress: () -> Void = {}
-        let task = Task { [weak self] in
+        let mounting = TaskHolder()
+        let closeProgress = Prompt.progress(String(localized: "Connecting to \u{201C}\(address)\u{201D}…"), in: window) {
+            mounting.task?.cancel()
+        }
+        mounting.task = Task { [weak self] in
             do {
-                guard await NetworkConnection.serverAnswers(url) else {
+                let answers = await NetworkConnection.serverAnswers(url)
+                try Task.checkCancellation()
+                guard answers else {
                     throw RemoteError(String(localized: "The server does not answer. Check the address and the network."))
                 }
-                try Task.checkCancellation()
                 let mountPoint = try await NetworkConnection.mount(url)
                 closeProgress()
                 onMounted()
@@ -844,9 +853,6 @@ extension MainViewController: NSMenuItemValidation {
                 if let posix = error as? POSIXError, NetworkConnection.errorsShownBySystem.contains(posix.code) { return }
                 Prompt.error(String(localized: "Cannot connect to \u{201C}\(address)\u{201D}"), error, in: window)
             }
-        }
-        closeProgress = Prompt.progress(String(localized: "Connecting to \u{201C}\(address)\u{201D}…"), in: window) {
-            task.cancel()
         }
     }
 

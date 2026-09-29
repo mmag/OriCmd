@@ -309,8 +309,8 @@ included); in the dark theme these colors are shown lighter, so they stay readab
 Ready-made colors set the marked files' color and the file colors at once:
 standard, for red–green color blindness (protanopia, deuteranopia; Okabe–Ito
 colors), for blue–yellow color blindness (tritanopia), and high contrast. "Marked
-files in bold" makes marking independent of color; the presets for color
-blindness turn it on.
+files in bold" makes marking independent of color; the presets other than the
+standard one turn it on.
 
 ## Your own keys
 

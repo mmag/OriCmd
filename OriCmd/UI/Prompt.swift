@@ -217,3 +217,21 @@ enum Prompt {
         }
     }
 }
+
+/// A task started after the progress sheet that cancels it (the sheet is shown first).
+final class TaskHolder {
+    var task: Task<Void, Never>?
+}
+
+/// A progress sheet shown only if the work takes a while: once the work finished it
+/// is not shown any more, and closed if it was.
+final class ProgressSheet {
+    var close: (() -> Void)?
+    private(set) var isFinished = false
+
+    func finish() {
+        isFinished = true
+        close?()
+        close = nil
+    }
+}

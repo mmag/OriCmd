@@ -29,8 +29,9 @@ final class PathBar: NSView {
     var completions: ((String) async -> [String])?
 
     private var field: NSTextField?
-    /// Tab cycling: the text before it began, its candidates and the one shown.
-    private var cycle: (base: String, candidates: [String], index: Int)?
+    /// Tab cycling: the text before it began, its candidates, the one shown (-1: their
+    /// common start) and the text shown.
+    private var cycle: (base: String, candidates: [String], index: Int, shown: String)?
 
     var isEditing: Bool { field != nil }
 
@@ -97,10 +98,13 @@ final class PathBar: NSView {
     /// Tab: completes to what the candidates have in common, then goes through them.
     private func complete(backwards: Bool) {
         guard let field, let completions else { return }
-        if var cycle, cycle.candidates.contains(field.stringValue) {
-            cycle.index = (cycle.index + (backwards ? -1 : 1) + cycle.candidates.count) % cycle.candidates.count
+        if var cycle, cycle.candidates.contains(field.stringValue) || field.stringValue == cycle.shown {
+            let count = cycle.candidates.count
+            // From the common start (index -1) Tab takes the first, Shift+Tab the last.
+            cycle.index = cycle.index < 0 ? (backwards ? count - 1 : 0) : (cycle.index + (backwards ? -1 : 1) + count) % count
+            cycle.shown = cycle.candidates[cycle.index]
             self.cycle = cycle
-            show(cycle.candidates[cycle.index], in: field)
+            show(cycle.shown, in: field)
             return
         }
         let typed = field.stringValue
@@ -111,12 +115,19 @@ final class PathBar: NSView {
                 return
             }
             let common = Self.commonPrefix(of: candidates)
-            if candidates.count == 1 || common.count > typed.count {
-                cycle = candidates.count > 1 ? (typed, candidates, -1) : nil
-                show(candidates.count == 1 ? candidates[0] : common, in: field)
+            if candidates.count == 1 {
+                cycle = nil
+                show(candidates[0], in: field)
+            } else if common.count > typed.count {
+                // The common start, which may be one of the names itself: the next Tab
+                // goes on from there.
+                let index = candidates.firstIndex(of: common) ?? -1
+                cycle = (typed, candidates, index, common)
+                show(common, in: field)
             } else {
-                cycle = (typed, candidates, backwards ? candidates.count - 1 : 0)
-                show(candidates[cycle!.index], in: field)
+                let index = backwards ? candidates.count - 1 : 0
+                cycle = (typed, candidates, index, candidates[index])
+                show(candidates[index], in: field)
             }
         }
     }

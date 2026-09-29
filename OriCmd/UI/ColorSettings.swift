@@ -132,8 +132,9 @@ enum ColorSettings {
             let colors = colors
             AppDefaults.store.set(colors.marked, forKey: Key.marked)
             AppDefaults.store.set(colors.bold, forKey: Key.boldMarked)
-            if self == .highContrast {
-                AppDefaults.store.set(true, forKey: Key.alternating)
+            // High contrast stripes the rows; back to standard, they are plain again.
+            if self == .highContrast || self == .standard {
+                AppDefaults.store.set(self == .highContrast, forKey: Key.alternating)
             }
             let masks = ColorSettings.exampleRules.map(\.mask)
             ColorSettings.rules = zip(masks, colors.rules).map { Rule(mask: $0, color: $1) }

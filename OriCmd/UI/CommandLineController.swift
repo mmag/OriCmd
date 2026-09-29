@@ -62,7 +62,9 @@ final class CommandLineController: NSObject {
             guard !text.isEmpty else { return false }
             execute(inTerminal: true)
             return true
-        case (.delete?, []):
+        // With Shift too (typing capitals): ⇧⌫ deletes files past the Trash only when
+        // nothing is being typed.
+        case (.delete?, []), (.delete?, [.shift]):
             guard !text.isEmpty else { return false }
             text.removeLast()
             return true

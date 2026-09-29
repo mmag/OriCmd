@@ -42,6 +42,8 @@ check "Esc closes Synchronize Directories" "$(nosheet escsync)"
 
 # Network shares (localhost only): a closed port is reported at once, a server that
 # accepts but never answers (nc) shows "Connecting…", and Esc cancels the mount.
+run badport "cmd:connectToServer wait cmd+a text:smb://127.0.0.1:99999 enter wait wait"
+check "a port out of range is refused, not a crash" "[ -f build/shots/reg-badport-sheet.png ]"
 run mountfail "cmd:connectToServer wait cmd+a text:smb://127.0.0.1:9 enter wait wait wait"
 check "a share whose server does not answer fails at once" "[ -f build/shots/reg-mountfail-sheet.png ]"
 nc -lk 127.0.0.1 4455 > build/nc-smb.out 2>&1 &
@@ -57,6 +59,10 @@ scripts/test/mkdata.sh; rm -rf build/testdata/placeholder
 run promisepaste "promise:$PWD/$L/readme.txt wait tab cmd+v wait wait wait"
 check "pasting promised files gets their contents, not placeholders" "cmp -s $L/readme.txt $R/readme.txt"
 rm -rf build/testdata/placeholder
+scripts/test/mkdata.sh
+run promisetwice "promise:$PWD/$L/readme.txt wait tab cmd+v wait wait wait home cmd+v wait wait wait"
+check "a promise pasted twice: the second paste says so, nothing else is moved" "cmp -s $L/readme.txt $R/readme.txt && [ -f build/shots/reg-promisetwice-sheet.png ]"
+rm -rf build/testdata/placeholder
 # Remote Desktop's own way: a zero-filled placeholder written only on a coordinated read.
 scripts/test/mkdata.sh
 run lazypaste "lazyfile:$PWD/$L/readme.txt wait tab cmd+v wait wait wait"
@@ -71,13 +77,13 @@ rm -rf build/testdata/placeholder
 # one onto it, and it cannot be changed (its file is a temporary copy).
 nested() { scripts/test/mkdata.sh; (cd $L && mkdir -p nest && echo inner > nest/inside-inner.txt && /usr/bin/zip -q -r inner.zip nest && /usr/bin/zip -q outer.zip inner.zip && rm -rf nest inner.zip); }
 nested
-run nestpgdn "alt+o wait text:uter enter wait wait alt+i wait text:nner escape ctrl+pagedown wait wait home down f5 wait enter wait wait"
+run nestpgdn "alt+o wait text:uter enter wait wait alt+i wait text:nner escape ctrl+pagedown wait wait wait home down f5 wait enter wait wait"
 check "Ctrl+PgDn opens an archive inside an archive" "[ -f $R/nest/inside-inner.txt ]"
 nested
-run nestup "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait home enter wait wait f5 wait enter wait wait"
+run nestup "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait wait home enter wait wait f5 wait enter wait wait"
 check "[..] in a nested archive goes back to the outer one" "[ -f $R/inner.zip ]"
 nested
-run nestro "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait f7 wait"
+run nestro "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait wait f7 wait"
 check "an archive inside an archive is read-only" "[ -f build/shots/reg-nestro-sheet.png ] && ! /usr/bin/unzip -l $L/outer.zip | grep -q 'New'"
 
 # The path bar: a click makes it editable, Enter goes there, Tab completes names.
@@ -87,6 +93,9 @@ check "the path bar goes to a typed folder" "[ -d $L/alpha/made ]"
 scripts/test/mkdata.sh
 run pathtab "pathclick wait cmd+a text:$PWD/$L/alp tab wait enter wait f7 wait text:made2 enter wait"
 check "Tab in the path bar completes a folder name" "[ -d $L/alpha/made2 ]"
+scripts/test/mkdata.sh
+run pathcycle "pathclick wait cmd+a text:$PWD/$L/fi tab wait tab wait enter wait f5 wait enter wait wait"
+check "Tab again in the path bar takes the first of several names" "[ -f $R/file2.txt ]"
 scripts/test/mkdata.sh
 run pathfile "pathclick wait cmd+a text:$PWD/$L/notes.md enter wait f5 wait enter wait wait"
 check "a file typed into the path bar is selected in its folder" "[ -f $R/notes.md ]"
@@ -106,6 +115,9 @@ check "Shift+F8 deletes permanently" "[ ! -f $L/script.sh ]"
 scripts/test/mkdata.sh
 run deleteshift "alt+s wait text:cript escape shift+backspace wait enter wait wait"
 check "Shift+Delete (⌫) deletes permanently" "[ ! -f $L/script.sh ]"
+scripts/test/mkdata.sh
+run deletetyping "alt+s wait text:cript escape text:ab shift+backspace wait"
+check "Shift+Delete while typing a command deletes a character, not files" "[ -f $L/script.sh ] && [ ! -f build/shots/reg-deletetyping-sheet.png ]"
 scripts/test/mkdata.sh; rm -f build/shots/reg-deletemenu-menu.txt
 run deletemenu "alt+s wait text:cript escape menu"
 check "the context menu has Delete Permanently under Shift" "grep -qx 'Delete Permanently' build/shots/reg-deletemenu-menu.txt"

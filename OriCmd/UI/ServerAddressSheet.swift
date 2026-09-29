@@ -137,6 +137,7 @@ final class ServerAddressSheet: NSObject {
         guard addresses.indices.contains(row) else { return }
         onRemove(addresses.remove(at: row))
         table.reloadData()
+        table.deselectAll(nil)
         removeButton.isEnabled = false
     }
 }

@@ -813,7 +813,7 @@ final class FilePanelController: NSViewController {
         guard !text.isEmpty else { return }
         if let remote {
             let server = remote.fileSystem.displayName
-            if text.hasPrefix(server) {
+            if Self.isOnServer(text, server) {
                 let path = String(text.dropFirst(server.count))
                 loadRemote(path.isEmpty ? "/" : path, selecting: nil)
                 return
@@ -852,6 +852,11 @@ final class FilePanelController: NSViewController {
         }
     }
 
+    /// "sftp://me@host/x" is on "sftp://me@host"; "sftp://me@host2/x" is not.
+    private static func isOnServer(_ text: String, _ server: String) -> Bool {
+        text == server || text.hasPrefix(server + "/")
+    }
+
     /// Tab in the path bar: the entries of the folder typed whose names start with what
     /// follows the last "/" (full texts, folders ending in "/").
     private func completions(for text: String) async -> [String] {
@@ -864,9 +869,9 @@ final class FilePanelController: NSViewController {
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
                 .map { folderText + $0.name + ($0.isFolder ? "/" : "") }
         }
-        if let remote, text.hasPrefix(remote.fileSystem.displayName) || text.hasPrefix("/") {
+        if let remote, Self.isOnServer(text, remote.fileSystem.displayName) || text.hasPrefix("/") {
             let server = remote.fileSystem.displayName
-            let folder = text.hasPrefix(server) ? String(folderText.dropFirst(server.count)) : folderText
+            let folder = Self.isOnServer(text, server) ? String(folderText.dropFirst(server.count)) : folderText
             guard let items = try? await remote.fileSystem.list(folder.isEmpty ? "/" : folder) else { return [] }
             return matching(items.filter { !$0.isParent }.map { ($0.name, $0.isDirectory) })
         }
@@ -1046,11 +1051,17 @@ final class FilePanelController: NSViewController {
             self.archive?.folder = archive.path(of: item.name)
             showArchiveFolder(selecting: nil)
         } else if ArchiveReader.isArchive(item.name) {
-            // An archive in the archive opens as a folder too, from a temporary copy.
+            // An archive in the archive opens as a folder too, from a temporary copy —
+            // unless the panel went elsewhere while it was being extracted.
+            let generation = loadGeneration
             Task {
-                if let url = await extractToTemporaryFolder(item) {
-                    openArchive(url, inside: OuterArchive(location: archive, name: item.name))
+                guard let url = await extractToTemporaryFolder(item) else { return }
+                guard generation == loadGeneration, self.archive?.url == archive.url,
+                      self.archive?.folder == archive.folder else {
+                    try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+                    return
                 }
+                openArchive(url, inside: OuterArchive(location: archive, name: item.name))
             }
         } else {
             Task {
@@ -1926,16 +1937,15 @@ extension FilePanelController: NSMenuItemValidation {
     private func whenWritten(_ urls: [URL], then proceed: @escaping () -> Void) {
         guard let window = view.window else { return }
         let waiting = Task { try await FileCoordination.waitUntilWritten(urls) }
-        var closeProgress: (() -> Void)?
-        let showsProgress = Task {
+        let progress = ProgressSheet()
+        Task {
             try await Task.sleep(for: .milliseconds(500))
-            closeProgress = Prompt.progress(String(localized: "Receiving Files…"),
-                                            in: window) { waiting.cancel() }
+            guard !progress.isFinished else { return }
+            progress.close = Prompt.progress(String(localized: "Receiving Files…"), in: window) { waiting.cancel() }
         }
         Task {
             let result = await waiting.result
-            showsProgress.cancel()
-            closeProgress?()
+            progress.finish()
             switch result {
             case .success:
                 proceed()
@@ -2678,6 +2688,11 @@ extension FilePanelController: FileListViewDelegate {
     }
 
     private func drop(_ urls: [URL], into folder: FileItem?, moving: Bool) {
+        // [..] at the root of an archive inside an archive stands for the outer archive.
+        if let archive, archive.outer != nil, archive.folder.isEmpty, folder?.isParent == true {
+            _ = refuseReadOnlyArchive()
+            return
+        }
         if let remote {
             let target = folder.map { $0.isParent ? RemotePath.parent(of: remote.path) : remote.path(of: $0.name) }
             upload(urls, to: target, moving: moving)
@@ -2712,10 +2727,20 @@ extension FilePanelController: FileListViewDelegate {
         let group = DispatchGroup()
         let queue = OperationQueue()
         for receiver in receivers {
-            for _ in receiver.fileNames { group.enter() }
+            // One wait per promise: its file names are known only once receiving began,
+            // and the reader is called once per file.
+            group.enter()
+            nonisolated(unsafe) let receiver = receiver
+            let calls = OSAllocatedUnfairLock(initialState: (count: 0, done: false))
             receiver.receivePromisedFiles(atDestination: privateFolder, options: [:], operationQueue: queue) { url, error in
                 if error == nil { received.withLock { $0.append(url) } }
-                group.leave()
+                let finished = calls.withLock { state -> Bool in
+                    state.count += 1
+                    guard !state.done, state.count >= max(receiver.fileNames.count, 1) else { return false }
+                    state.done = true
+                    return true
+                }
+                if finished { group.leave() }
             }
         }
         var cancelled = false
