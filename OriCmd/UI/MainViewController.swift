@@ -798,14 +798,34 @@ extension MainViewController: NSMenuItemValidation {
             if self?.connectRemote(url, password: nil) == true {
                 return
             }
-            Task {
-                do {
-                    let mountPoint = try await NetworkConnection.mount(url)
-                    self?.activePanel.load(mountPoint)
-                } catch {
-                    Prompt.error(String(localized: "Cannot connect to \u{201C}\(address)\u{201D}"), error, in: window)
+            self?.mount(url, named: address, in: window)
+        }
+    }
+
+    /// Mounts a network share, showing that it connects (with Cancel). A server that
+    /// does not answer at all is reported at once instead of after the mount's long wait.
+    private func mount(_ url: URL, named address: String, in window: NSWindow) {
+        var closeProgress: () -> Void = {}
+        let task = Task { [weak self] in
+            do {
+                guard await NetworkConnection.serverAnswers(url) else {
+                    throw RemoteError(String(localized: "The server does not answer. Check the address and the network."))
                 }
+                try Task.checkCancellation()
+                let mountPoint = try await NetworkConnection.mount(url)
+                closeProgress()
+                self?.activePanel.load(mountPoint)
+            } catch is CancellationError {
+                closeProgress()
+            } catch {
+                closeProgress()
+                // macOS has shown its own message for these (NetAuthAgent): not twice.
+                if let posix = error as? POSIXError, NetworkConnection.errorsShownBySystem.contains(posix.code) { return }
+                Prompt.error(String(localized: "Cannot connect to \u{201C}\(address)\u{201D}"), error, in: window)
             }
+        }
+        closeProgress = Prompt.progress(String(localized: "Connecting to \u{201C}\(address)\u{201D}…"), in: window) {
+            task.cancel()
         }
     }
 

@@ -173,7 +173,7 @@ shortcuts in parentheses.
 | `⌘C` / `⌘X` / `⌘V` (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) | Copy / cut / paste files (compatible with Finder); pasting into the same folder creates "name copy" |
 | `⌥⌘V` | Move the files from the clipboard here |
 | `⌥⌘C` | Copy the full paths of the selected files (Mark → Copy Names — names only) |
-| `⌘K` | Connect to a server: `sftp://`, `ftp://`, `ftps://`, `ftpes://` open right in the panel; smb, afp, nfs and WebDAV are mounted as volumes |
+| `⌘K` | Connect to a server: `sftp://`, `ftp://`, `ftps://`, `ftpes://` open right in the panel; smb, afp, nfs and WebDAV are mounted as volumes (with a "Connecting…" window you can cancel; a server that does not answer is reported within seconds) |
 | `Ctrl+F` (`⇧⌘K`) | Saved connections (passwords are kept in the Keychain) |
 | Net → Disconnect | Close the server in the active panel |
 | `⌘E` | Eject the removable or network volume of the active panel |

@@ -35,10 +35,21 @@ UI_LANGUAGE=ru run escinfo "alt+a wait text:rchive-t enter wait wait cmd+i wait 
 check "Esc closes a message with one button" "$(nosheet escinfo)"
 UI_LANGUAGE=ru run escoverwrite "alt+r wait text:eadme escape f5 wait enter wait wait escape wait wait"
 check "Esc cancels the overwrite question" "$(nosheet escoverwrite)"
-UI_LANGUAGE=ru run escfind "alt+f7 wait wait escape wait"
+UI_LANGUAGE=ru run escfind "alt+f7 wait wait wait escape wait"
 check "Esc closes Find Files" "$(nosheet escfind)"
-UI_LANGUAGE=ru run escsync "cmd:cm_SyncDirs wait wait escape wait"
+UI_LANGUAGE=ru run escsync "cmd:cm_SyncDirs wait wait wait escape wait"
 check "Esc closes Synchronize Directories" "$(nosheet escsync)"
+
+# Network shares (localhost only): a closed port is reported at once, a server that
+# accepts but never answers (nc) shows "Connecting…", and Esc cancels the mount.
+run mountfail "cmd:connectToServer wait cmd+a text:smb://127.0.0.1:9 enter wait wait wait"
+check "a share whose server does not answer fails at once" "[ -f build/shots/reg-mountfail-sheet.png ]"
+nc -lk 127.0.0.1 4455 > build/nc-smb.out 2>&1 &
+ncpid=$!
+run mountcancel "cmd:connectToServer wait cmd+a text:smb://127.0.0.1:4455 enter wait wait wait escape wait wait"
+kill $ncpid 2>/dev/null
+check "Esc cancels a share that is still connecting" "[ -s build/nc-smb.out ] && $(nosheet mountcancel)"
+rm -f build/nc-smb.out
 
 scripts/test/mkdata.sh
 run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"

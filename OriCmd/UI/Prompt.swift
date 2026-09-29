@@ -187,6 +187,25 @@ enum Prompt {
         }
     }
 
+    /// A sheet with a spinner and Cancel (Esc; Return does not cancel) while something
+    /// slow runs. Returns the function that closes it; `onCancel` runs on Cancel only.
+    static func progress(_ title: String, in window: NSWindow, onCancel: @escaping () -> Void) -> () -> Void {
+        let spinner = NSProgressIndicator(frame: NSRect(x: 0, y: 0, width: 32, height: 32))
+        spinner.style = .spinning
+        spinner.startAnimation(nil)
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.accessoryView = spinner
+        alert.addCancelButton()
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn { onCancel() }
+        }
+        return { [weak window] in
+            guard let window, alert.window.sheetParent === window else { return }
+            window.endSheet(alert.window, returnCode: .abort)
+        }
+    }
+
     static func error(_ title: String, _ error: Error, in window: NSWindow?) {
         let alert = NSAlert()
         alert.messageText = title
