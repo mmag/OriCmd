@@ -32,12 +32,32 @@ final class FilePanelController: NSViewController {
         var entries: [ArchiveEntry]
         /// Size and date of the archive file when `entries` were read.
         var stamp: [Int64] = []
+        /// For an archive inside an archive: the outer one, as it was shown. `url` is
+        /// then a temporary copy, so the archive is read-only.
+        var outer: OuterArchive?
 
-        var displayPath: String { folder.isEmpty ? url.path : url.path + "/" + folder }
+        var displayPath: String {
+            let path = outer.map { $0.location.displayPath + "/" + $0.name } ?? url.path
+            return folder.isEmpty ? path : path + "/" + folder
+        }
+
+        /// Whether files can be added, renamed or deleted in it.
+        var isWritable: Bool { outer == nil && ArchiveEditor.isWritable(url) }
 
         /// Archive paths of entries shown in the current folder.
         func path(of name: String) -> String {
             folder.isEmpty ? name : folder + "/" + name
+        }
+    }
+
+    /// The archive an archive inside it was opened from, and that one's name there.
+    final class OuterArchive {
+        let location: ArchiveLocation
+        let name: String
+
+        init(location: ArchiveLocation, name: String) {
+            self.location = location
+            self.name = name
         }
     }
 
@@ -807,7 +827,7 @@ final class FilePanelController: NSViewController {
     /// Shows the contents of an archive as a folder (Enter / Ctrl+PgDn on it).
     /// Shows an archive as a folder. It is read in the background (a big tar.gz is
     /// decompressed as a whole), and a folder load still under way is dropped.
-    func openArchive(_ url: URL) {
+    func openArchive(_ url: URL, inside outer: OuterArchive? = nil) {
         loadGeneration += 1
         let generation = loadGeneration
         // A folder still loading is dropped, with its indicator; Esc stops this one.
@@ -828,7 +848,7 @@ final class FilePanelController: NSViewController {
                 let (entries, stamp) = try await Self.readArchive(url)
                 guard generation == loadGeneration else { return }
                 listView.setMarked([])
-                archive = ArchiveLocation(url: url, folder: "", entries: entries, stamp: stamp)
+                archive = ArchiveLocation(url: url, folder: "", entries: entries, stamp: stamp, outer: outer)
                 showArchiveFolder(selecting: nil)
             } catch {
                 guard generation == loadGeneration else { return }
@@ -925,6 +945,13 @@ final class FilePanelController: NSViewController {
         } else if item.isDirectory {
             self.archive?.folder = archive.path(of: item.name)
             showArchiveFolder(selecting: nil)
+        } else if ArchiveReader.isArchive(item.name) {
+            // An archive in the archive opens as a folder too, from a temporary copy.
+            Task {
+                if let url = await extractToTemporaryFolder(item) {
+                    openArchive(url, inside: OuterArchive(location: archive, name: item.name))
+                }
+            }
         } else {
             Task {
                 if let url = await extractToTemporaryFolder(item) {
@@ -937,7 +964,12 @@ final class FilePanelController: NSViewController {
     /// Up one folder inside the archive, or out of it at its root.
     private func archiveGoUp() {
         guard let archive else { return }
-        if archive.folder.isEmpty {
+        if archive.folder.isEmpty, let outer = archive.outer {
+            // Back to the outer archive; the temporary copy of this one goes.
+            try? FileManager.default.removeItem(at: archive.url.deletingLastPathComponent())
+            self.archive = outer.location
+            showArchiveFolder(selecting: outer.name)
+        } else if archive.folder.isEmpty {
             load(archive.url.deletingLastPathComponent(), selecting: archive.url.lastPathComponent, recordingHistory: false)
         } else {
             let name = (archive.folder as NSString).lastPathComponent
@@ -963,7 +995,12 @@ final class FilePanelController: NSViewController {
 
     /// Refuses changes inside archives that cannot be written (rar, iso, …).
     private func refuseReadOnlyArchive() -> Bool {
-        guard let archive, !ArchiveEditor.isWritable(archive.url) else { return false }
+        guard let archive, !archive.isWritable else { return false }
+        if archive.outer != nil {
+            Prompt.info(String(localized: "An archive inside an archive is read-only"),
+                        message: String(localized: "Copy it out of the outer archive (F5) to change it."), in: view.window)
+            return true
+        }
         Prompt.info(String(localized: "This archive is read-only"),
                     message: String(localized: "Only zip, tar, tar.gz, tar.bz2, tar.xz and 7z archives can be changed."),
                     in: view.window)
@@ -1785,14 +1822,14 @@ extension FilePanelController: NSMenuItemValidation {
 
     /// Runs `proceed` once the programs that put `urls` on the clipboard (or drag them)
     /// have written them (see FileCoordination). A wait longer than half a second
-    /// shows "Receiving the files…" with Cancel.
+    /// shows "Receiving Files…" with Cancel.
     private func whenWritten(_ urls: [URL], then proceed: @escaping () -> Void) {
         guard let window = view.window else { return }
         let waiting = Task { try await FileCoordination.waitUntilWritten(urls) }
         var closeProgress: (() -> Void)?
         let showsProgress = Task {
             try await Task.sleep(for: .milliseconds(500))
-            closeProgress = Prompt.progress(String(localized: "Receiving the files from the program that copied them…"),
+            closeProgress = Prompt.progress(String(localized: "Receiving Files…"),
                                             in: window) { waiting.cancel() }
         }
         Task {
@@ -1839,7 +1876,7 @@ extension FilePanelController: NSMenuItemValidation {
         }
         let cleanUp: () -> Void = { try? FileManager.default.removeItem(at: folder) }
         var cancelled = false
-        let closeProgress = Prompt.progress(String(localized: "Receiving the files from the program that copied them…"),
+        let closeProgress = Prompt.progress(String(localized: "Receiving Files…"),
                                             in: window) { cancelled = true }
         Task {
             let result = await Task.detached { try PromisedFiles.receive(from: pasteboard, into: folder) }.result
@@ -2582,7 +2619,7 @@ extension FilePanelController: FileListViewDelegate {
             }
         }
         var cancelled = false
-        let closeProgress = Prompt.progress(String(localized: "Receiving the files from the program that copied them…"),
+        let closeProgress = Prompt.progress(String(localized: "Receiving Files…"),
                                             in: window) { cancelled = true }
         group.notify(queue: .main) { [weak self] in
             MainActor.assumeIsolated {

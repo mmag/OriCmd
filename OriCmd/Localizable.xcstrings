@@ -401,6 +401,16 @@
         }
       }
     },
+    "An archive inside an archive is read-only": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив внутри архива доступен только для чтения"
+          }
+        }
+      }
+    },
     "Any cm_ command can get its own keys; shortcuts can be imported from wincmd.ini. Keys work on any keyboard layout.": {
       "localizations": {
         "ru": {
@@ -1347,6 +1357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Копировать в тот же каталог…"
+          }
+        }
+      }
+    },
+    "Copy it out of the outer archive (F5) to change it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтобы изменить его, скопируйте его из внешнего архива (F5)."
           }
         }
       }
@@ -3651,12 +3671,12 @@
         }
       }
     },
-    "Receiving the files from the program that copied them…": {
+    "Receiving Files…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Получение файлов от программы, которая их скопировала…"
+            "value": "Получение файлов…"
           }
         }
       }

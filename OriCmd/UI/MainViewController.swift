@@ -241,7 +241,7 @@ extension MainViewController: NSMenuItemValidation {
             askForServerTransfer(items, kind: kind, from: source, to: inactivePanel)
             return
         }
-        if let target = inactivePanel.archive, source.archive == nil, ArchiveEditor.isWritable(target.url) {
+        if let target = inactivePanel.archive, source.archive == nil, target.isWritable {
             askForPacking(items, kind: kind, from: source, into: target)
             return
         }

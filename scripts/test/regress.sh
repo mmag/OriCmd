@@ -67,6 +67,19 @@ run lazydrop "lazyfile:$PWD/$L/readme.txt wait tab drop:$PWD/build/testdata/plac
 check "dropping a file another program writes on demand gets its contents" "cmp -s $L/readme.txt $R/readme.txt"
 rm -rf build/testdata/placeholder
 
+# An archive inside an archive: Ctrl+PgDn (or Enter) opens it, [..] goes back to the outer
+# one onto it, and it cannot be changed (its file is a temporary copy).
+nested() { scripts/test/mkdata.sh; (cd $L && mkdir -p nest && echo inner > nest/inside-inner.txt && /usr/bin/zip -q -r inner.zip nest && /usr/bin/zip -q outer.zip inner.zip && rm -rf nest inner.zip); }
+nested
+run nestpgdn "alt+o wait text:uter enter wait wait alt+i wait text:nner escape ctrl+pagedown wait wait home down f5 wait enter wait wait"
+check "Ctrl+PgDn opens an archive inside an archive" "[ -f $R/nest/inside-inner.txt ]"
+nested
+run nestup "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait home enter wait wait f5 wait enter wait wait"
+check "[..] in a nested archive goes back to the outer one" "[ -f $R/inner.zip ]"
+nested
+run nestro "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait f7 wait"
+check "an archive inside an archive is read-only" "[ -f build/shots/reg-nestro-sheet.png ] && ! /usr/bin/unzip -l $L/outer.zip | grep -q 'New'"
+
 scripts/test/mkdata.sh
 run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"
 check "F2 renames in place (the extension kept)" "[ -f $L/by-f2.md ] && [ ! -f $L/notes.md ]"

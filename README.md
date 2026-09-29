@@ -218,7 +218,9 @@ extracted to a temporary folder and opened) and `F5` (extract the selection to
 the other panel) work. Zip, tar, tar.gz, tar.bz2, tar.xz and 7z archives can
 also be written: `F5`/`F6` into a panel showing an archive pack the files into
 it, and `F7`, `F8` and `Shift+F6` work inside (the archive is rebuilt through a
-temporary folder). rar, iso, cab and others are read-only.
+temporary folder). rar, iso, cab and others are read-only. An archive inside an
+archive opens the same way (`Enter`, `Ctrl+PgDn`; `[..]` goes back to the outer one);
+it is read-only.
 
 ### Button bar and drive buttons
 
