@@ -20,7 +20,7 @@ enum Prompt {
         alert.informativeText = message
         alert.accessoryView = field
         alert.addButton(withTitle: okTitle)
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addCancelButton()
         alert.window.initialFirstResponder = field
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
@@ -52,7 +52,7 @@ enum Prompt {
         alert.informativeText = message
         alert.accessoryView = field
         alert.addButton(withTitle: okTitle)
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addCancelButton()
         let queue = alert.addButton(withTitle: queueTitle)
         queue.keyEquivalent = String(UnicodeScalar(UInt32(NSF2FunctionKey))!)
         queue.keyEquivalentModifierMask = []
@@ -94,7 +94,7 @@ enum Prompt {
         alert.informativeText = message
         alert.accessoryView = accessory
         alert.addButton(withTitle: okTitle)
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addCancelButton()
         alert.window.initialFirstResponder = field
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
@@ -112,7 +112,7 @@ enum Prompt {
         alert.informativeText = message
         alert.accessoryView = field
         alert.addButton(withTitle: String(localized: "Connect"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addCancelButton()
         alert.window.initialFirstResponder = field
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
@@ -140,7 +140,7 @@ enum Prompt {
         alert.informativeText = message
         alert.accessoryView = popUp
         alert.addButton(withTitle: okTitle)
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addCancelButton()
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
                 completion(popUp.indexOfSelectedItem)
@@ -162,7 +162,7 @@ enum Prompt {
         alert.alertStyle = destructive ? .critical : .warning
         let ok = alert.addButton(withTitle: okTitle)
         ok.hasDestructiveAction = destructive
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addCancelButton()
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
                 completion()

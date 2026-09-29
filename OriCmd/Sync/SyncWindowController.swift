@@ -48,6 +48,7 @@ final class SyncWindowController: NSWindowController {
         window.center()
         window.rememberFrame(as: "SyncDirectories")
         super.init(window: window)
+        window.delegate = self
         buildContent()
     }
 
@@ -288,5 +289,13 @@ extension SyncWindowController: NSTextFieldDelegate {
         reloadRows()
         syncButton.isEnabled = false
         statusLabel.stringValue = String(localized: "Press Compare to compare these folders.")
+    }
+}
+
+extension SyncWindowController: NSWindowDelegate {
+    /// Closing the window (Esc) stops a comparison still running.
+    func windowWillClose(_ notification: Notification) {
+        comparison?.cancel()
+        comparison = nil
     }
 }

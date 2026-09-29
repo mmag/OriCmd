@@ -22,6 +22,24 @@ scripts/test/mkdata.sh
 run rename "alt+n wait text:otes escape shift+f6 wait text:renamed enter wait"
 check "Shift+F6 renames in place" "[ -f $L/renamed.md ] && [ ! -f $L/notes.md ]"
 
+# Esc closes any dialog, in the Russian interface too (NSAlert gives Esc only to its own "Cancel").
+nosheet() { echo "[ -f build/shots/reg-$1.png ] && [ ! -f build/shots/reg-$1-sheet.png ] && [ ! -f build/shots/reg-$1-win1.png ]"; }
+scripts/test/mkdata.sh; cp $L/readme.txt $R/
+UI_LANGUAGE=ru run escf7 "f7 wait escape wait"
+check "Esc closes F7" "$(nosheet escf7)"
+UI_LANGUAGE=ru run esccopy "home down f5 wait escape wait"
+check "Esc closes the copy dialog" "$(nosheet esccopy)"
+UI_LANGUAGE=ru run escattr "alt+r wait text:eadme escape cmd+i wait escape wait"
+check "Esc closes Change Attributes" "$(nosheet escattr)"
+UI_LANGUAGE=ru run escinfo "alt+a wait text:rchive-t enter wait wait cmd+i wait escape wait"
+check "Esc closes a message with one button" "$(nosheet escinfo)"
+UI_LANGUAGE=ru run escoverwrite "alt+r wait text:eadme escape f5 wait enter wait wait escape wait wait"
+check "Esc cancels the overwrite question" "$(nosheet escoverwrite)"
+UI_LANGUAGE=ru run escfind "alt+f7 wait wait escape wait"
+check "Esc closes Find Files" "$(nosheet escfind)"
+UI_LANGUAGE=ru run escsync "cmd:cm_SyncDirs wait wait escape wait"
+check "Esc closes Synchronize Directories" "$(nosheet escsync)"
+
 scripts/test/mkdata.sh
 run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"
 check "F2 renames in place (the extension kept)" "[ -f $L/by-f2.md ] && [ ! -f $L/notes.md ]"

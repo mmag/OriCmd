@@ -1582,7 +1582,7 @@ extension FilePanelController: NSMenuItemValidation {
             : String(localized: "Change attributes of \(items.count) files/folders")
         alert.accessoryView = stack
         alert.addButton(withTitle: String(localized: "Apply"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addCancelButton()
         alert.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
             var change = AttributeChange()

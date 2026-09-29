@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Settings.applyAppearance()
+        EscapeKey.install()
         Task { await Self.removeOldTemporaryFolders() }
         NSApp.mainMenu = MainMenu.make()
         for name in [KeyBindings.didChange, UserCommands.didChange] {
@@ -67,7 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.alertStyle = .warning
             alert.messageText = String(localized: "File operations are still running")
             alert.informativeText = String(localized: "Quitting stops them; files not copied yet stay where they were.")
-            alert.addButton(withTitle: String(localized: "Continue Working"))
+            EscapeKey.answer(alert, with: alert.addButton(withTitle: String(localized: "Continue Working")))
             let quit = alert.addButton(withTitle: String(localized: "Quit Anyway"))
             quit.hasDestructiveAction = true
             guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
@@ -88,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.informativeText = programs.count == 1
                 ? String(localized: "Quitting stops it on the server.")
                 : String(localized: "Quitting stops them on the server.")
-            alert.addButton(withTitle: String(localized: "Continue Working"))
+            EscapeKey.answer(alert, with: alert.addButton(withTitle: String(localized: "Continue Working")))
             let quit = alert.addButton(withTitle: String(localized: "Quit Anyway"))
             quit.hasDestructiveAction = true
             sender.reply(toApplicationShouldTerminate: alert.runModal() == .alertSecondButtonReturn)

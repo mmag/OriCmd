@@ -189,6 +189,8 @@ enum DebugAutomation {
                 isARepeat: false, keyCode: stroke.keyCode
             ) else { continue }
             if type == .keyDown {
+                // Esc as the app-wide monitor sees it before anything else.
+                if EscapeKey.handle(event, in: target) { break }
                 if target.sheetParent != nil, stroke.characters == "\r", let cell = target.defaultButtonCell {
                     cell.performClick(nil)
                     break

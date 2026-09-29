@@ -154,7 +154,7 @@ enum Updater {
             + (notes.isEmpty ? "" : "\n\n" + notes)
         let canInstall = release.dmg != nil && canReplaceApp
         alert.addButton(withTitle: canInstall ? String(localized: "Install and Relaunch") : String(localized: "Open Release Page"))
-        alert.addButton(withTitle: String(localized: "Later"))
+        alert.addCancelButton(String(localized: "Later"))
         alert.addButton(withTitle: String(localized: "Skip This Version"))
         let handle: (NSApplication.ModalResponse) -> Void = { response in
             switch response {

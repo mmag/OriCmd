@@ -173,9 +173,10 @@ final class TransferController {
         alert.messageText = String(localized: "File already exists")
         alert.informativeText = String(localized: "Overwrite:\n\(describe(target))\n\nWith:\n\(describe(source))")
         for title in [String(localized: "Overwrite"), String(localized: "Overwrite All"), String(localized: "Skip"),
-                      String(localized: "Skip All"), String(localized: "Overwrite All Older"), String(localized: "Cancel")] {
+                      String(localized: "Skip All"), String(localized: "Overwrite All Older")] {
             alert.addButton(withTitle: title)
         }
+        alert.addCancelButton()
         let response = await alert.beginSheetModal(for: sheet)
         switch response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue {
         case 0: return .overwrite
@@ -202,7 +203,7 @@ final class TransferController {
         alert.addButton(withTitle: String(localized: "Skip"))
         let replace = alert.addButton(withTitle: String(localized: "Replace"))
         replace.hasDestructiveAction = true
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addCancelButton()
         let response = await alert.beginSheetModal(for: sheet)
         switch response {
         case .alertFirstButtonReturn: return .skip

@@ -169,6 +169,7 @@ shortcuts in parentheses.
 | Files → Compare by Content | Two marked files, or the files under the cursors of both panels. The compare window aligns the lines: changed ones are yellow (with the differing part highlighted), removed ones red, added ones green; `N`/`P` (`⌥↓`/`⌥↑`) — next/previous difference, "Ignore whitespace"; binary files are compared byte by byte in hex |
 | `⌘I` | Change attributes: rwx permissions, hidden, locked, modification date (also recursively) |
 | `Ctrl+Q` | Quick View in the other panel |
+| `Esc` | Close a dialog or a window in front (Cancel): copying, questions, Find Files, synchronization, settings |
 | `⌘C` / `⌘X` / `⌘V` (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) | Copy / cut / paste files (compatible with Finder); pasting into the same folder creates "name copy" |
 | `⌥⌘V` | Move the files from the clipboard here |
 | `⌥⌘C` | Copy the full paths of the selected files (Mark → Copy Names — names only) |

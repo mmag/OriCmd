@@ -44,6 +44,7 @@ final class FindFilesWindowController: NSWindowController {
         window.center()
         window.rememberFrame(as: "FindFiles")
         super.init(window: window)
+        window.delegate = self
         buildContent()
     }
 
@@ -187,5 +188,12 @@ private final class ResultsTableView: NSTableView {
         } else {
             super.keyDown(with: event)
         }
+    }
+}
+
+extension FindFilesWindowController: NSWindowDelegate {
+    /// Closing the window (Esc) stops the search.
+    func windowWillClose(_ notification: Notification) {
+        search?.cancel()
     }
 }

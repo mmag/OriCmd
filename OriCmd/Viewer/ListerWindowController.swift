@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 ///
 /// Keys: 1 text, 3 hex, 7 preview, W word wrap, N / P next / previous file,
 /// F7 or ⌘F find, F3 / ⇧F3 find next / previous, Esc closes.
-final class ListerWindowController: NSWindowController, NSWindowDelegate {
+final class ListerWindowController: NSWindowController, NSWindowDelegate, HandlesEscapeKey {
     enum Mode {
         case text, hex, preview
     }

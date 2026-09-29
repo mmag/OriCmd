@@ -5,7 +5,7 @@ import AppKit
 /// as hex dumps, byte position against byte position.
 ///
 /// Keys: N / P or ⌥↓ / ⌥↑ next / previous difference, Esc closes.
-final class CompareWindowController: NSWindowController, NSWindowDelegate {
+final class CompareWindowController: NSWindowController, NSWindowDelegate, HandlesEscapeKey {
     private static var openControllers: [CompareWindowController] = []
     private nonisolated static let textLimit = 16 * 1024 * 1024
     private nonisolated static let binaryLimit = 64 * 1024 * 1024

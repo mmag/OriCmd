@@ -172,7 +172,7 @@ extension KeyBindingsWindowController: NSTableViewDataSource, NSTableViewDelegat
 
 /// Captures one key combination, including ⌘ combinations that would
 /// otherwise trigger menu items.
-private final class ShortcutRecorder: NSView {
+private final class ShortcutRecorder: NSView, TakesEscapeKey {
     var prompt = ""
     var onRecord: ((Shortcut?) -> Void)?
 
