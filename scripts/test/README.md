@@ -7,7 +7,10 @@ folders in `build/testdata` only — never on real files.
 - `mkdata.sh` — recreates `build/testdata/{left,right}` with sample files and archives.
 - `run.sh <name> "<keys>"` — launches the Debug app on the test folders, plays the
   keys (e.g. `"down space f5 wait enter"`, `cmd:cm_SyncDirs`, `click:Background`)
-  and writes `build/shots/<name>.png` (plus sheets and other windows).
+  and writes `build/shots/<name>.png` (plus sheets and other windows, each with a
+  `.txt` of its title and texts; `menu` and `textmenu` write a context menu to
+  `<name>-menu.txt`). `rightmouse:click:N`, `hold:N`, `drag:N-M` and `ctrlclick:N`
+  play the right button on panel rows.
   Modifiers: `cmd+`, `shift+`, `alt+`, `ctrl+`, `num+`; `ru+` types the key as the
   Russian layout would (`ru+ctrl+d` sends "в" with the D key code).
 - `regress.sh` — plays the main file operations and checks the results on disk.

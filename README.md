@@ -11,20 +11,23 @@ keep working as always.
 
 ## Features
 
-- **Panels:** tabs, history, directory hotlist, tree, filters, quick search;
-  full and brief views, thumbnails, optional columns, file colors by mask.
+- **Panels:** tabs, history, directory hotlist, tree, filters, quick search, an
+  editable path with `Tab` completion; full and brief views, thumbnails, optional
+  columns, file colors by mask and ready-made colors for color vision deficiencies.
 - **Copy and move:** queue and background operations, file type filter, name
   masks, overwrite modes, verification after copying.
 - **Archives as folders:** zip, tar, 7z and more — browse, extract, pack and
-  change files right inside an archive.
+  change files right inside an archive; archives inside archives open too.
 - **Servers in a panel:** SFTP (through the system ssh, with keys and
-  passwords) with the server's terminal under the files, FTP/FTPS, saved
-  connections; smb, afp, NFS and WebDAV as volumes.
-- **Tools:** text, hex and Quick Look viewer (`F3`), compare files by content,
-  synchronize directories, multi-rename, find files, checksums, attributes.
+  passwords) with the server's terminal under the files, FTP/FTPS, saved and
+  recent connections; smb, afp, NFS and WebDAV as volumes.
+- **Tools:** viewer (`F3`) for text (UTF-8, UTF-16, Windows-1251, DOS, KOI8-R
+  and other encodings), hex and Quick Look (office documents too), compare files
+  by content, synchronize directories, multi-rename, find files, checksums,
+  attributes, the Finder's Get Info.
 - **Make it yours:** your own keyboard shortcuts (including import from
   `wincmd.ini`), a Start menu, programs for `Enter`/`F3`/`F4` by file mask, a
-  customizable button bar.
+  customizable button bar, the right mouse button marking files.
 - Light and dark themes, English and Russian interface, automatic updates from GitHub.
 
 ## Screenshots
@@ -140,7 +143,7 @@ shortcuts in parentheses.
 | `Space`, `Insert` | Mark a file and move down; on a folder, also calculate its size |
 | `Alt+Shift+Enter` | Calculate the size of all folders |
 | `Shift+↑/↓`, `Shift+PgUp/PgDn/Home/End` | Mark a range |
-| `⌘`-click, `Shift`-click | Mark with the mouse |
+| `⌘`-click, `Shift`-click | Mark with the mouse (or the right button, if it marks files: see Mouse) |
 | `+` / `−` | Mark / unmark a group by mask (`*.txt;*.md`) |
 | `*` | Invert the marking of files |
 | `Num /` | Restore the previous selection |
@@ -352,9 +355,10 @@ OriCmd → Settings… (`⌘,`) — a window with panes:
 
 - **General** — interface language, automatic update checks.
 - **Panels** — panel preview, font, command line, function key and drive
-  buttons, button bar setup.
+  buttons, button bar setup, what the right mouse button does.
 - **Colors** — light or dark theme (or as in the system), panel preview,
-  colors of marked files and the cursor, alternating rows, colors by file mask.
+  ready-made colors, colors of marked files (and bold) and the cursor,
+  alternating rows, colors by file mask.
 - **Operations** — defaults of the copy dialog (overwrite mode, verification,
   attributes), confirmation of moving to the Trash, internal associations,
   Start menu.
@@ -374,8 +378,8 @@ test folders (`ORICMD_LEFT`, `ORICMD_RIGHT`); `scripts/test/` has the test data,
 the regression suite and local test servers.
 
 Release: `scripts/release.sh 0.2 [notes.md]` sets the version, builds the disk
-image, commits, tags `v0.2`, pushes to GitHub and publishes the release with the
-image (needs `gh auth login`).
+image, commits, tags `v0.2`, pushes to GitHub, publishes the release with the
+image and updates the Homebrew cask in `mmag/homebrew-tap` (needs `gh auth login`).
 
 ## License
 
