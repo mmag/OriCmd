@@ -947,10 +947,13 @@ final class FilePanelController: NSViewController {
         (tabs.map(\.directory.path), activeTabIndex)
     }
 
-    /// Opens a tab for `directory`, or for the folder `remote` of a server.
+    /// Opens a tab for `directory`, or for the folder `remote` of a server; a server
+    /// tab gets a terminal of its own when this tab shows one.
     func openTab(_ directory: URL, remote: RemoteLocation? = nil) {
+        let showsTerminal = remote != nil && panelView.isTerminalVisible
         tabs[activeTabIndex] = currentTab()
-        tabs.insert(Tab(directory: directory, sortOrder: sortOrder, remote: remote), at: activeTabIndex + 1)
+        tabs.insert(Tab(directory: directory, sortOrder: sortOrder, remote: remote, showsTerminal: showsTerminal),
+                    at: activeTabIndex + 1)
         activateTab(at: activeTabIndex + 1)
     }
 
@@ -1019,7 +1022,7 @@ final class FilePanelController: NSViewController {
         }
     }
 
-    /// A server tab is duplicated with its server (without the terminal).
+    /// A server tab is duplicated with its server (and a shell of its own).
     @objc private func duplicateTab(_ sender: NSMenuItem) {
         selectTab(sender.tag)
         openTab(directory, remote: remote)
@@ -1056,6 +1059,9 @@ final class FilePanelController: NSViewController {
             listView.setMarked([])
             refreshList(selecting: nil)
             loadRemote(server.path, selecting: tab.selectedName)
+            if tab.terminal == nil, tab.showsTerminal {
+                openTerminal(focusing: false)
+            }
         } else {
             clearRemote()
             load(tab.directory, selecting: tab.selectedName, recordingHistory: false)

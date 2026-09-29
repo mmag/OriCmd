@@ -263,7 +263,8 @@ opens the next connection the same way.
 
 A server lives in its tab: switching tabs keeps the connection and the shell
 (a command keeps running), a drive button on a server tab opens the drive in a
-new tab, and `⌘T` opens the same server folder. The terminal ends when you
+new tab, and `⌘T` (or Duplicate Tab) opens the same server folder with a shell of
+its own. The terminal ends when you
 leave the server in its tab, disconnect, close the tab or quit; if a program is
 still running there (OriCmd asks the server), you are asked first.
 
