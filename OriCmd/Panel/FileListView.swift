@@ -704,7 +704,9 @@ final class FileListView: NSView {
             tryToPerform(Command.transferRight.selector, with: self)
         case (.deleteForward?, []), (.delete?, [.command]):
             tryToPerform(Command.delete.selector, with: self)
-        case (.deleteForward?, [.shift]):
+        // With Shift (or ⌥⌘⌫, the Finder's "Delete Immediately"): past the Trash.
+        case (.deleteForward?, [.shift]), (.delete?, [.shift]), (.delete?, [.command, .shift]),
+             (.delete?, [.command, .option]):
             tryToPerform(Command.deletePermanently.selector, with: self)
         case (.insert?, []), (.help?, []):
             toggleMarkAndMove(by: 1)

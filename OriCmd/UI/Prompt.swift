@@ -103,6 +103,52 @@ enum Prompt {
         }
     }
 
+    /// Asks for a server address, with the recent ones listed under the field: a click
+    /// puts one into the field, a double click connects, ↓ goes from the field to the list.
+    static func address(
+        _ title: String,
+        message: String,
+        initial: String,
+        recent: [String],
+        okTitle: String,
+        in window: NSWindow,
+        onRemove: @escaping (String) -> Void,
+        completion: @escaping (String) -> Void
+    ) {
+        let width: CGFloat = 400
+        let field = NSTextField(string: initial)
+        let list = RecentAddressList(addresses: recent, field: field, onRemove: onRemove)
+        let listHeight: CGFloat = recent.isEmpty ? 0 : min(CGFloat(recent.count), 6) * 22 + 4
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: width, height: 22 + (recent.isEmpty ? 0 : 8 + listHeight)))
+        field.frame = NSRect(x: 0, y: accessory.frame.height - 22, width: width, height: 22)
+        field.delegate = list
+        accessory.addSubview(field)
+        if !recent.isEmpty {
+            list.scrollView.frame = NSRect(x: 0, y: 0, width: width, height: listHeight)
+            accessory.addSubview(list.scrollView)
+        }
+
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.accessoryView = accessory
+        let ok = alert.addButton(withTitle: okTitle)
+        alert.addCancelButton()
+        list.onChoose = { ok.performClick(nil) }
+        alert.window.initialFirstResponder = field
+        alert.beginSheetModal(for: window) { response in
+            // The list lives as long as the sheet.
+            withExtendedLifetime(list) {
+                if response == .alertFirstButtonReturn {
+                    completion(field.stringValue)
+                }
+            }
+        }
+        DispatchQueue.main.async {
+            field.currentEditor()?.selectedRange = NSRange(location: 0, length: (initial as NSString).length)
+        }
+    }
+
     /// Asks for a password (hidden while typing).
     static func password(_ title: String, message: String, in window: NSWindow,
                          completion: @escaping (String) -> Void) {
@@ -215,5 +261,78 @@ enum Prompt {
         } else {
             alert.runModal()
         }
+    }
+}
+
+/// The recent servers under the address field of Connect to Server.
+private final class RecentAddressList: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
+    let scrollView = NSScrollView()
+    private let table = NSTableView()
+    private var addresses: [String]
+    private let field: NSTextField
+    private let onRemove: (String) -> Void
+    /// A double click (or Return in the list): connect to the chosen address.
+    var onChoose: (() -> Void)?
+
+    init(addresses: [String], field: NSTextField, onRemove: @escaping (String) -> Void) {
+        self.addresses = addresses
+        self.field = field
+        self.onRemove = onRemove
+        super.init()
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("address"))
+        column.resizingMask = .autoresizingMask
+        table.addTableColumn(column)
+        table.headerView = nil
+        table.rowHeight = 20
+        table.dataSource = self
+        table.delegate = self
+        table.target = self
+        table.doubleAction = #selector(choose(_:))
+        let menu = NSMenu()
+        menu.addItem(withTitle: String(localized: "Remove from List"), action: #selector(remove(_:)), keyEquivalent: "")
+            .target = self
+        table.menu = menu
+        scrollView.documentView = table
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        addresses.count
+    }
+
+    func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
+        addresses[row]
+    }
+
+    func tableView(_ tableView: NSTableView, shouldEdit tableColumn: NSTableColumn?, row: Int) -> Bool {
+        false
+    }
+
+    /// A chosen address goes into the field.
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        guard addresses.indices.contains(table.selectedRow) else { return }
+        field.stringValue = addresses[table.selectedRow]
+    }
+
+    @objc private func choose(_ sender: Any?) {
+        guard addresses.indices.contains(table.clickedRow) else { return }
+        field.stringValue = addresses[table.clickedRow]
+        onChoose?()
+    }
+
+    @objc private func remove(_ sender: Any?) {
+        let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
+        guard addresses.indices.contains(row) else { return }
+        onRemove(addresses.remove(at: row))
+        table.reloadData()
+    }
+
+    /// ↓ in the field goes to the list.
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        guard selector == #selector(NSResponder.moveDown(_:)), !addresses.isEmpty else { return false }
+        control.window?.makeFirstResponder(table)
+        table.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+        return true
     }
 }

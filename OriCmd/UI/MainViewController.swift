@@ -779,14 +779,25 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
-    /// ⌘K: mounts a network share and shows it in the active panel.
+    private static let recentServersKey = "RecentServers"
+
+    /// The last ten servers connected to with ⌘K, the latest first (without passwords).
+    private static var recentServers: [String] {
+        get { AppDefaults.store.stringArray(forKey: recentServersKey) ?? [] }
+        set { AppDefaults.store.set(Array(newValue.prefix(10)), forKey: recentServersKey) }
+    }
+
+    /// ⌘K: connects to a server (SFTP, FTP) or mounts a network share, and shows it in
+    /// the active panel. The recent servers are listed under the address.
     @objc func connectToServer(_ sender: Any?) {
         guard let window = view.window else { return }
         let key = "LastServerAddress"
-        Prompt.text(String(localized: "Connect to Server"),
-                    message: String(localized: "Server address (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// for WebDAV):"),
-                    initial: AppDefaults.store.string(forKey: key) ?? "smb://",
-                    okTitle: String(localized: "Connect"), in: window) { [weak self] address in
+        Prompt.address(String(localized: "Connect to Server"),
+                       message: String(localized: "Server address (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// for WebDAV):"),
+                       initial: AppDefaults.store.string(forKey: key) ?? "smb://",
+                       recent: Self.recentServers,
+                       okTitle: String(localized: "Connect"), in: window,
+                       onRemove: { address in Self.recentServers.removeAll { $0 == address } }) { [weak self] address in
             guard let url = URL(string: address.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
                 NSSound.beep()
                 return
@@ -794,17 +805,20 @@ extension MainViewController: NSMenuItemValidation {
             // Remembered for next time, but never with a password typed into the address.
             var remembered = URLComponents(url: url, resolvingAgainstBaseURL: false)
             remembered?.password = nil
-            AppDefaults.store.set(remembered?.string ?? address, forKey: key)
-            if self?.connectRemote(url, password: nil) == true {
+            let shown = remembered?.string ?? address
+            AppDefaults.store.set(shown, forKey: key)
+            // Only addresses that worked join the recent list, so typos do not.
+            let connected = { Self.recentServers = [shown] + Self.recentServers.filter { $0 != shown } }
+            if self?.connectRemote(url, password: nil, onConnected: connected) == true {
                 return
             }
-            self?.mount(url, named: address, in: window)
+            self?.mount(url, named: address, in: window, onMounted: connected)
         }
     }
 
     /// Mounts a network share, showing that it connects (with Cancel). A server that
     /// does not answer at all is reported at once instead of after the mount's long wait.
-    private func mount(_ url: URL, named address: String, in window: NSWindow) {
+    private func mount(_ url: URL, named address: String, in window: NSWindow, onMounted: @escaping () -> Void) {
         var closeProgress: () -> Void = {}
         let task = Task { [weak self] in
             do {
@@ -814,6 +828,7 @@ extension MainViewController: NSMenuItemValidation {
                 try Task.checkCancellation()
                 let mountPoint = try await NetworkConnection.mount(url)
                 closeProgress()
+                onMounted()
                 self?.activePanel.load(mountPoint)
             } catch is CancellationError {
                 closeProgress()
@@ -842,33 +857,33 @@ extension MainViewController: NSMenuItemValidation {
     }
 
     /// Opens an SFTP or FTP server in the active panel. Returns false for other addresses.
-    private func connectRemote(_ url: URL, password: String?) -> Bool {
+    private func connectRemote(_ url: URL, password: String?, onConnected: (() -> Void)? = nil) -> Bool {
         if let fileSystem = SFTPFileSystem(url: url, password: password) {
-            activePanel.openRemote(fileSystem)
+            activePanel.openRemote(fileSystem, onConnected: onConnected)
             return true
         }
         guard ["ftp", "ftps", "ftpes"].contains(url.scheme?.lowercased() ?? "") else { return false }
         if let password, let fileSystem = FTPFileSystem(url: url, password: password) {
-            activePanel.openRemote(fileSystem)
+            activePanel.openRemote(fileSystem, onConnected: onConnected)
         } else {
-            connectFTP(url)
+            connectFTP(url, onConnected: onConnected)
         }
         return true
     }
 
     /// Opens an FTP server in the active panel, asking for the password if needed.
-    private func connectFTP(_ url: URL) {
+    private func connectFTP(_ url: URL, onConnected: (() -> Void)?) {
         guard let window = view.window else { return }
         if FTPFileSystem.needsPassword(url) {
             Prompt.password(String(localized: "Connect to Server"),
                             message: String(localized: "Password for \(url.user(percentEncoded: false) ?? "")@\(url.host() ?? ""):"),
                             in: window) { [weak self] password in
                 if let fileSystem = FTPFileSystem(url: url, password: password) {
-                    self?.activePanel.openRemote(fileSystem)
+                    self?.activePanel.openRemote(fileSystem, onConnected: onConnected)
                 }
             }
         } else if let fileSystem = FTPFileSystem(url: url, password: nil) {
-            activePanel.openRemote(fileSystem)
+            activePanel.openRemote(fileSystem, onConnected: onConnected)
         }
     }
 

@@ -7,7 +7,7 @@ import AppKit
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
-///   button), `click:Button_Title`,
+///   button), `tabbardoubleclick` (the empty end of the tab bar), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
 ///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
@@ -51,6 +51,16 @@ enum DebugAutomation {
                 } else if token.hasPrefix("drive:"), let main = window.contentViewController as? MainViewController {
                     // Simulates a click on a drive button of the active panel.
                     main.activePanel.panelView.driveBar.onSelect?(URL(filePath: String(token.dropFirst(6))))
+                } else if token == "tabbardoubleclick", let main = window.contentViewController as? MainViewController {
+                    // A double click on the empty end of the active panel's tab bar.
+                    let bar = main.activePanel.panelView.tabBar
+                    let point = bar.convert(NSPoint(x: bar.bounds.maxX - 4, y: bar.bounds.midY), to: nil)
+                    if let event = NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [],
+                                                      timestamp: ProcessInfo.processInfo.systemUptime,
+                                                      windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                                                      clickCount: 2, pressure: 1) {
+                        bar.mouseDown(with: event)
+                    }
                 } else if token.hasPrefix("dropapp:") {
                     // Simulates dropping an application onto the toolbar.
                     (window.windowController as? MainWindowController)?

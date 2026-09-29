@@ -205,6 +205,7 @@ final class FilePanelController: NSViewController {
         panelView.tabBar.onSelect = { [weak self] index in self?.selectTab(index) }
         panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
         panelView.tabBar.onContextMenu = { [weak self] index in self?.tabMenu(for: index) }
+        panelView.tabBar.onNewTab = { [weak self] in self?.openNewTab(nil) }
         panelView.quickSearchField.delegate = self
         panelView.terminalPane.onFocus = { [weak self] in
             guard let self else { return }
@@ -374,10 +375,10 @@ final class FilePanelController: NSViewController {
     // MARK: - Servers
 
     /// Connects to a server and shows its first folder in this panel.
-    func openRemote(_ fileSystem: any RemoteFileSystem, leftServer: Bool = false) {
+    func openRemote(_ fileSystem: any RemoteFileSystem, leftServer: Bool = false, onConnected: (() -> Void)? = nil) {
         if remote != nil {
             // Another server in this tab: the terminal of the one shown ends first.
-            leaveServer { [weak self] in self?.openRemote(fileSystem, leftServer: true) }
+            leaveServer { [weak self] in self?.openRemote(fileSystem, leftServer: true, onConnected: onConnected) }
             return
         }
         loadGeneration += 1
@@ -390,6 +391,7 @@ final class FilePanelController: NSViewController {
                 guard generation == loadGeneration else { return }
                 listView.setMarked([])
                 remote = RemoteLocation(fileSystem: fileSystem, path: path)
+                onConnected?()
                 loadTask = nil
                 loadRemote(path, selecting: nil)
                 updateTabBar()
@@ -1905,7 +1907,11 @@ extension FilePanelController: NSMenuItemValidation {
             add(Command.copyFullNamesToClip.title, Command.copyFullNamesToClip.selector)
             menu.addItem(.separator())
             add(Command.renameOnly.title, Command.renameOnly.selector)
-            add(Command.delete.title, Command.delete.selector)
+            // Holding Shift turns Delete into Delete Permanently.
+            add(Command.delete.title, Command.delete.selector).keyEquivalentModifierMask = []
+            let permanently = add(Command.deletePermanently.title, Command.deletePermanently.selector)
+            permanently.keyEquivalentModifierMask = .shift
+            permanently.isAlternate = true
             if archive == nil {
                 menu.addItem(.separator())
                 add(Command.packFiles.title, Command.packFiles.selector)
@@ -2157,7 +2163,7 @@ extension FilePanelController: NSMenuItemValidation {
             }
         } else if permanently {
             Prompt.confirm(String(localized: "Do you really want to permanently delete \(what)?"),
-                           message: String(localized: "This cannot be undone."),
+                           message: String(localized: "Nothing goes to the Trash: this cannot be undone."),
                            okTitle: String(localized: "Delete"), destructive: true, in: window) { [weak self] in
                 self?.performDelete(items.map(\.url), permanently: true)
             }

@@ -109,7 +109,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `Ctrl+←` / `Ctrl+→` (`⌥⌘←` / `⌥⌘→`) | Show the folder under the cursor in the left / right panel |
 | `Alt+F1` / `Alt+F2` | Volume list of the left / right panel |
 | `Ctrl+\` | Root of the volume |
-| `⌘T` / `⌘W` | New tab / close tab |
+| `⌘T` / `⌘W` | New tab (or a double click on the empty part of the tab bar) / close tab |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` (`⇧⌘]` / `⇧⌘[`) | Next / previous tab |
 | `Ctrl+↑` (`⌥⌘↑`) | Open the folder under the cursor in a new tab |
 | `Ctrl+D` (`⌘D`) | Directory hotlist: go, add or remove the current folder |
@@ -164,7 +164,7 @@ shortcuts in parentheses.
 | `Ctrl+M` | Multi-Rename Tool: masks `[N]`, `[N2-5]`, `[E]`, `[C]`, `[P]`, `[YMD]`, `[hms]`, search and replace (including regular expressions), case, preview and undo |
 | `F7` (`⇧⌘N`) | New folder (`a/b/c` creates nested ones) |
 | `F8`, `Del` (`⌘⌫`) | Move to the Trash |
-| `Shift+F8`, `Shift+Del` | Delete permanently |
+| `Shift+F8`, `Shift+Del`, `Shift+⌫`, `⇧⌘⌫`, `⌥⌘⌫` | Delete permanently, past the Trash (in the context menu, Delete becomes Delete Permanently while Shift is held) |
 | `Ctrl+Shift+F5` | Create a symbolic link (in the other panel by default) |
 | Files → Compare by Content | Two marked files, or the files under the cursors of both panels. The compare window aligns the lines: changed ones are yellow (with the differing part highlighted), removed ones red, added ones green; `N`/`P` (`⌥↓`/`⌥↑`) — next/previous difference, "Ignore whitespace"; binary files are compared byte by byte in hex |
 | `⌘I` | Change attributes: rwx permissions, hidden, locked, modification date (also recursively) |
@@ -173,7 +173,7 @@ shortcuts in parentheses.
 | `⌘C` / `⌘X` / `⌘V` (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) | Copy / cut / paste files (compatible with Finder); pasting into the same folder creates "name copy" |
 | `⌥⌘V` | Move the files from the clipboard here |
 | `⌥⌘C` | Copy the full paths of the selected files (Mark → Copy Names — names only) |
-| `⌘K` | Connect to a server: `sftp://`, `ftp://`, `ftps://`, `ftpes://` open right in the panel; smb, afp, nfs and WebDAV are mounted as volumes (with a "Connecting…" window you can cancel; a server that does not answer is reported within seconds) |
+| `⌘K` | Connect to a server: `sftp://`, `ftp://`, `ftps://`, `ftpes://` open right in the panel; smb, afp, nfs and WebDAV are mounted as volumes (with a "Connecting…" window you can cancel; a server that does not answer is reported within seconds). The last ten servers connected to are listed under the address: a click picks one, a double click connects |
 | `Ctrl+F` (`⇧⌘K`) | Saved connections (passwords are kept in the Keychain) |
 | Net → Disconnect | Close the server in the active panel |
 | `⌘E` | Eject the removable or network volume of the active panel |

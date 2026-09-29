@@ -64,6 +64,13 @@ run delete "alt+s wait text:cript escape shift+f8 wait enter wait wait"
 check "Shift+F8 deletes permanently" "[ ! -f $L/script.sh ]"
 
 scripts/test/mkdata.sh
+run deleteshift "alt+s wait text:cript escape shift+backspace wait enter wait wait"
+check "Shift+Delete (⌫) deletes permanently" "[ ! -f $L/script.sh ]"
+scripts/test/mkdata.sh; rm -f build/shots/reg-deletemenu-menu.txt
+run deletemenu "alt+s wait text:cript escape menu"
+check "the context menu has Delete Permanently under Shift" "grep -qx 'Delete Permanently' build/shots/reg-deletemenu-menu.txt"
+
+scripts/test/mkdata.sh
 run cmdline "text:touch space text:cmd-made.txt enter wait wait"
 check "command line runs commands" "[ -f $L/cmd-made.txt ]"
 
@@ -249,6 +256,10 @@ run termidle "$(connect sftp://oritest$PWD/$L) wait ctrl+\` wait ctrl+\` cmd:cm_
 check "terminal: Disconnect does not ask at the prompt" "[ -f build/shots/reg-termidle.png ] && [ ! -f build/shots/reg-termidle-sheet.png ]"
 run termcdbusy "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:30 enter wait ctrl+\` ctrl+alt+\` wait wait wait"
 check "terminal: Ctrl+Option+\` waits for the running program" "[ -f build/shots/reg-termcdbusy-sheet.png ]"
+# ⌘K lists the servers connected to: ↓ in the address field picks the latest, Return connects.
+scripts/test/mkdata.sh
+run recentserver "$(connect sftp://oritest$PWD/$L) wait cmd:cm_FtpDisconnect wait wait cmd:connectToServer wait cmd+a text:x down enter wait wait wait"
+check "Connect to Server lists recent servers" "grep -q 'left %' build/shots/reg-recentserver-terminal.txt"
 scripts/test/servers.sh stop
 
 echo "passed: $pass, failed: $fail"

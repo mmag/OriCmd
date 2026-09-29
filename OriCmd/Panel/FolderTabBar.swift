@@ -18,6 +18,8 @@ final class FolderTabBar: NSView {
     var onClose: ((Int) -> Void)?
     /// Right click on a tab.
     var onContextMenu: ((Int) -> NSMenu?)?
+    /// A double click on the empty part of the bar: a new tab, as ⌘T.
+    var onNewTab: (() -> Void)?
 
     override var isFlipped: Bool { true }
 
@@ -69,7 +71,10 @@ final class FolderTabBar: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        guard let index = tabRects().firstIndex(where: { $0.contains(point) }) else { return }
+        guard let index = tabRects().firstIndex(where: { $0.contains(point) }) else {
+            if event.clickCount == 2 { onNewTab?() }
+            return
+        }
         if event.clickCount == 2 {
             onClose?(index)
         } else {

@@ -2961,6 +2961,16 @@
         }
       }
     },
+    "Nothing goes to the Trash: this cannot be undone.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Корзину ничего не попадёт — это нельзя отменить."
+          }
+        }
+      }
+    },
     "OK": {
       "localizations": {
         "ru": {
@@ -3677,6 +3687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Убрать с панели кнопок"
+          }
+        }
+      }
+    },
+    "Remove from List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать из списка"
           }
         }
       }
