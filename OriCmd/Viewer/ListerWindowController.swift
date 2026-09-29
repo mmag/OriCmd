@@ -164,11 +164,20 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
     static func defaultMode(for url: URL) -> Mode {
         if let type = UTType(filenameExtension: url.pathExtension.lowercased()),
            [.image, .pdf, .audiovisualContent, .rtf, .rtfd, .presentation, .spreadsheet, .font]
-            .contains(where: type.conforms(to:)) {
+            .contains(where: type.conforms(to:))
+            || officePrefixes.contains(where: type.identifier.hasPrefix) {
             return .preview
         }
         return looksLikeText(url) ? .text : .hex
     }
+
+    /// Office documents (Word, Excel, PowerPoint in all their variants, Pages, Numbers,
+    /// Keynote, OpenDocument) are shown as Quick Look shows them: as text or hex only
+    /// their insides would be seen.
+    private static let officePrefixes = [
+        "com.microsoft.word.", "com.microsoft.excel.", "com.microsoft.powerpoint.",
+        "org.openxmlformats.", "com.apple.iwork.", "org.oasis-open.opendocument.",
+    ]
 
     // MARK: - Content
 

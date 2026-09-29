@@ -1939,7 +1939,7 @@ extension FilePanelController: NSMenuItemValidation {
         let waiting = Task { try await FileCoordination.waitUntilWritten(urls) }
         let progress = ProgressSheet()
         Task {
-            try await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: .milliseconds(500))
             guard !progress.isFinished else { return }
             progress.close = Prompt.progress(String(localized: "Receiving Files…"), in: window) { waiting.cancel() }
         }

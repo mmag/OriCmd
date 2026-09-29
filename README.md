@@ -154,7 +154,7 @@ shortcuts in parentheses.
 
 | Key | Action |
 |---|---|
-| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look, `W` word wrap, `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
+| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once), `W` word wrap, `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
 | `F4` | Open in the default text editor (or the program from the associations) |
 | `Shift+F4` | Create a new file and open it in the editor |
 | `F5` | Copy (to the other panel by default) |
