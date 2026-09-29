@@ -168,6 +168,7 @@ shortcuts in parentheses.
 | `Ctrl+Shift+F5` | Create a symbolic link (in the other panel by default) |
 | Files → Compare by Content | Two marked files, or the files under the cursors of both panels. The compare window aligns the lines: changed ones are yellow (with the differing part highlighted), removed ones red, added ones green; `N`/`P` (`⌥↓`/`⌥↑`) — next/previous difference, "Ignore whitespace"; binary files are compared byte by byte in hex |
 | `⌘I` | Change attributes: rwx permissions, hidden, locked, modification date (also recursively) |
+| `Alt+Enter` (`⌥↩`) | Get Info: the Finder's info windows of the selected files (of the folder shown on `[..]`) |
 | `Ctrl+Q` | Quick View in the other panel |
 | `Esc` | Close a dialog or a window in front (Cancel): copying, questions, Find Files, synchronization, settings |
 | `⌘C` / `⌘X` / `⌘V` (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) | Copy / cut / paste files (compatible with Finder); pasting into the same folder creates "name copy". Files copied or dragged from Microsoft Remote Desktop, virtual machines or Mail (promised files) arrive with their real contents |
@@ -275,9 +276,10 @@ other panel) shows the same server.
 ### Mouse
 
 Right-click (or `Ctrl`-click) opens the context menu: open, open with, view,
-show in Finder, clipboard, rename, delete, pack, and the system Services. Files
-can be dragged between the panels, from Finder and to Finder; copying by
-default, moving with `⌘`. Dropping onto a folder row puts the files into it.
+show in Finder, clipboard, rename, delete, pack, Get Info (the Finder's window),
+and the system Services. Files can be dragged between the panels, from Finder
+and to Finder; copying by default, moving with `⌘`. Dropping onto a folder row
+puts the files into it.
 
 The right button can mark files instead (Settings → Panels → Mouse): a click
 marks or unmarks a file, a drag over files makes them all as the first one

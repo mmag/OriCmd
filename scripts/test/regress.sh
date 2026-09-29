@@ -124,6 +124,7 @@ check "Shift+Delete while typing a command deletes a character, not files" "[ -f
 scripts/test/mkdata.sh; rm -f build/shots/reg-deletemenu-menu.txt
 run deletemenu "alt+s wait text:cript escape menu"
 check "the context menu has Delete Permanently under Shift" "grep -qx 'Delete Permanently' build/shots/reg-deletemenu-menu.txt"
+check "the context menu has Get Info (the Finder's window; not opened here)" "tail -1 build/shots/reg-deletemenu-menu.txt | grep -qx 'Get Info'"
 
 scripts/test/mkdata.sh
 run cmdline "text:touch space text:cmd-made.txt enter wait wait"

@@ -1316,7 +1316,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Копировать полные пути"
+            "value": "Копировать как полный путь"
           }
         }
       }
@@ -2297,6 +2297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Основные"
+          }
+        }
+      }
+    },
+    "Get Info": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свойства"
           }
         }
       }

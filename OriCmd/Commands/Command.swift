@@ -22,6 +22,7 @@ enum Command: String, CaseIterable {
     case copySamePanel = "cm_CopySamepanel"
     case countDirContent = "cm_CountDirContent"
     case setAttrib = "cm_SetAttrib"
+    case properties = "cm_Properties"
     case compareFilesByContent = "cm_CompareFilesByContent"
     case createSymlink = "cm_CreateSymlink"
     case crcCreate = "cm_CRCcreate"
@@ -115,6 +116,7 @@ enum Command: String, CaseIterable {
         case .copySamePanel: String(localized: "Copy in Same Folder…")
         case .countDirContent: String(localized: "Calculate Folder Sizes")
         case .setAttrib: String(localized: "Change Attributes…")
+        case .properties: String(localized: "Get Info")
         case .compareFilesByContent: String(localized: "Compare by Content")
         case .createSymlink: String(localized: "Create Symbolic Link…")
         case .crcCreate: String(localized: "Create Checksum File…")
@@ -201,6 +203,7 @@ enum Command: String, CaseIterable {
         case .copySamePanel: .f(5, .shift)
         case .countDirContent: Shortcut("\r", [.option, .shift])
         case .setAttrib: .cmd("i")
+        case .properties: Shortcut("\r", [.option])
         case .createSymlink: .f(5, [.control, .shift])
         case .packFiles: .f(5, .option)
         case .unpackFiles: .f(9, .option)

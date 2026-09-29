@@ -2153,6 +2153,11 @@ extension FilePanelController: NSMenuItemValidation {
                 }
             }
         }
+        // The files' Get Info windows, or the folder's on [..] and empty space.
+        if archive == nil, remote == nil {
+            menu.addItem(.separator())
+            add(Command.properties.title, Command.properties.selector)
+        }
         return menu
     }
 
@@ -2198,6 +2203,24 @@ extension FilePanelController: NSMenuItemValidation {
 
     @objc private func revealInFinder(_ sender: Any?) {
         NSWorkspace.shared.activateFileViewerSelecting(selectedItems.map(\.url))
+    }
+
+    /// Alt+Enter: the Finder's Get Info windows of the marked files, the file under the
+    /// cursor, or the folder shown (through the Finder's "Show Info" service).
+    @objc(cm_Properties:)
+    func properties(_ sender: Any?) {
+        guard archive == nil, remote == nil else {
+            NSSound.beep()
+            return
+        }
+        let urls = selectedItems.isEmpty ? [directory] : selectedItems.map(\.url)
+        let filenames = NSPasteboard.PasteboardType("NSFilenamesPboardType")
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("ru.themmag.OriCmd.ShowInfo"))
+        pasteboard.declareTypes([filenames], owner: nil)
+        pasteboard.setPropertyList(urls.map(\.path), forType: filenames)
+        if !NSPerformService("Finder/Show Info", pasteboard) {
+            NSSound.beep()
+        }
     }
 
     /// Alt+Shift+Enter: calculates the sizes of all folders in the panel.
@@ -2474,6 +2497,8 @@ extension FilePanelController: NSMenuItemValidation {
             menuItem.state = sortOrder.ascending ? .off : .on
         } else if command == .goToParent {
             return directory.path != "/"
+        } else if command == .properties {
+            return archive == nil && remote == nil
         } else if command == .branchView {
             menuItem.state = isBranchView ? .on : .off
         } else if command == .srcAllFiles || command == .srcUserSpec {

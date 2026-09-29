@@ -13,7 +13,7 @@ enum MainMenu {
             [.list, .edit, .editNewFile],
             [.copy, .copySamePanel, .renMov, .renameOnly, .multiRenameFiles, .mkDir],
             [.delete, .deletePermanently],
-            [.setAttrib, .createSymlink, .compareFilesByContent],
+            [.setAttrib, .properties, .createSymlink, .compareFilesByContent],
             [.packFiles, .unpackFiles],
             [.crcCreate, .crcCheck],
             [.internalAssociate],
