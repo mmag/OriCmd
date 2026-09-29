@@ -8,7 +8,7 @@ import ApplicationServices
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
-///   button), `tabbardoubleclick` (the empty end of the tab bar), `promise:/path` (the file on the
+///   button), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
@@ -54,6 +54,10 @@ enum DebugAutomation {
                 } else if token.hasPrefix("drive:"), let main = window.contentViewController as? MainViewController {
                     // Simulates a click on a drive button of the active panel.
                     main.activePanel.panelView.driveBar.onSelect?(URL(filePath: String(token.dropFirst(6))))
+                } else if token == "pathclick", let main = window.contentViewController as? MainViewController {
+                    // A click on the active panel's path bar (it becomes editable).
+                    main.activePanel.panelView.pathBar.onClick?()
+                    main.activePanel.panelView.pathBar.beginEditing()
                 } else if token == "tabbardoubleclick", let main = window.contentViewController as? MainViewController {
                     // A double click on the empty end of the active panel's tab bar.
                     let bar = main.activePanel.panelView.tabBar

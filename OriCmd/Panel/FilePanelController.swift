@@ -10,6 +10,8 @@ protocol FilePanelControllerDelegate: AnyObject {
     func filePanel(_ panel: FilePanelController, interceptKey event: NSEvent) -> Bool
     /// Whether a tab other than `panel`'s active one (in either panel) shows `server`.
     func filePanel(_ panel: FilePanelController, otherTabsShow server: String) -> Bool
+    /// A server address typed into the path bar: connect to it, as Connect to Server.
+    func filePanel(_ panel: FilePanelController, openAddress address: String)
 }
 
 /// Owns one panel: its current directory, listing, sort order and view.
@@ -36,10 +38,10 @@ final class FilePanelController: NSViewController {
         /// then a temporary copy, so the archive is read-only.
         var outer: OuterArchive?
 
-        var displayPath: String {
-            let path = outer.map { $0.location.displayPath + "/" + $0.name } ?? url.path
-            return folder.isEmpty ? path : path + "/" + folder
-        }
+        /// The archive itself, as the path bar shows it (outer.zip/inner.zip inside another).
+        var rootPath: String { outer.map { $0.location.displayPath + "/" + $0.name } ?? url.path }
+
+        var displayPath: String { folder.isEmpty ? rootPath : rootPath + "/" + folder }
 
         /// Whether files can be added, renamed or deleted in it.
         var isWritable: Bool { outer == nil && ArchiveEditor.isWritable(url) }
@@ -217,6 +219,9 @@ final class FilePanelController: NSViewController {
         panelView.headerView.sortOrder = sortOrder
         panelView.headerView.onColumnClicked = { [weak self] column in self?.sort(by: column) }
         panelView.pathBar.onClick = { [weak self] in self?.focus() }
+        panelView.pathBar.editableText = { [weak self] in self?.editablePath ?? "" }
+        panelView.pathBar.onCommit = { [weak self] text in self?.go(to: text) }
+        panelView.pathBar.completions = { [weak self] text in await self?.completions(for: text) ?? [] }
         panelView.onGoToRoot = { [weak self] in self?.goToRoot() }
         panelView.onGoToParent = { [weak self] in self?.goToParent() }
         panelView.onVolumeSelected = { [weak self] volume in self?.openDrive(volume.url) }
@@ -787,6 +792,101 @@ final class FilePanelController: NSViewController {
             guard terminal === pane.terminal, terminal.isRunning else { return }
             terminal.send(txt: "\u{05}\u{15} cd " + UserCommand.quoted(remote.path) + "\r")
         }
+    }
+
+    // MARK: - The path bar
+
+    /// What a click on the path bar gives to edit: the folder, the server folder
+    /// (sftp://…/folder), or the folder inside the archive.
+    private var editablePath: String {
+        if let remote { return remote.displayPath }
+        if let archive { return archive.displayPath }
+        return directory.path
+    }
+
+    /// Goes to the text typed into the path bar: a folder on this Mac (a file is shown
+    /// selected in its folder, an archive opens), a folder on the server or in the
+    /// archive shown, or another server's address.
+    private func go(to typed: String) {
+        focus()
+        let text = typed.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return }
+        if let remote {
+            let server = remote.fileSystem.displayName
+            if text.hasPrefix(server) {
+                let path = String(text.dropFirst(server.count))
+                loadRemote(path.isEmpty ? "/" : path, selecting: nil)
+                return
+            }
+            if text.hasPrefix("/") {
+                loadRemote(text, selecting: nil)
+                return
+            }
+        }
+        if text.contains("://") {
+            delegate?.filePanel(self, openAddress: text)
+            return
+        }
+        if let archive, text == archive.rootPath || text.hasPrefix(archive.rootPath + "/") {
+            let inner = String(text.dropFirst(archive.rootPath.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard inner.isEmpty || archive.entries.contains(where: { $0.path == inner || $0.path.hasPrefix(inner + "/") }) else {
+                NSSound.beep()
+                return
+            }
+            self.archive?.folder = inner
+            showArchiveFolder(selecting: nil)
+            return
+        }
+        let url = URL(filePath: (text as NSString).expandingTildeInPath).standardizedFileURL
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            Prompt.info(String(localized: "\u{201C}\(text)\u{201D} was not found"), message: "", in: view.window)
+            return
+        }
+        if isDirectory.boolValue {
+            load(url)
+        } else if ArchiveReader.isArchive(url.lastPathComponent) {
+            openArchive(url)
+        } else {
+            load(url.deletingLastPathComponent(), selecting: url.lastPathComponent)
+        }
+    }
+
+    /// Tab in the path bar: the entries of the folder typed whose names start with what
+    /// follows the last "/" (full texts, folders ending in "/").
+    private func completions(for text: String) async -> [String] {
+        guard let slash = text.lastIndex(of: "/") else { return [] }
+        let folderText = String(text[...slash])
+        let start = String(text[text.index(after: slash)...]).lowercased()
+        let includesHidden = showsHidden || start.hasPrefix(".")
+        func matching(_ names: [(name: String, isFolder: Bool)]) -> [String] {
+            names.filter { $0.name.lowercased().hasPrefix(start) && (includesHidden || !$0.name.hasPrefix(".")) }
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+                .map { folderText + $0.name + ($0.isFolder ? "/" : "") }
+        }
+        if let remote, text.hasPrefix(remote.fileSystem.displayName) || text.hasPrefix("/") {
+            let server = remote.fileSystem.displayName
+            let folder = text.hasPrefix(server) ? String(folderText.dropFirst(server.count)) : folderText
+            guard let items = try? await remote.fileSystem.list(folder.isEmpty ? "/" : folder) else { return [] }
+            return matching(items.filter { !$0.isParent }.map { ($0.name, $0.isDirectory) })
+        }
+        if let archive, text.hasPrefix(archive.rootPath + "/") {
+            let inner = String(folderText.dropFirst(archive.rootPath.count + 1))
+            var children: [String: Bool] = [:]
+            for entry in archive.entries where entry.path.hasPrefix(inner) && entry.path.count > inner.count {
+                let rest = entry.path.dropFirst(inner.count)
+                let name = String(rest.prefix { $0 != "/" })
+                children[name] = (children[name] ?? false) || rest.contains("/") || entry.isDirectory
+            }
+            return matching(children.map { ($0.key, $0.value) })
+        }
+        guard !text.contains("://") else { return [] }
+        let folder = URL(filePath: (folderText as NSString).expandingTildeInPath)
+        let names = await Task.detached {
+            ((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
+                .map { ($0.lastPathComponent, (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true) }
+        }.value
+        return matching(names.map { (name: $0.0, isFolder: $0.1) })
     }
 
     // MARK: - Search results

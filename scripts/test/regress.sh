@@ -80,6 +80,17 @@ nested
 run nestro "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait f7 wait"
 check "an archive inside an archive is read-only" "[ -f build/shots/reg-nestro-sheet.png ] && ! /usr/bin/unzip -l $L/outer.zip | grep -q 'New'"
 
+# The path bar: a click makes it editable, Enter goes there, Tab completes names.
+scripts/test/mkdata.sh
+run pathgo "pathclick wait cmd+a text:$PWD/$L/alpha enter wait f7 wait text:made enter wait"
+check "the path bar goes to a typed folder" "[ -d $L/alpha/made ]"
+scripts/test/mkdata.sh
+run pathtab "pathclick wait cmd+a text:$PWD/$L/alp tab wait enter wait f7 wait text:made2 enter wait"
+check "Tab in the path bar completes a folder name" "[ -d $L/alpha/made2 ]"
+scripts/test/mkdata.sh
+run pathfile "pathclick wait cmd+a text:$PWD/$L/notes.md enter wait f5 wait enter wait wait"
+check "a file typed into the path bar is selected in its folder" "[ -f $R/notes.md ]"
+
 scripts/test/mkdata.sh
 run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"
 check "F2 renames in place (the extension kept)" "[ -f $L/by-f2.md ] && [ ! -f $L/notes.md ]"
@@ -285,6 +296,10 @@ run termidle "$(connect sftp://oritest$PWD/$L) wait ctrl+\` wait ctrl+\` cmd:cm_
 check "terminal: Disconnect does not ask at the prompt" "[ -f build/shots/reg-termidle.png ] && [ ! -f build/shots/reg-termidle-sheet.png ]"
 run termcdbusy "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:30 enter wait ctrl+\` ctrl+alt+\` wait wait wait"
 check "terminal: Ctrl+Option+\` waits for the running program" "[ -f build/shots/reg-termcdbusy-sheet.png ]"
+scripts/test/mkdata.sh
+run pathserver "$(connect sftp://oritest$PWD/$L) wait pathclick wait cmd+a text:sftp://oritest$PWD/$L/alp tab wait wait enter wait wait f7 wait text:srvmade enter wait wait"
+check "the path bar completes and goes to server folders" "[ -d $L/alpha/srvmade ]"
+
 # ⌘K lists the servers connected to: ↓ in the address field picks the latest, Return connects.
 scripts/test/mkdata.sh
 run recentserver "$(connect sftp://oritest$PWD/$L) wait cmd:cm_FtpDisconnect wait wait cmd:connectToServer wait cmd+a text:x down enter wait wait wait"

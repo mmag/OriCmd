@@ -279,6 +279,12 @@ show in Finder, clipboard, rename, delete, pack, and the system Services. Files
 can be dragged between the panels, from Finder and to Finder; copying by
 default, moving with `⌘`. Dropping onto a folder row puts the files into it.
 
+A click on the path above a panel makes it editable: type a folder (or a file:
+it is shown selected; an archive opens), a folder on the server or in the archive
+shown, or another server's address, and press `Enter`; `Esc` cancels. `Tab`
+completes names, as in a shell; pressed again it goes through the choices
+(`Shift+Tab` back).
+
 ### Command line
 
 Letters typed in a panel go to the command line while the cursor stays in the

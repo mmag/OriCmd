@@ -5701,6 +5701,16 @@
           }
         }
       }
+    },
+    "“%@” was not found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» не найдено"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

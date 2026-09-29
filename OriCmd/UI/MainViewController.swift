@@ -798,22 +798,28 @@ extension MainViewController: NSMenuItemValidation {
                                 recent: Self.recentServers,
                                 okTitle: String(localized: "Connect"), in: window,
                                 onRemove: { address in Self.recentServers.removeAll { $0 == address } }) { [weak self] address in
-            guard let url = URL(string: address.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
-                NSSound.beep()
-                return
-            }
-            // Remembered for next time, but never with a password typed into the address.
-            var remembered = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            remembered?.password = nil
-            let shown = remembered?.string ?? address
-            AppDefaults.store.set(shown, forKey: key)
-            // Only addresses that worked join the recent list, so typos do not.
-            let connected = { Self.recentServers = [shown] + Self.recentServers.filter { $0 != shown } }
-            if self?.connectRemote(url, password: nil, onConnected: connected) == true {
-                return
-            }
-            self?.mount(url, named: address, in: window, onMounted: connected)
+            self?.connect(to: address)
         }
+    }
+
+    /// Connects to a server address (typed in Connect to Server or the path bar).
+    private func connect(to address: String) {
+        guard let window = view.window,
+              let url = URL(string: address.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
+            NSSound.beep()
+            return
+        }
+        // Remembered for next time, but never with a password typed into the address.
+        var remembered = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        remembered?.password = nil
+        let shown = remembered?.string ?? address
+        AppDefaults.store.set(shown, forKey: "LastServerAddress")
+        // Only addresses that worked join the recent list, so typos do not.
+        let connected = { Self.recentServers = [shown] + Self.recentServers.filter { $0 != shown } }
+        if connectRemote(url, password: nil, onConnected: connected) {
+            return
+        }
+        mount(url, named: address, in: window, onMounted: connected)
     }
 
     /// Mounts a network share, showing that it connects (with Cancel). A server that
@@ -1087,6 +1093,11 @@ extension MainViewController: NSMenuItemValidation {
 }
 
 extension MainViewController: FilePanelControllerDelegate {
+    func filePanel(_ panel: FilePanelController, openAddress address: String) {
+        activate(panel)
+        connect(to: address)
+    }
+
     func filePanel(_ panel: FilePanelController, otherTabsShow server: String) -> Bool {
         panels.contains { $0.showsServer(server, excludingActiveTab: $0 === panel) }
     }
