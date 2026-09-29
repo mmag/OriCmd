@@ -201,8 +201,15 @@ extension MainViewController: NSMenuItemValidation {
     }
 
     /// Ctrl+U: swaps the directories (and sort orders) of the two panels.
+    /// Ctrl+U: swaps the panels' folders (servers are left first, which may be cancelled).
     @objc(cm_Exchange:)
     func exchange(_ sender: Any?) {
+        if leftPanel.remote != nil || rightPanel.remote != nil {
+            leftPanel.leaveServer { [weak self] in
+                self?.rightPanel.leaveServer { self?.exchange(sender) }
+            }
+            return
+        }
         let left = (leftPanel.directory, leftPanel.listView.currentItem?.name, leftPanel.sortOrder)
         let right = (rightPanel.directory, rightPanel.listView.currentItem?.name, rightPanel.sortOrder)
         leftPanel.sortOrder = right.2
@@ -866,7 +873,7 @@ extension MainViewController: NSMenuItemValidation {
         // Leave the volume in both panels first, so nothing keeps it busy.
         let home = FileManager.default.homeDirectoryForCurrentUser
         for panel in [leftPanel, rightPanel] where panel.directory.path.hasPrefix(volume.path) {
-            panel.load(home)
+            panel.leaveLocalFolder(for: home)
         }
         let window = view.window
         Task {
@@ -1045,6 +1052,10 @@ extension MainViewController: NSMenuItemValidation {
 }
 
 extension MainViewController: FilePanelControllerDelegate {
+    func filePanel(_ panel: FilePanelController, otherTabsShow server: String) -> Bool {
+        panels.contains { $0.showsServer(server, excludingActiveTab: $0 === panel) }
+    }
+
     func filePanelDidBecomeActive(_ panel: FilePanelController) {
         activate(panel)
     }

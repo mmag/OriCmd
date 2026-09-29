@@ -96,12 +96,16 @@ final class TerminalPane: NSView {
         view.startedAt = .now
         view.startProcess(executable: command.executable, args: command.arguments,
                           environment: environment.map { "\($0.key)=\($0.value)" })
+        view.watchExit()
         return view
     }
 
     /// Shows `terminal` (another tab's, or none); the one shown before keeps running.
     func attach(_ terminal: ShellTerminalView?) {
         guard terminal !== self.terminal else { return }
+        // The kept height is the view's own constraint: it would stay with the view.
+        keptHeight?.isActive = false
+        terminalBottom?.isActive = false
         self.terminal?.removeFromSuperview()
         self.terminal = terminal
         terminalBottom = nil
@@ -123,7 +127,8 @@ final class TerminalPane: NSView {
     /// Ends the session of `terminal` (the connection stays).
     func close(_ terminal: ShellTerminalView) {
         terminal.processDelegate = nil
-        if terminal.process.running {
+        terminal.stopWatchingExit()
+        if terminal.process.running, !terminal.hasEnded {
             let pid = terminal.process.shellPid
             terminal.terminate()
             // SwiftTerm stops watching the process here: it is collected in the background.
@@ -207,8 +212,9 @@ extension TerminalPane: @preconcurrency LocalProcessTerminalViewDelegate {
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {
-        guard let terminal = source as? ShellTerminalView else { return }
+        guard let terminal = source as? ShellTerminalView, !terminal.hasEnded else { return }
         terminal.hasEnded = true
+        terminal.stopWatchingExit()
         terminal.feed(text: "\r\n\u{1B}[2m" + String(localized: "Session ended. Press Return to connect again.") + "\u{1B}[0m\r\n")
         if Date.now.timeIntervalSince(terminal.startedAt) < 3 {
             onEndedAtOnce?(terminal)
@@ -229,13 +235,47 @@ final class ShellTerminalView: LocalProcessTerminalView {
     /// Opened by connecting rather than by ⌃`: hidden again if the server has no shell.
     var opensQuietly = false
 
+    /// What `runningProgram` says when only the screen tells a program runs.
+    static let fullScreenProgram = String(localized: "a full-screen program")
+
     var isRunning: Bool { !hasEnded }
+
+    private var exitWatch: Timer?
+
+    /// SwiftTerm 1.11 may miss the shell's exit: when the end of its output comes
+    /// first, it stops watching the process, and never reports the end nor collects
+    /// the process. So the process is checked here, twice a second.
+    fileprivate func watchExit() {
+        let pid = process.shellPid
+        guard pid > 0 else { return }
+        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+            var status: Int32 = 0
+            let result = waitpid(pid, &status, WNOHANG)
+            // The pid, or "no such child": SwiftTerm collected it itself.
+            guard result == pid || (result == -1 && errno == ECHILD) else { return }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.stopWatchingExit()
+                self.processDelegate?.processTerminated(source: self, exitCode: result == pid ? status : nil)
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        exitWatch = timer
+    }
+
+    fileprivate func stopWatchingExit() {
+        exitWatch?.invalidate()
+        exitWatch = nil
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         let terminal = getTerminal()
+        // Only the first report counts: the shell command sends it before anything else,
+        // later ones could come from any output (a file shown with cat).
         terminal.registerOscHandler(code: ShellCommand.shellPIDCode) { [weak self] data in
-            self?.remoteShellPID = Int(String(decoding: data, as: UTF8.self))
+            guard let self, remoteShellPID == nil else { return }
+            remoteShellPID = Int(String(decoding: data, as: UTF8.self))
         }
         // Links from the server (OSC 8) would open any address with ⌘-click: they stay plain text.
         terminal.registerOscHandler(code: 8) { _ in }
@@ -257,7 +297,7 @@ final class ShellTerminalView: LocalProcessTerminalView {
                 // The server could not tell: see what is on the screen.
             }
         }
-        return getTerminal().isCurrentBufferAlternate ? String(localized: "a full-screen program") : nil
+        return getTerminal().isCurrentBufferAlternate ? Self.fullScreenProgram : nil
     }
 
     /// While the terminal has the focus, keys without ⌘ are the shell's: F-keys and ⌃ or ⌥

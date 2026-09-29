@@ -262,11 +262,12 @@ you go back to the files, the server folder is read again. After `exit`,
 opens the next connection the same way.
 
 A server lives in its tab: switching tabs keeps the connection and the shell
-(a command keeps running), a drive button on a server tab opens the drive in a
-new tab, and `⌘T` (or Duplicate Tab) opens the same server folder with a shell of
-its own. The terminal ends when you
-leave the server in its tab, disconnect, close the tab or quit; if a program is
-still running there (OriCmd asks the server), you are asked first.
+(a command keeps running). A server tab is not duplicated: a drive button there
+opens the drive in a new tab, and `⌘T` opens the local folder the tab came from.
+The terminal ends when you leave the server in its tab, disconnect, close the
+tab or quit; if a program is still running there (OriCmd asks the server), you
+are asked first. Disconnect keeps the connection while another tab (or the
+other panel) shows the same server.
 
 ### Mouse
 

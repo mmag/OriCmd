@@ -190,9 +190,18 @@ run termcd "$(connect sftp://oritest$PWD/$L) home down enter wait wait ctrl+alt+
 check "terminal: Ctrl+Option+\` goes to the panel's folder" "[ -f $L/alpha/cd-made.txt ]"
 run termexit "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:exit enter wait wait enter wait wait wait text:touch space text:again.txt enter wait wait"
 check "terminal: Return after exit connects again" "[ -f $L/again.txt ]"
-rm -f build/shots/reg-termdup-terminal.txt
-run termdup "$(connect sftp://oritest$PWD/$L) wait cmd+t wait wait wait"
-check "terminal: a new tab of the server has a shell of its own" "grep -q '%' build/shots/reg-termdup-terminal.txt"
+rm -f build/shots/reg-termnewtab-terminal.txt
+run termnewtab "$(connect sftp://oritest$PWD/$L) wait cmd+t wait wait"
+check "terminal: Cmd+T on a server tab opens a local tab" "[ -f build/shots/reg-termnewtab.png ] && [ ! -f build/shots/reg-termnewtab-terminal.txt ]"
+run termclosew "$(connect sftp://oritest$PWD/$L) wait cmd+t wait ctrl+shift+tab wait wait ctrl+\` cmd+w wait wait f7 wait"
+check "terminal: Cmd+W from the terminal leaves the files focused" "[ -f build/shots/reg-termclosew-sheet.png ]"
+run termclosebusy "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:30 enter wait cmd+t wait ctrl+shift+tab wait cmd+w wait wait"
+check "terminal: closing a tab asks while a program runs" "[ -f build/shots/reg-termclosebusy-sheet.png ]"
+scripts/test/mkdata.sh
+run termshared "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:4; space text:touch space text:still.txt enter ctrl+\` tab $(connect sftp://oritest$PWD/$L) wait cmd:cm_FtpDisconnect wait wait wait wait wait wait"
+check "terminal: Disconnect keeps a connection another panel uses" "[ -f $L/still.txt ] && [ ! -f build/shots/reg-termshared-sheet.png ]"
+run termarchive "$(connect sftp://oritest$PWD/$L) wait drive:$PWD/$L wait wait alt+a wait text:rchive-t enter wait wait ctrl+shift+tab wait wait alt+r wait text:eadme escape f5 wait enter wait wait wait"
+check "terminal: a server tab after an archive tab downloads with F5" "[ -f $R/readme.txt ]"
 run termiso "$(connect sftp://oritest$PWD/$L) wait ru+ctrl+§ text:touch space text:via-iso-key.txt enter wait wait"
 check "terminal: Ctrl+§ (ё on Russian – PC) works too" "[ -f $L/via-iso-key.txt ]"
 run termtabs "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:3; space text:touch space text:late.txt enter ctrl+\` drive:/ wait wait wait wait wait wait wait"

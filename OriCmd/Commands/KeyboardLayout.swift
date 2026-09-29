@@ -66,8 +66,9 @@ nonisolated extension NSEvent {
         guard let characters = charactersIgnoringModifiers else { return nil }
         guard type == .keyDown || type == .keyUp, specialKey == nil,
               characters.unicodeScalars.contains(where: { !$0.isASCII }) || KeyboardLayout.isNonLatinLayoutActive,
-              let latin = KeyboardLayout.latinCharacter(keyCode: keyCode) else { return characters.lowercased() }
-        return latin
+              let latin = KeyboardLayout.latinCharacter(keyCode: keyCode, shift: modifierFlags.contains(.shift))
+        else { return characters.lowercased() }
+        return latin.lowercased()
     }
 
     /// The same key press as typed on the Latin layout, for a ⌘, ⌃ or ⌥ shortcut
