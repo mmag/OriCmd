@@ -241,6 +241,22 @@ check "F3 shows an office document as Quick Look does" "[ -f build/shots/reg-f3o
 run f3textkey "alt+s wait text:erver escape f3 wait wait wait wait"
 check "F3 shows a text file with an office extension as text" "grep -q 'BEGIN PRIVATE KEY' build/shots/reg-f3textkey-win1.txt"
 
+# Lister encodings: UTF-16 is told by itself (no byte order mark here); S shows DOS
+# (866) and is kept for the next file (N); A from hex shows Windows-1251 text; the
+# text's context menu lists the encodings, the chosen one checked.
+scripts/test/mkdata.sh
+text='Привет, мир! Hello, world.'
+printf '%s\n' "$text" | iconv -f UTF-8 -t UTF-16LE > $L/enc-u16.txt
+printf '%s\n' "$text" | iconv -f UTF-8 -t CP866 > $L/enc-dos.txt
+printf '%s\n' "$text" | iconv -f UTF-8 -t CP866 > $L/enc-dos2.txt
+run encu16 "alt+e wait text:nc-u16 escape f3 wait wait"
+check "Lister tells UTF-16 without a byte order mark" "head -1 build/shots/reg-encu16-win1.txt | grep -q 'UTF-16$' && grep -q 'Привет, мир' build/shots/reg-encu16-win1.txt"
+run encdos "alt+e wait text:nc-dos. escape f3 wait wait s wait n wait textmenu"
+check "Lister: S shows DOS (866), kept for the next file" "head -1 build/shots/reg-encdos-win1.txt | grep -q 'enc-dos2.txt\] — DOS (866)$' && grep -q 'Привет, мир' build/shots/reg-encdos-win1.txt"
+check "Lister: the context menu lists the encodings" "grep -q '^Encoding ▸ Automatically .*✓DOS (866)' build/shots/reg-encdos-menu.txt"
+run enchex "alt+c wait text:p1251 escape f3 wait wait 3 wait a wait"
+check "Lister: A from hex shows Windows-1251 text" "head -1 build/shots/reg-enchex-win1.txt | grep -q 'Windows-1251$' && grep -q 'Привет, мир' build/shots/reg-enchex-win1.txt"
+
 # Ready-made colors: High contrast's stripes go with another preset, stripes turned on
 # in Settings stay. Prints the setting the keys leave.
 alternating() {

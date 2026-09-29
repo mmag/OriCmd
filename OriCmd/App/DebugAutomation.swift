@@ -8,7 +8,7 @@ import ApplicationServices
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
-///   button), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `promise:/path` (the file on the
+///   button), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
@@ -46,6 +46,20 @@ enum DebugAutomation {
                     let titles = menu.items.map { item in
                         item.isSeparatorItem ? "---" : item.title
                             + (item.submenu.map { " ▸ " + $0.items.map(\.title).joined(separator: " | ") } ?? "")
+                    }
+                    try? titles.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
+                                                                atomically: true, encoding: .utf8)
+                } else if token == "textmenu", let snapshot, let text = textView(in: topmost(window).contentView),
+                          let event = NSEvent.mouseEvent(
+                            with: .rightMouseDown, location: text.convert(NSPoint(x: 20, y: 10), to: nil), modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: text.window?.windowNumber ?? 0,
+                            context: nil, eventNumber: 0, clickCount: 1, pressure: 1),
+                          let menu = text.menu(for: event) {
+                    // Writes the context menu of the frontmost window's text (e.g. the Lister's).
+                    let titles = menu.items.map { item in
+                        item.isSeparatorItem ? "---" : item.title
+                            + (item.submenu.map { " ▸ " + $0.items.map { ($0.state == .on ? "✓" : "") + $0.title }
+                                .joined(separator: " | ") } ?? "")
                     }
                     try? titles.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                                                 atomically: true, encoding: .utf8)
@@ -230,7 +244,13 @@ enum DebugAutomation {
         }
     }
 
-    /// Writes the texts `window` shows (labels, fields, text views), one per line.
+    private static func textView(in view: NSView?) -> NSTextView? {
+        guard let view else { return nil }
+        if let text = view as? NSTextView { return text }
+        return view.subviews.lazy.compactMap(textView(in:)).first
+    }
+
+    /// Writes the texts `window` shows (its title, labels, fields, text views), one per line.
     private static func saveTexts(of window: NSWindow, to path: String) {
         func texts(in view: NSView) -> [String] {
             var result: [String] = []
@@ -238,7 +258,7 @@ enum DebugAutomation {
             if let text = view as? NSTextView, !text.string.isEmpty { result.append(text.string) }
             return result + view.subviews.flatMap(texts(in:))
         }
-        let lines = window.contentView.map(texts(in:)) ?? []
+        let lines = (window.title.isEmpty ? [] : [window.title]) + (window.contentView.map(texts(in:)) ?? [])
         try? lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
     }
 

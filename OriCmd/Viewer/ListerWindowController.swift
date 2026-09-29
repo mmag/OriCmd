@@ -6,8 +6,10 @@ import UniformTypeIdentifiers
 /// or a Quick Look preview (images, PDF, media, documents).
 ///
 /// Keys: 1 text, 3 hex, 7 preview, W word wrap, N / P next / previous file,
-/// F7 or ⌘F find, F3 / ⇧F3 find next / previous, Esc closes.
-final class ListerWindowController: NSWindowController, NSWindowDelegate, HandlesEscapeKey {
+/// F7 or ⌘F find, F3 / ⇧F3 find next / previous, Esc closes. Encodings: 8 UTF-8,
+/// U UTF-16, A Windows-1251, S DOS (866), K KOI8-R; all of them in the text's
+/// context menu, with Automatically.
+final class ListerWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, HandlesEscapeKey {
     enum Mode {
         case text, hex, preview
     }
@@ -18,7 +20,13 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
 
     private var url: URL
     private let siblings: [URL]
+    /// The window title's name of the file (a server or archive path instead of the local one).
+    private var shownPath: String
     private var mode = Mode.text
+    /// Chosen by the user; kept for the next and previous files.
+    private var encoding = TextEncoding.automatic
+    /// The encoding the text is shown in (the one told, when automatic).
+    private var encodingName: String?
     private var wrapsLines = true
     private let scrollView = NSTextView.scrollableTextView()
     private var textView: NSTextView { scrollView.documentView as! NSTextView }
@@ -31,7 +39,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
     static func show(_ url: URL, siblings: [URL] = [], title: String? = nil) {
         let controller = ListerWindowController(url: url, siblings: siblings)
         if let title {
-            controller.window?.title = "Lister - [\(title)]"
+            controller.shownPath = title
+            controller.updateTitle()
         }
         openControllers.append(controller)
         controller.showWindow(nil)
@@ -40,23 +49,31 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
     private init(url: URL, siblings: [URL]) {
         self.url = url
         self.siblings = siblings
+        shownPath = url.path
         let window = ListerWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 650),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false
         )
-        window.title = "Lister - [\(url.path)]"
         window.center()
         window.rememberFrame(as: "Lister")
         super.init(window: window)
         window.delegate = self
 
         textView.isEditable = false
+        textView.delegate = self
         textView.usesFindBar = true
         textView.isIncrementalSearchingEnabled = true
         textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         show(Self.defaultMode(for: url))
+        updateTitle()
         window.keyHandler = { [weak self] event in self?.handleKey(event) ?? false }
+    }
+
+    /// The path, and in text mode the encoding.
+    private func updateTitle() {
+        let encoding = mode == .text ? encodingName.map { " \u{2014} \($0)" } ?? "" : ""
+        window?.title = "Lister - [\(shownPath)]" + encoding
     }
 
     @available(*, unavailable)
@@ -91,6 +108,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
             case "w": toggleWrapping()
             case "n": step(1)
             case "p": step(-1)
+            case let key? where TextEncoding.allCases.contains(where: { $0.key == key }):
+                choose(TextEncoding.allCases.first { $0.key == key } ?? .automatic)
             default: return false
             }
         }
@@ -118,17 +137,57 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
             return
         }
         url = siblings[index + offset]
-        window?.title = "Lister - [\(url.path)]"
+        shownPath = url.path
+        encodingName = nil
         show(Self.defaultMode(for: url))
+    }
+
+    /// Shows the file as text in `encoding` (from hex or the preview too), keeping
+    /// the place in the text.
+    private func choose(_ encoding: TextEncoding) {
+        self.encoding = encoding
+        show(.text, keepingPlace: mode == .text)
+    }
+
+    @objc private func encodingChosen(_ sender: NSMenuItem) {
+        guard let encoding = sender.representedObject as? TextEncoding else { return }
+        choose(encoding)
+    }
+
+    /// The text's context menu starts with the encodings.
+    func textView(_ view: NSTextView, menu: NSMenu, for event: NSEvent, at charIndex: Int) -> NSMenu? {
+        let encodings = NSMenu()
+        for encoding in TextEncoding.allCases {
+            let item = encodings.addItem(withTitle: encoding.title, action: #selector(encodingChosen(_:)),
+                                         keyEquivalent: encoding.key ?? "")
+            item.keyEquivalentModifierMask = []
+            item.target = self
+            item.representedObject = encoding
+            item.state = encoding == self.encoding ? .on : .off
+            if encoding == .automatic {
+                encodings.addItem(.separator())
+            }
+        }
+        let item = NSMenuItem(title: String(localized: "Encoding"), action: nil, keyEquivalent: "")
+        item.submenu = encodings
+        menu.insertItem(item, at: 0)
+        menu.insertItem(.separator(), at: 1)
+        return menu
     }
 
     // MARK: - Modes
 
-    private func show(_ mode: Mode) {
+    /// `keepingPlace`: the text shown again (in another encoding) stays about where it was.
+    private func show(_ mode: Mode, keepingPlace: Bool = false) {
         guard let window else { return }
         self.mode = mode
+        updateTitle()
         switch mode {
         case .text, .hex:
+            // The share of the text above the view, to scroll to after reloading.
+            let length = textView.string.utf16.count
+            let place = keepingPlace && length > 0
+                ? Double(textView.characterIndexForInsertion(at: textView.visibleRect.origin)) / Double(length) : nil
             // Up to 32 MB of text: read and decoded off the main thread.
             textView.string = ""
             setWrapping(mode == .text ? wrapsLines : false)
@@ -136,10 +195,25 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
             loadToken += 1
             let token = loadToken
             let url = self.url
+            let encoding = self.encoding
             Task {
-                let content = await Self.content(of: url, hex: mode == .hex)
+                let content = await Self.content(of: url, hex: mode == .hex, encoding: encoding)
                 guard token == loadToken else { return }
-                textView.string = content
+                textView.string = content.text
+                if let name = content.encoding {
+                    encodingName = name
+                    updateTitle()
+                }
+                if let place {
+                    // The same place at the top of the view again.
+                    let range = NSRange(location: Int(place * Double(textView.string.utf16.count)), length: 0)
+                    textView.scrollRangeToVisible(range)
+                    if let window = textView.window {
+                        let onScreen = textView.firstRect(forCharacterRange: range, actualRange: nil)
+                        let rect = textView.convert(window.convertFromScreen(onScreen), from: nil)
+                        textView.scroll(NSPoint(x: 0, y: rect.minY))
+                    }
+                }
             }
         case .preview:
             if preview == nil {
@@ -185,9 +259,11 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
 
     // MARK: - Content
 
+    /// The text or hex dump, and for text the name of the encoding used.
     @concurrent
-    private nonisolated static func content(of url: URL, hex: Bool) async -> String {
-        hex ? hexDump(of: url) : text(of: url)
+    private nonisolated static func content(of url: URL, hex: Bool, encoding: TextEncoding) async
+        -> (text: String, encoding: String?) {
+        hex ? (hexDump(of: url), nil) : text(of: url, encoding: encoding)
     }
 
     private nonisolated static func head(of url: URL, limit: Int) -> (data: Data, size: Int) {
@@ -199,16 +275,16 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
     }
 
     private static func looksLikeText(_ url: URL) -> Bool {
-        !head(of: url, limit: 8192).data.contains(0)
+        TextDecoding.looksLikeText(head(of: url, limit: 8192).data)
     }
 
-    private nonisolated static func text(of url: URL) -> String {
+    private nonisolated static func text(of url: URL, encoding: TextEncoding) -> (text: String, encoding: String) {
         let (data, size) = head(of: url, limit: textLimit)
-        var result = TextDecoding.string(from: data)
+        var (result, name) = TextDecoding.decode(data, as: encoding, truncated: size > data.count)
         if size > data.count {
             result += "\n\n" + truncationNote(shown: data.count, of: size)
         }
-        return result
+        return (result, name)
     }
 
     private nonisolated static func truncationNote(shown: Int, of size: Int) -> String {

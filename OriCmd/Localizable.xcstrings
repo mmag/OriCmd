@@ -491,6 +491,16 @@
         }
       }
     },
+    "Automatically": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически"
+          }
+        }
+      }
+    },
     "Back": {
       "localizations": {
         "ru": {
@@ -1561,6 +1571,16 @@
         }
       }
     },
+    "DOS (866)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DOS (866)"
+          }
+        }
+      }
+    },
     "Dark": {
       "localizations": {
         "ru": {
@@ -1907,6 +1927,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Извлечь"
+          }
+        }
+      }
+    },
+    "Encoding": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кодировка"
           }
         }
       }
