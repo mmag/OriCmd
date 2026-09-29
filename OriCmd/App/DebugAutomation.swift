@@ -58,6 +58,11 @@ enum DebugAutomation {
                     let rows = parts.count == 3 ? parts[2].split(separator: "-").compactMap { Int($0) } : []
                     guard let first = rows.first, let last = rows.last else { continue }
                     let control = parts[1] == "ctrlclick"
+                    // A left click on an inactive window only activates it.
+                    if control && !NSApp.isActive {
+                        NSApp.activate()
+                        try? await Task.sleep(for: .milliseconds(500))
+                    }
                     @MainActor func event(_ type: NSEvent.EventType, at row: Int) -> NSEvent? {
                         let rect = list.rowRect(row)
                         let type: NSEvent.EventType = !control ? type : type == .rightMouseDown ? .leftMouseDown : .leftMouseUp
