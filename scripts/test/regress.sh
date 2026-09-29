@@ -61,7 +61,7 @@ check "pasting promised files gets their contents, not placeholders" "cmp -s $L/
 rm -rf build/testdata/placeholder
 scripts/test/mkdata.sh
 run promisetwice "promise:$PWD/$L/readme.txt wait tab cmd+v wait wait wait home cmd+v wait wait wait"
-check "a promise pasted twice: the second paste says so, nothing else is moved" "cmp -s $L/readme.txt $R/readme.txt && [ -f build/shots/reg-promisetwice-sheet.png ]"
+check "a promise pasted twice: the second paste says so, nothing else is moved" "cmp -s $L/readme.txt $R/readme.txt && grep -q 'did not write them again' build/shots/reg-promisetwice-sheet.txt"
 rm -rf build/testdata/placeholder
 # Remote Desktop's own way: a zero-filled placeholder written only on a coordinated read.
 scripts/test/mkdata.sh
@@ -85,6 +85,9 @@ check "[..] in a nested archive goes back to the outer one" "[ -f $R/inner.zip ]
 nested
 run nestro "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait wait f7 wait"
 check "an archive inside an archive is read-only" "[ -f build/shots/reg-nestro-sheet.png ] && ! /usr/bin/unzip -l $L/outer.zip | grep -q 'New'"
+nested
+run nestdrop "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait wait drop:$PWD/$L/readme.txt wait wait"
+check "a drop into an archive inside an archive is refused" "grep -q 'inside an archive is read-only' build/shots/reg-nestdrop-sheet.txt && ! /usr/bin/unzip -l $L/outer.zip | grep -q 'readme'"
 
 # The path bar: a click makes it editable, Enter goes there, Tab completes names.
 scripts/test/mkdata.sh
@@ -226,6 +229,27 @@ defaults write ru.themmag.OriCmd.tests FileAssociations -data $(python3 -c 'impo
 run assoc "alt+r wait text:eadme escape f4 wait enter wait alt+n wait text:otes escape f3 wait wait wait wait"
 sleep 2  # the programs run in a login shell, which may still be starting
 check "associations for Enter / F3 / F4" "[ -f $L/readme.txt.opened ] && [ -f $L/readme.txt.edited ] && [ -f $L/notes.md.viewed ]"
+
+# F3 shows office documents as Quick Look does; a text file with such an extension
+# (a PEM server.key is a Keynote extension) stays text.
+scripts/test/mkdata.sh
+printf 'Quarterly report\n' > $L/report.txt && textutil -convert docx -output $L/report.docx $L/report.txt && rm $L/report.txt
+printf -- '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----\n' > $L/server.key
+run f3office "alt+r wait text:eport escape f3 wait wait wait wait"
+check "F3 shows an office document as Quick Look does" "[ -f build/shots/reg-f3office-win1.png ] && ! grep -q 'PK' build/shots/reg-f3office-win1.txt"
+run f3textkey "alt+s wait text:erver escape f3 wait wait wait wait"
+check "F3 shows a text file with an office extension as text" "grep -q 'BEGIN PRIVATE KEY' build/shots/reg-f3textkey-win1.txt"
+
+# Ready-made colors: High contrast's stripes go with another preset, stripes turned on
+# in Settings stay. Prints the setting the keys leave.
+alternating() {
+  defaults write ru.themmag.OriCmd.tests AlternatingRows -bool $1
+  timeout 120 open -W -n --env ORICMD_LEFT=$PWD/$L --env ORICMD_RIGHT=$PWD/$R --env "ORICMD_KEYS=$2" --env ORICMD_QUIT=1 \
+    build/DerivedData/Build/Products/Debug/OriCmd.app
+  defaults read ru.themmag.OriCmd.tests AlternatingRows; defaults delete ru.themmag.OriCmd.tests 2>/dev/null
+}
+check "Standard colors keep the stripes turned on in Settings" "[ \"\$(alternating true 'colorpreset:3 wait colorpreset:0 wait')\" = 1 ]"
+check "another preset takes away High contrast's stripes" "[ \"\$(alternating false 'colorpreset:3 wait colorpreset:1 wait')\" = 0 ]"
 
 # Application buttons, with the empty gamma.app (never started); an empty menu file means no menu.
 scripts/test/mkdata.sh; rm -f build/shots/reg-app{menu,remove,sheet}-menu.txt

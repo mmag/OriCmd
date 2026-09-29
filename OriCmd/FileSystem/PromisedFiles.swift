@@ -35,7 +35,7 @@ nonisolated enum PromisedFiles {
         var files: [URL] = []
         // Only files written into our folder are taken: a program asked again for a promise
         // it already kept may answer with the file of an earlier paste.
-        let inside = folder.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+        let inside = resolved(folder).path + "/"
         var elsewhere = 0
         for index in stride(from: 1, through: count, by: 1) {
             var item: PasteboardItemID?
@@ -45,7 +45,7 @@ nonisolated enum PromisedFiles {
             guard PasteboardCopyItemFlavorData(board, item, kPasteboardTypeFileURLPromise as CFString, &data) == noErr,
                   let bytes = data as Data?,
                   let url = URL(dataRepresentation: bytes, relativeTo: nil) else { continue }
-            guard url.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(inside) else {
+            guard resolved(url).path.hasPrefix(inside) else {
                 elsewhere += 1
                 continue
             }
@@ -55,5 +55,15 @@ nonisolated enum PromisedFiles {
             throw RemoteError(String(localized: "The program that copied the files did not write them again. Copy them in that program once more."))
         }
         return files
+    }
+
+    /// `url` with symbolic links resolved (/private/var and /var are one folder), also
+    /// when the file is not there yet: the links are resolved only in paths that exist.
+    private static func resolved(_ url: URL) -> URL {
+        let url = url.standardizedFileURL
+        guard !FileManager.default.fileExists(atPath: url.path), url.pathComponents.count > 1 else {
+            return url.resolvingSymlinksInPath()
+        }
+        return resolved(url.deletingLastPathComponent()).appendingPathComponent(url.lastPathComponent)
     }
 }

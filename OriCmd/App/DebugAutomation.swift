@@ -14,7 +14,8 @@ import ApplicationServices
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
 ///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
-///   `<name>-sheet.png`) is rendered there after the keys are played; a server
+///   `<name>-sheet.png`, other windows as `<name>-win1.png`…, each with the texts it
+///   shows in a `.txt` beside it) is rendered there after the keys are played; a server
 ///   terminal of the active panel as `<name>-terminal.png` and `.txt`.
 /// - `ORICMD_QUIT`: exit when done (even with a sheet open).
 enum DebugAutomation {
@@ -162,18 +163,32 @@ enum DebugAutomation {
                 var suffix = "-sheet"
                 while let current = sheet {
                     save(current, to: snapshot.replacingOccurrences(of: ".png", with: "\(suffix).png"))
+                    saveTexts(of: current, to: snapshot.replacingOccurrences(of: ".png", with: "\(suffix).txt"))
                     sheet = current.attachedSheet
                     suffix += "2"
                 }
                 let others = NSApp.windows.filter { $0 !== window && $0.isVisible && $0.sheetParent == nil }
                 for (index, other) in others.enumerated() {
                     save(other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).png"))
+                    saveTexts(of: other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).txt"))
                 }
             }
             if environment["ORICMD_QUIT"] != nil {
                 exit(0)
             }
         }
+    }
+
+    /// Writes the texts `window` shows (labels, fields, text views), one per line.
+    private static func saveTexts(of window: NSWindow, to path: String) {
+        func texts(in view: NSView) -> [String] {
+            var result: [String] = []
+            if let field = view as? NSTextField, !field.stringValue.isEmpty { result.append(field.stringValue) }
+            if let text = view as? NSTextView, !text.string.isEmpty { result.append(text.string) }
+            return result + view.subviews.flatMap(texts(in:))
+        }
+        let lines = window.contentView.map(texts(in:)) ?? []
+        try? lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
     }
 
     /// Inserts text into the focused text field, or types it into the focused view.

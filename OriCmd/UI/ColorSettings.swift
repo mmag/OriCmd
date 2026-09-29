@@ -14,6 +14,8 @@ enum ColorSettings {
         static let cursor = "CursorColor"
         static let cursorText = "CursorTextColor"
         static let alternating = "AlternatingRows"
+        /// The stripes are High contrast's: another preset takes them away again.
+        static let alternatingByPreset = "AlternatingRowsByPreset"
         static let rules = "FileColorRules"
         static let boldMarked = "BoldMarkedFiles"
     }
@@ -64,7 +66,10 @@ enum ColorSettings {
 
     static var alternatingRows: Bool {
         get { values.alternating }
-        set { store(newValue, Key.alternating) }
+        set {
+            AppDefaults.store.removeObject(forKey: Key.alternatingByPreset)
+            store(newValue, Key.alternating)
+        }
     }
 
     static var rules: [Rule] {
@@ -132,9 +137,17 @@ enum ColorSettings {
             let colors = colors
             AppDefaults.store.set(colors.marked, forKey: Key.marked)
             AppDefaults.store.set(colors.bold, forKey: Key.boldMarked)
-            // High contrast stripes the rows; back to standard, they are plain again.
-            if self == .highContrast || self == .standard {
-                AppDefaults.store.set(self == .highContrast, forKey: Key.alternating)
+            // High contrast stripes the rows; another preset takes away only those
+            // stripes, not the ones chosen in Settings.
+            let store = AppDefaults.store
+            if self == .highContrast {
+                if !store.bool(forKey: Key.alternating) {
+                    store.set(true, forKey: Key.alternating)
+                    store.set(true, forKey: Key.alternatingByPreset)
+                }
+            } else if store.bool(forKey: Key.alternatingByPreset) {
+                store.set(false, forKey: Key.alternating)
+                store.removeObject(forKey: Key.alternatingByPreset)
             }
             let masks = ColorSettings.exampleRules.map(\.mask)
             ColorSettings.rules = zip(masks, colors.rules).map { Rule(mask: $0, color: $1) }

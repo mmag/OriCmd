@@ -310,7 +310,8 @@ Ready-made colors set the marked files' color and the file colors at once:
 standard, for red–green color blindness (protanopia, deuteranopia; Okabe–Ito
 colors), for blue–yellow color blindness (tritanopia), and high contrast. "Marked
 files in bold" makes marking independent of color; the presets other than the
-standard one turn it on.
+standard one turn it on. High contrast also stripes the rows; another preset takes
+those stripes away again (not ones you turned on yourself).
 
 ## Your own keys
 

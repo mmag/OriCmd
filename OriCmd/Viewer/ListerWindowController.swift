@@ -162,18 +162,22 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, Handle
     }
 
     static func defaultMode(for url: URL) -> Mode {
-        if let type = UTType(filenameExtension: url.pathExtension.lowercased()),
-           [.image, .pdf, .audiovisualContent, .rtf, .rtfd, .presentation, .spreadsheet, .font]
-            .contains(where: type.conforms(to:))
+        let type = UTType(filenameExtension: url.pathExtension.lowercased())
+        if let type, [.image, .pdf, .audiovisualContent, .rtf, .rtfd, .font].contains(where: type.conforms(to:)) {
+            return .preview
+        }
+        let text = looksLikeText(url)
+        if let type, !text, [.presentation, .spreadsheet].contains(where: type.conforms(to:))
             || officePrefixes.contains(where: type.identifier.hasPrefix) {
             return .preview
         }
-        return looksLikeText(url) ? .text : .hex
+        return text ? .text : .hex
     }
 
     /// Office documents (Word, Excel, PowerPoint in all their variants, Pages, Numbers,
     /// Keynote, OpenDocument) are shown as Quick Look shows them: as text or hex only
-    /// their insides would be seen.
+    /// their insides would be seen. They are zip or OLE files; text files that share
+    /// their extensions (.key PEM keys, .template, hunspell .dic) stay text.
     private static let officePrefixes = [
         "com.microsoft.word.", "com.microsoft.excel.", "com.microsoft.powerpoint.",
         "org.openxmlformats.", "com.apple.iwork.", "org.oasis-open.opendocument.",

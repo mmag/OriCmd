@@ -2687,19 +2687,23 @@ extension FilePanelController: FileListViewDelegate {
         return true
     }
 
+    /// Whether files dropped onto `folder` would go into a read-only archive; says so.
+    private func refusesDrop(into folder: FileItem?) -> Bool {
+        guard let archive else { return false }
+        // [..] at an archive's root is the folder beside it; inside an archive inside
+        // an archive, it is the outer archive.
+        if archive.outer == nil, archive.folder.isEmpty, folder?.isParent == true { return false }
+        return refuseReadOnlyArchive()
+    }
+
     private func drop(_ urls: [URL], into folder: FileItem?, moving: Bool) {
-        // [..] at the root of an archive inside an archive stands for the outer archive.
-        if let archive, archive.outer != nil, archive.folder.isEmpty, folder?.isParent == true {
-            _ = refuseReadOnlyArchive()
-            return
-        }
+        guard !refusesDrop(into: folder) else { return }
         if let remote {
             let target = folder.map { $0.isParent ? RemotePath.parent(of: remote.path) : remote.path(of: $0.name) }
             upload(urls, to: target, moving: moving)
             return
         }
         if let archive, !(folder?.isParent == true && archive.folder.isEmpty) {
-            guard !refuseReadOnlyArchive() else { return }
             let target: String
             if let folder {
                 target = folder.isParent ? (archive.folder as NSString).deletingLastPathComponent : archive.path(of: folder.name)
@@ -2719,7 +2723,8 @@ extension FilePanelController: FileListViewDelegate {
     /// Dragged files another program promised: it writes them into a private folder on
     /// this folder's volume, then they go where they were dropped.
     func fileList(_ list: FileListView, dropPromises receivers: [NSFilePromiseReceiver], into folder: FileItem?) -> Bool {
-        guard let window = view.window else { return false }
+        // Refused before receiving, so no received files are left behind.
+        guard let window = view.window, !refusesDrop(into: folder) else { return false }
         let base = remote == nil && archive == nil ? directory : FileManager.default.temporaryDirectory
         guard let privateFolder = try? FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask,
                                                                 appropriateFor: base, create: true) else { return false }
