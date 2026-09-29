@@ -41,16 +41,6 @@
         }
       }
     },
-    "%@ is still running in the terminal": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В терминале ещё работает %@"
-          }
-        }
-      }
-    },
     "%@ k / %@ k in %lld / %lld file(s), %lld / %lld dir(s)": {
       "localizations": {
         "ru": {
@@ -247,6 +237,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Папка «%@» уже существует"
+          }
+        }
+      }
+    },
+    "A full-screen program is still running in the terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В терминале ещё работает полноэкранная программа"
           }
         }
       }
@@ -5475,6 +5475,23 @@
         }
       }
     },
+    "program.quoted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@»"
+          }
+        }
+      }
+    },
     "start": {
       "localizations": {
         "ru": {
@@ -5551,6 +5568,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» заблокирован. Чтобы заменить его, включите «Перезаписывать/удалять заблокированные файлы»."
+          }
+        }
+      }
+    },
+    "“%@” is still running in the terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В терминале ещё работает «%@»"
           }
         }
       }

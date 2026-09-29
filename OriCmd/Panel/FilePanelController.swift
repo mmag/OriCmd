@@ -716,12 +716,18 @@ final class FilePanelController: NSViewController {
     }
 
     /// "“apt” is still running in the terminal".
+    /// The quotes are the language's own (“btop” in English, «btop» in Russian).
     static func runningTitle(_ programs: [String]) -> String {
-        let names = programs.map { $0 == ShellTerminalView.fullScreenProgram ? $0 : "\u{201C}\($0)\u{201D}" }
-            .joined(separator: ", ")
-        return programs.count == 1
-            ? String(localized: "\(names) is still running in the terminal")
-            : String(localized: "Programs are still running in terminals: \(names)")
+        if programs.count == 1 {
+            return programs[0] == ShellTerminalView.fullScreenProgram
+                ? String(localized: "A full-screen program is still running in the terminal")
+                : String(localized: "\u{201C}\(programs[0])\u{201D} is still running in the terminal")
+        }
+        let names = programs.map { name in
+            name == ShellTerminalView.fullScreenProgram
+                ? name : String(localized: "program.quoted", defaultValue: "\u{201C}\(name)\u{201D}")
+        }
+        return String(localized: "Programs are still running in terminals: \(names.joined(separator: ", "))")
     }
 
     /// ⌃`: shows the terminal of the server and moves the focus there; from the
