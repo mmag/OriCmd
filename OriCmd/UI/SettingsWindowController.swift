@@ -289,6 +289,8 @@ private final class ColorsPane: SettingsPane {
     private let cursorWell = NSColorWell(style: .default)
     private let cursorTextWell = NSColorWell(style: .default)
     private let alternatingBox = NSButton()
+    private let boldMarkedBox = NSButton()
+    private let presetsButton = NSPopUpButton(frame: .zero, pullsDown: true)
 
     override func build() {
         section(String(localized: "Theme"))
@@ -302,6 +304,14 @@ private final class ColorsPane: SettingsPane {
         fullWidth(PanelPreview())
 
         section(String(localized: "Panel colors"))
+        presetsButton.addItem(withTitle: String(localized: "Choose…"))
+        for preset in ColorSettings.Preset.allCases {
+            presetsButton.addItem(withTitle: preset.title)
+        }
+        presetsButton.target = self
+        presetsButton.action = #selector(presetChosen(_:))
+        row(String(localized: "Ready-made colors:"), presetsButton)
+        note(String(localized: "Also for people who tell some colors apart with difficulty: marked files and file colors stay distinct."))
         for well in [markedWell, cursorWell, cursorTextWell] {
             well.target = self
             well.action = #selector(colorChanged(_:))
@@ -315,6 +325,11 @@ private final class ColorsPane: SettingsPane {
         alternatingBox.target = self
         alternatingBox.action = #selector(alternatingChanged(_:))
         row(nil, alternatingBox)
+        boldMarkedBox.setButtonType(.switch)
+        boldMarkedBox.title = String(localized: "Marked files in bold")
+        boldMarkedBox.target = self
+        boldMarkedBox.action = #selector(boldMarkedChanged(_:))
+        row(nil, boldMarkedBox)
         row(nil, button(String(localized: "Default Colors"), #selector(resetColors(_:))))
 
         section(String(localized: "File colors"))
@@ -324,10 +339,34 @@ private final class ColorsPane: SettingsPane {
     }
 
     private func refresh() {
-        markedWell.color = Theme.markedText
+        markedWell.color = ColorSettings.chosenMarkedColor ?? Theme.markedText
         cursorWell.color = Theme.cursorBackground
         cursorTextWell.color = Theme.cursorText
         alternatingBox.state = ColorSettings.alternatingRows ? .on : .off
+        boldMarkedBox.state = ColorSettings.boldMarked ? .on : .off
+    }
+
+    /// A preset replaces the marked files' color and the file colors (asking first
+    /// when they were changed).
+    @objc private func presetChosen(_ sender: NSPopUpButton) {
+        let presets = ColorSettings.Preset.allCases
+        guard sender.indexOfSelectedItem > 0, presets.indices.contains(sender.indexOfSelectedItem - 1) else { return }
+        let preset = presets[sender.indexOfSelectedItem - 1]
+        let apply = { [weak self] in
+            preset.apply()
+            self?.refresh()
+        }
+        guard ColorSettings.areCustomized, let window = view.window else {
+            apply()
+            return
+        }
+        Prompt.confirm(String(localized: "Replace the colors with \u{201C}\(preset.title)\u{201D}?"),
+                       message: String(localized: "The color of marked files and the file colors by mask are replaced."),
+                       okTitle: String(localized: "Replace"), in: window, completion: apply)
+    }
+
+    @objc private func boldMarkedChanged(_ sender: NSButton) {
+        ColorSettings.boldMarked = sender.state == .on
     }
 
     @objc private func colorChanged(_ sender: NSColorWell) {
@@ -463,8 +502,10 @@ private final class PanelPreview: NSView {
         Row(name: "Documents", ext: "", size: "<DIR>", isFolder: true),
         Row(name: "notes", ext: "md", size: "12 345", isMarked: true),
         Row(name: "readme", ext: "txt", size: "4 096", isCursor: true),
+        Row(name: "archive", ext: "zip", size: "88 000"),
         Row(name: "photo", ext: "jpg", size: "2 048 000"),
-        Row(name: "archive", ext: "zip", size: "88 000", isMarked: true),
+        Row(name: "movie", ext: "mp4", size: "9 876 543"),
+        Row(name: "report", ext: "pdf", size: "310 000", isMarked: true),
         Row(name: "script", ext: "sh", size: "1 024"),
     ]
 
@@ -531,9 +572,10 @@ private final class PanelPreview: NSView {
             if row.isMarked { color = Theme.markedText }
             if row.isCursor { color = row.isMarked ? Theme.markedCursorText : Theme.cursorText }
             let textY = rect.minY + (rowHeight - (font.ascender - font.descender)) / 2 - 1
+            let textFont = Theme.font(marked: row.isMarked)
             draw(row.isFolder ? "[\(row.name)]" : row.name, in: NSRect(x: 6, y: textY, width: nameWidth - 10, height: rowHeight),
-                 font: font, color: color, alignment: .left)
-            draw(row.ext, in: NSRect(x: nameWidth, y: textY, width: 48, height: rowHeight), font: font, color: color,
+                 font: textFont, color: color, alignment: .left)
+            draw(row.ext, in: NSRect(x: nameWidth, y: textY, width: 48, height: rowHeight), font: textFont, color: color,
                  alignment: .left)
             draw(row.size, in: NSRect(x: nameWidth + 50, y: textY, width: 130, height: rowHeight),
                  font: Theme.panelNumberFont, color: color, alignment: .right)

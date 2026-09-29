@@ -15,13 +15,14 @@ enum ColorSettings {
         static let cursorText = "CursorTextColor"
         static let alternating = "AlternatingRows"
         static let rules = "FileColorRules"
+        static let boldMarked = "BoldMarkedFiles"
     }
 
     private static var cache: (marked: NSColor?, cursor: NSColor?, cursorText: NSColor?,
-                               alternating: Bool, rules: [(mask: String, color: NSColor)])?
+                               alternating: Bool, boldMarked: Bool, rules: [(mask: String, color: NSColor)])?
 
     private static var values: (marked: NSColor?, cursor: NSColor?, cursorText: NSColor?,
-                                alternating: Bool, rules: [(mask: String, color: NSColor)]) {
+                                alternating: Bool, boldMarked: Bool, rules: [(mask: String, color: NSColor)]) {
         if let cache { return cache }
         let store = AppDefaults.store
         let loaded = (
@@ -29,15 +30,26 @@ enum ColorSettings {
             cursor: store.string(forKey: Key.cursor).flatMap(NSColor.init(hex:)),
             cursorText: store.string(forKey: Key.cursorText).flatMap(NSColor.init(hex:)),
             alternating: store.bool(forKey: Key.alternating),
+            boldMarked: store.bool(forKey: Key.boldMarked),
             rules: rules.compactMap { rule in NSColor(hex: rule.color).map { (rule.mask, readable($0)) } }
         )
         cache = loaded
         return loaded
     }
 
+    /// The color of marked files as chosen (lighter on a dark background, as file colors).
     static var markedColor: NSColor? {
-        get { values.marked }
+        get { values.marked.map(readable) }
         set { store(newValue?.hexString, Key.marked) }
+    }
+
+    /// The color of marked files as stored (for the color well).
+    static var chosenMarkedColor: NSColor? { values.marked }
+
+    /// Marked files are drawn in bold too: then marking does not rely on color alone.
+    static var boldMarked: Bool {
+        get { values.boldMarked }
+        set { store(newValue, Key.boldMarked) }
     }
 
     static var cursorColor: NSColor? {
@@ -82,6 +94,55 @@ enum ColorSettings {
             AppDefaults.store.removeObject(forKey: key)
         }
         changed()
+    }
+
+    /// Ready-made colors, also for people who tell some colors apart with difficulty.
+    /// A preset sets the marked files' color (and bold) and the file colors.
+    enum Preset: CaseIterable {
+        case standard, redGreen, blueYellow, highContrast
+
+        var title: String {
+            switch self {
+            case .standard: String(localized: "Standard")
+            case .redGreen: String(localized: "Red–green color blindness (protanopia, deuteranopia)")
+            case .blueYellow: String(localized: "Blue–yellow color blindness (tritanopia)")
+            case .highContrast: String(localized: "High contrast")
+            }
+        }
+
+        /// Marked files' color (nil: the standard red), whether they are bold, file colors.
+        private var colors: (marked: String?, bold: Bool, rules: [String]) {
+            switch self {
+            case .standard:
+                (nil, false, ColorSettings.exampleRules.map(\.color))
+            // Okabe–Ito colors, darkened for text on white: blue for marked files, then
+            // vermillion, reddish purple, bluish green and orange.
+            case .redGreen:
+                ("#0060A0", true, ["#B34700", "#A0527F", "#007A5A", "#9A6A00"])
+            // Red stays apart from green and blue; blue with green, and yellow with
+            // violet, are what is avoided.
+            case .blueYellow:
+                ("#C00000", true, ["#B0307A", "#007A7A", "#8C5A00", "#5A5A5A"])
+            case .highContrast:
+                ("#D00000", true, ["#6A1B9A", "#0B6E4F", "#0D47A1", "#8D4E00"])
+            }
+        }
+
+        func apply() {
+            let colors = colors
+            AppDefaults.store.set(colors.marked, forKey: Key.marked)
+            AppDefaults.store.set(colors.bold, forKey: Key.boldMarked)
+            if self == .highContrast {
+                AppDefaults.store.set(true, forKey: Key.alternating)
+            }
+            let masks = ColorSettings.exampleRules.map(\.mask)
+            ColorSettings.rules = zip(masks, colors.rules).map { Rule(mask: $0, color: $1) }
+        }
+    }
+
+    /// Whether the colors were changed from the standard ones (a preset would replace them).
+    static var areCustomized: Bool {
+        values.marked != nil || values.boldMarked || rules != exampleRules
     }
 
     /// Examples in the spirit of Total Commander setups.

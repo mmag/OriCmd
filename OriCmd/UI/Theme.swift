@@ -5,6 +5,12 @@ import AppKit
 enum Theme {
     static var panelFont: NSFont { Settings.panelFont }
 
+    /// Marked files' names: bold when so chosen in Settings → Colors.
+    static func font(marked: Bool) -> NSFont {
+        guard marked, ColorSettings.boldMarked else { return panelFont }
+        return NSFontManager.shared.convert(panelFont, toHaveTrait: .boldFontMask)
+    }
+
     /// The panel font with fixed-width digits, for sizes and dates.
     static var panelNumberFont: NSFont {
         let font = panelFont

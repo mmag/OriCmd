@@ -17,6 +17,15 @@ final class FileColorsWindowController: NSWindowController {
         super.init(window: window)
         buildContent()
         window.center()
+        // A preset chosen in Settings → Colors replaces the rules shown here.
+        NotificationCenter.default.addObserver(forName: Settings.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.rules != ColorSettings.rules else { return }
+                self.rules = ColorSettings.rules
+                self.table.reloadData()
+                self.updateForm()
+            }
+        }
     }
 
     @available(*, unavailable)

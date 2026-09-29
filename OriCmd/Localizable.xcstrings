@@ -381,6 +381,16 @@
         }
       }
     },
+    "Also for people who tell some colors apart with difficulty: marked files and file colors stay distinct.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В том числе для людей с особенностями цветового восприятия: выделенные файлы и цвета файлов остаются различимыми."
+          }
+        }
+      }
+    },
     "Alternating row background": {
       "localizations": {
         "ru": {
@@ -497,6 +507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "В фоне"
+          }
+        }
+      }
+    },
+    "Blue–yellow color blindness (tritanopia)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сине-жёлтая слепота (тританопия)"
           }
         }
       }
@@ -2361,6 +2381,16 @@
         }
       }
     },
+    "High contrast": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Высокий контраст"
+          }
+        }
+      }
+    },
     "If a file exists:": {
       "localizations": {
         "ru": {
@@ -2657,6 +2687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выделение"
+          }
+        }
+      }
+    },
+    "Marked files in bold": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выделенные файлы жирным"
           }
         }
       }
@@ -3671,6 +3711,16 @@
         }
       }
     },
+    "Ready-made colors:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовые цвета:"
+          }
+        }
+      }
+    },
     "Receiving Files…": {
       "localizations": {
         "ru": {
@@ -3697,6 +3747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Повторить"
+          }
+        }
+      }
+    },
+    "Red–green color blindness (protanopia, deuteranopia)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Красно-зелёная слепота (протанопия, дейтеранопия)"
           }
         }
       }
@@ -3857,6 +3917,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заменить"
+          }
+        }
+      }
+    },
+    "Replace the colors with “%@”?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить цвета на «%@»?"
           }
         }
       }
@@ -4441,6 +4511,16 @@
         }
       }
     },
+    "Standard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стандартные"
+          }
+        }
+      }
+    },
     "Start": {
       "localizations": {
         "ru": {
@@ -4617,6 +4697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Архив стал бы пустым."
+          }
+        }
+      }
+    },
+    "The color of marked files and the file colors by mask are replaced.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвет выделенных файлов и цвета файлов по маскам будут заменены."
           }
         }
       }

@@ -485,7 +485,7 @@ final class FileListView: NSView {
         let color = prepareCell(row, in: rect)
         drawIcon(for: item, in: rect)
         drawText(displayName(item), in: rect.divided(atDistance: 20, from: .minXEdge).remainder,
-                 font: Theme.panelFont, color: color)
+                 font: Theme.font(marked: marked.contains(item.name)), color: color)
         drawInactiveCursorFrame(row, in: rect)
     }
 
@@ -529,7 +529,8 @@ final class FileListView: NSView {
         (displayName(item) as NSString).draw(
             with: NSRect(x: rect.minX + 4, y: imageArea.maxY + 4, width: rect.width - 8, height: rowHeight),
             options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
-            attributes: [.font: Theme.panelFont, .foregroundColor: color, .paragraphStyle: paragraph]
+            attributes: [.font: Theme.font(marked: marked.contains(item.name)), .foregroundColor: color,
+                         .paragraphStyle: paragraph]
         )
     }
 
@@ -538,15 +539,19 @@ final class FileListView: NSView {
         let rect = rowRect(row)
         let color = prepareCell(row, in: rect)
         let y = rect.minY
+        let isMarked = marked.contains(item.name)
+        let textFont = Theme.font(marked: isMarked)
+        // Sizes and dates stay regular: in bold they would not fit their columns.
+        let numberFont = Theme.panelNumberFont
 
         let nameRect = layout.rect(for: .name, y: y, height: rowHeight)
         drawIcon(for: item, in: nameRect)
         let name = item.isFolder ? "[\(item.baseName)]" : item.baseName
         drawText(name, in: nameRect.divided(atDistance: 20, from: .minXEdge).remainder,
-                 font: Theme.panelFont, color: color)
+                 font: textFont, color: color)
 
         drawText(item.fileExtension, in: layout.rect(for: .ext, y: y, height: rowHeight),
-                 font: Theme.panelFont, color: color)
+                 font: textFont, color: color)
 
         let size: String
         if item.isFolder, let folderSize = folderSizes[item.name] {
@@ -559,7 +564,7 @@ final class FileListView: NSView {
             size = item.size.formatted(.number.grouping(.automatic))
         }
         drawText(size, in: layout.rect(for: .size, y: y, height: rowHeight),
-                 font: Theme.panelNumberFont, color: color, alignment: .right)
+                 font: numberFont, color: color, alignment: .right)
 
         if !item.isParent {
             for column in layout.extraColumns {
@@ -568,15 +573,15 @@ final class FileListView: NSView {
                 }
                 let numeric = column == .dimensions || column == .duration
                 drawText(value?.display ?? "", in: layout.rect(for: column, y: y, height: rowHeight),
-                         font: numeric || column == .created ? Theme.panelNumberFont : Theme.panelFont,
+                         font: numeric || column == .created ? numberFont : textFont,
                          color: color, alignment: numeric ? .right : .left)
             }
             drawText(Self.dateFormatter.string(from: item.modified),
                      in: layout.rect(for: .date, y: y, height: rowHeight),
-                     font: Theme.panelNumberFont, color: color)
+                     font: numberFont, color: color)
             if layout.contains(.attr) {
                 drawText(item.permissions, in: layout.rect(for: .attr, y: y, height: rowHeight),
-                         font: Theme.panelNumberFont, color: color)
+                         font: numberFont, color: color)
             }
         }
 
