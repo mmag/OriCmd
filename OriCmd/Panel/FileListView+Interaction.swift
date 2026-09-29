@@ -103,6 +103,12 @@ extension FileListView {
         let folder = dropTargetRow.map { items[$0] }
         let operation = dropOperation(sender)
         dropTargetRow = nil
+        // Promised files first: the file URLs such programs add point to placeholders.
+        let promises = sender.draggingPasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self])
+            as? [NSFilePromiseReceiver] ?? []
+        if !promises.isEmpty, operation != [] {
+            return delegate?.fileList(self, dropPromises: promises, into: folder) ?? false
+        }
         let urls = droppedURLs(sender)
         guard !urls.isEmpty, operation != [] else { return false }
         return delegate?.fileList(self, drop: urls, into: folder, moving: operation == .move) ?? false

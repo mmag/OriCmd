@@ -1,5 +1,6 @@
 #if DEBUG
 import AppKit
+import ApplicationServices
 
 /// Development aids driven by environment variables (Debug builds only):
 ///
@@ -7,7 +8,8 @@ import AppKit
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
-///   button), `tabbardoubleclick` (the empty end of the tab bar), `click:Button_Title`,
+///   button), `tabbardoubleclick` (the empty end of the tab bar), `promise:/path` (the file on the
+///   clipboard as Remote Desktop puts it: promised, plus a placeholder of zeros), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
 ///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
@@ -61,6 +63,8 @@ enum DebugAutomation {
                                                       clickCount: 2, pressure: 1) {
                         bar.mouseDown(with: event)
                     }
+                } else if token.hasPrefix("promise:") {
+                    offerPromise(of: URL(filePath: String(token.dropFirst(8))))
                 } else if token.hasPrefix("dropapp:") {
                     // Simulates dropping an application onto the toolbar.
                     (window.windowController as? MainWindowController)?
@@ -289,6 +293,49 @@ enum DebugAutomation {
             return NSApp.sendAction(action, to: delegate, from: item)
         }
         return false
+    }
+
+    /// The file promised by `offerPromise` (the promise keeper is a C function), and the
+    /// pasteboard reference that keeps the promise (released, it could not be kept).
+    nonisolated(unsafe) private static var promisedFile: URL?
+    private static var promiseBoard: Pasteboard?
+
+    /// Writes the promised file into the receiver's paste location. Called on the
+    /// receiver's thread (a local promise), so not isolated to the main actor.
+    nonisolated private static let promiseKeeper: PasteboardPromiseKeeperProcPtr = { board, item, flavor, _ in
+        var location: CFURL?
+        guard PasteboardCopyPasteLocation(board, &location) == noErr,
+              let folder = location as URL?, let source = DebugAutomation.promisedFile else {
+            return OSStatus(badPasteboardFlavorErr)
+        }
+        let target = folder.appending(path: source.lastPathComponent)
+        try? FileManager.default.copyItem(at: source, to: target)
+        return PasteboardPutItemFlavor(board, item, flavor, Data(target.absoluteString.utf8) as CFData, [])
+    }
+
+    /// Puts `file` on the (test) clipboard as Microsoft Remote Desktop does: a promise
+    /// of the file, and the URL of a placeholder of the same size full of zeros, in a
+    /// "placeholder" folder next to the file's folder.
+    private static func offerPromise(of file: URL) {
+        var created: Pasteboard?
+        guard PasteboardCreate(AppDefaults.pasteboard.name.rawValue as CFString, &created) == noErr,
+              let board = created else { return }
+        PasteboardClear(board)
+        PasteboardSynchronize(board)
+        promisedFile = file
+        promiseBoard = board
+        PasteboardSetPromiseKeeper(board, promiseKeeper, nil)
+        guard let item = PasteboardItemID(bitPattern: 1) else { return }
+        PasteboardPutItemFlavor(board, item, kPasteboardTypeFileURLPromise as CFString, nil, [])
+        PasteboardPutItemFlavor(board, item, kPasteboardTypeFilePromiseContent as CFString,
+                                Data("public.data".utf8) as CFData, [])
+        let placeholders = file.deletingLastPathComponent().deletingLastPathComponent().appending(path: "placeholder")
+        try? FileManager.default.createDirectory(at: placeholders, withIntermediateDirectories: true)
+        let placeholder = placeholders.appending(path: file.lastPathComponent)
+        let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        FileManager.default.createFile(atPath: placeholder.path, contents: Data(count: size))
+        PasteboardPutItemFlavor(board, item, "public.file-url" as CFString,
+                                Data(placeholder.absoluteString.utf8) as CFData, [])
     }
 
     private static func save(_ window: NSWindow, to path: String) {

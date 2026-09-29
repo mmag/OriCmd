@@ -170,10 +170,10 @@ shortcuts in parentheses.
 | `⌘I` | Change attributes: rwx permissions, hidden, locked, modification date (also recursively) |
 | `Ctrl+Q` | Quick View in the other panel |
 | `Esc` | Close a dialog or a window in front (Cancel): copying, questions, Find Files, synchronization, settings |
-| `⌘C` / `⌘X` / `⌘V` (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) | Copy / cut / paste files (compatible with Finder); pasting into the same folder creates "name copy" |
+| `⌘C` / `⌘X` / `⌘V` (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) | Copy / cut / paste files (compatible with Finder); pasting into the same folder creates "name copy". Files copied or dragged from Microsoft Remote Desktop, virtual machines or Mail (promised files) arrive with their real contents |
 | `⌥⌘V` | Move the files from the clipboard here |
 | `⌥⌘C` | Copy the full paths of the selected files (Mark → Copy Names — names only) |
-| `⌘K` | Connect to a server: `sftp://`, `ftp://`, `ftps://`, `ftpes://` open right in the panel; smb, afp, nfs and WebDAV are mounted as volumes (with a "Connecting…" window you can cancel; a server that does not answer is reported within seconds). The last ten servers connected to are listed under the address: a click picks one, a double click connects |
+| `⌘K` | Connect to a server: `sftp://`, `ftp://`, `ftps://`, `ftpes://` open right in the panel; smb, afp, nfs and WebDAV are mounted as volumes (with a "Connecting…" window you can cancel; a server that does not answer is reported within seconds). The last ten servers connected to are listed under the address: a click picks one, a double click connects, `−` removes one; the window can be made taller |
 | `Ctrl+F` (`⇧⌘K`) | Saved connections (passwords are kept in the Keychain) |
 | Net → Disconnect | Close the server in the active panel |
 | `⌘E` | Eject the removable or network volume of the active panel |

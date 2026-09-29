@@ -711,12 +711,32 @@
         }
       }
     },
+    "Cannot paste the files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся вставить файлы"
+          }
+        }
+      }
+    },
     "Cannot read folder “%@”": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся прочитать каталог «%@»"
+          }
+        }
+      }
+    },
+    "Cannot read the clipboard.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся прочитать буфер обмена."
           }
         }
       }
@@ -3631,6 +3651,26 @@
         }
       }
     },
+    "Receiving the files from the program that copied them…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получение файлов от программы, которая их скопировала…"
+          }
+        }
+      }
+    },
+    "Recent Servers:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недавние серверы:"
+          }
+        }
+      }
+    },
     "Redo": {
       "localizations": {
         "ru": {
@@ -4637,6 +4677,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "В панелях одинаковые файлы."
+          }
+        }
+      }
+    },
+    "The program that copied the files did not deliver them (%d).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Программа, скопировавшая файлы, не передала их (%d)."
           }
         }
       }

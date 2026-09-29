@@ -51,6 +51,13 @@ kill $ncpid 2>/dev/null
 check "Esc cancels a share that is still connecting" "[ -s build/nc-smb.out ] && $(nosheet mountcancel)"
 rm -f build/nc-smb.out
 
+# Files copied in Microsoft Remote Desktop are promised: the file URLs next to the
+# promise point to placeholders of zeros; pasting must ask for the real contents.
+scripts/test/mkdata.sh; rm -rf build/testdata/placeholder
+run promisepaste "promise:$PWD/$L/readme.txt wait tab cmd+v wait wait wait"
+check "pasting promised files gets their contents, not placeholders" "cmp -s $L/readme.txt $R/readme.txt"
+rm -rf build/testdata/placeholder
+
 scripts/test/mkdata.sh
 run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"
 check "F2 renames in place (the extension kept)" "[ -f $L/by-f2.md ] && [ ! -f $L/notes.md ]"

@@ -484,7 +484,7 @@ final class FilePanelController: NSViewController {
 
     /// Uploads local files into the server folder shown here (or `folder`);
     /// moving deletes the originals afterwards.
-    func upload(_ urls: [URL], to folder: String? = nil, moving: Bool) {
+    func upload(_ urls: [URL], to folder: String? = nil, moving: Bool, then finished: (() -> Void)? = nil) {
         guard let remote, let window = view.window else { return }
         let target = folder ?? remote.path
         Task {
@@ -503,6 +503,7 @@ final class FilePanelController: NSViewController {
             if !done.isEmpty {
                 loadRemote(remote.path, selecting: urls.first?.lastPathComponent)
             }
+            finished?()
         }
     }
 
@@ -1766,6 +1767,12 @@ extension FilePanelController: NSMenuItemValidation {
 
     private func pasteFiles(moving forceMove: Bool) {
         let pasteboard = AppDefaults.pasteboard
+        // Files another program promised (Remote Desktop, virtual machines) come from the
+        // program itself: the file URLs next to the promise point to placeholders.
+        if PromisedFiles.areOffered(on: pasteboard) {
+            pastePromisedFiles(from: pasteboard.name)
+            return
+        }
         let urls = clipboardFiles
         guard !urls.isEmpty else {
             NSSound.beep()
@@ -1789,9 +1796,57 @@ extension FilePanelController: NSMenuItemValidation {
         transfer(urls, to: directory, moving: moving)
     }
 
+    /// Asks the program that copied them for the promised files, into a private folder
+    /// on this folder's volume, then moves them in (or uploads them, or adds them to
+    /// the archive). The program may take a while: Cancel stops waiting for it.
+    private func pastePromisedFiles(from pasteboard: NSPasteboard.Name) {
+        guard let window = view.window, !refuseReadOnlyArchive() else { return }
+        let base = remote == nil && archive == nil ? directory : FileManager.default.temporaryDirectory
+        guard let folder = try? FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask,
+                                                         appropriateFor: base, create: true) else {
+            NSSound.beep()
+            return
+        }
+        let cleanUp: () -> Void = { try? FileManager.default.removeItem(at: folder) }
+        var cancelled = false
+        let closeProgress = Prompt.progress(String(localized: "Receiving the files from the program that copied them…"),
+                                            in: window) { cancelled = true }
+        Task {
+            let result = await Task.detached { try PromisedFiles.receive(from: pasteboard, into: folder) }.result
+            closeProgress()
+            guard !cancelled else {
+                cleanUp()
+                return
+            }
+            switch result {
+            case .failure(let error):
+                cleanUp()
+                Prompt.error(String(localized: "Cannot paste the files"), error, in: window)
+            case .success(let files) where files.isEmpty:
+                cleanUp()
+                NSSound.beep()
+            case .success(let files):
+                deliver(files, then: cleanUp)
+            }
+        }
+    }
+
+    /// Moves received files from a private folder to where the panel is.
+    private func deliver(_ files: [URL], then finished: @escaping () -> Void) {
+        if remote != nil {
+            upload(files, moving: true, then: finished)
+        } else if let archive {
+            applyArchiveEdit(.add(files, folder: archive.folder), selecting: files.first?.lastPathComponent) { _ in
+                finished()
+            }
+        } else {
+            transfer(files, to: directory, moving: true, then: finished)
+        }
+    }
+
     /// Copies or moves files into `destination` (paste, drag and drop). Items
     /// already in that folder are duplicated as "name copy" instead.
-    private func transfer(_ urls: [URL], to destination: URL, moving: Bool) {
+    private func transfer(_ urls: [URL], to destination: URL, moving: Bool, then finished: (() -> Void)? = nil) {
         guard let window = view.window else { return }
         Task {
             let controller = moving
@@ -1825,6 +1880,7 @@ extension FilePanelController: NSMenuItemValidation {
                 return urls
             }
             load(directory, selecting: urls.first?.lastPathComponent)
+            finished?()
         }
     }
 
@@ -2223,7 +2279,7 @@ extension FilePanelController: NSMenuItemValidation {
         case #selector(copy(_:)), #selector(cut(_:)):
             return archive == nil && !selectedItems.isEmpty
         case #selector(paste(_:)), #selector(moveItemsHere(_:)):
-            return !clipboardFiles.isEmpty
+            return !clipboardFiles.isEmpty || PromisedFiles.areOffered(on: AppDefaults.pasteboard)
         default:
             break
         }
@@ -2470,6 +2526,40 @@ extension FilePanelController: FileListViewDelegate {
         }
         let destination = archive != nil ? directory : (folder?.url ?? directory)
         transfer(urls, to: destination, moving: moving)
+        return true
+    }
+
+    /// Dragged files another program promised: it writes them into a private folder on
+    /// this folder's volume, then they go where they were dropped.
+    func fileList(_ list: FileListView, dropPromises receivers: [NSFilePromiseReceiver], into folder: FileItem?) -> Bool {
+        guard let window = view.window else { return false }
+        let base = remote == nil && archive == nil ? directory : FileManager.default.temporaryDirectory
+        guard let privateFolder = try? FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask,
+                                                                appropriateFor: base, create: true) else { return false }
+        let received = OSAllocatedUnfairLock(initialState: [URL]())
+        let group = DispatchGroup()
+        let queue = OperationQueue()
+        for receiver in receivers {
+            for _ in receiver.fileNames { group.enter() }
+            receiver.receivePromisedFiles(atDestination: privateFolder, options: [:], operationQueue: queue) { url, error in
+                if error == nil { received.withLock { $0.append(url) } }
+                group.leave()
+            }
+        }
+        var cancelled = false
+        let closeProgress = Prompt.progress(String(localized: "Receiving the files from the program that copied them…"),
+                                            in: window) { cancelled = true }
+        group.notify(queue: .main) { [weak self] in
+            MainActor.assumeIsolated {
+                closeProgress()
+                let files = received.withLock { $0 }
+                guard let self, !cancelled, !files.isEmpty else {
+                    try? FileManager.default.removeItem(at: privateFolder)
+                    return
+                }
+                _ = self.fileList(list, drop: files, into: folder, moving: true)
+            }
+        }
         return true
     }
 

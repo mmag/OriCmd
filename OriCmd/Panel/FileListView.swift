@@ -27,6 +27,8 @@ protocol FileListViewDelegate: AnyObject {
     func fileListCanDragItems(_ list: FileListView) -> Bool
     /// Files were dropped on the list, or on the folder entry `folder`.
     func fileList(_ list: FileListView, drop urls: [URL], into folder: FileItem?, moving: Bool) -> Bool
+    /// Files promised by the program they are dragged from (Remote Desktop, Mail).
+    func fileList(_ list: FileListView, dropPromises receivers: [NSFilePromiseReceiver], into folder: FileItem?) -> Bool
 }
 
 /// The file list of a panel, in Full view (one row per entry with details) or
@@ -88,7 +90,8 @@ final class FileListView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        registerForDraggedTypes([.fileURL])
+        let promiseTypes = NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) }
+        registerForDraggedTypes([NSPasteboard.PasteboardType.fileURL] + promiseTypes)
     }
 
     @available(*, unavailable)

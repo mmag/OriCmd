@@ -792,12 +792,12 @@ extension MainViewController: NSMenuItemValidation {
     @objc func connectToServer(_ sender: Any?) {
         guard let window = view.window else { return }
         let key = "LastServerAddress"
-        Prompt.address(String(localized: "Connect to Server"),
-                       message: String(localized: "Server address (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// for WebDAV):"),
-                       initial: AppDefaults.store.string(forKey: key) ?? "smb://",
-                       recent: Self.recentServers,
-                       okTitle: String(localized: "Connect"), in: window,
-                       onRemove: { address in Self.recentServers.removeAll { $0 == address } }) { [weak self] address in
+        ServerAddressSheet.show(String(localized: "Connect to Server"),
+                                message: String(localized: "Server address (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// for WebDAV):"),
+                                initial: AppDefaults.store.string(forKey: key) ?? "smb://",
+                                recent: Self.recentServers,
+                                okTitle: String(localized: "Connect"), in: window,
+                                onRemove: { address in Self.recentServers.removeAll { $0 == address } }) { [weak self] address in
             guard let url = URL(string: address.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
                 NSSound.beep()
                 return
