@@ -251,6 +251,33 @@ alternating() {
 check "Standard colors keep the stripes turned on in Settings" "[ \"\$(alternating true 'colorpreset:3 wait colorpreset:0 wait')\" = 1 ]"
 check "another preset takes away High contrast's stripes" "[ \"\$(alternating false 'colorpreset:3 wait colorpreset:1 wait')\" = 0 ]"
 
+# The right button: the context menu at once (default), or marking (Settings → Panels):
+# a click marks, a drag marks all it passes (from a marked file: unmarks), held still
+# the menu. Rows: 0 [..], 7 cp1251.txt, 8 data.csv, 9 file2.txt, 10 file10.txt.
+rightmarks() { defaults write ru.themmag.OriCmd.tests RightMouseButton marks; }
+only() { [ "$(ls $R | tr '\n' ' ')" = "$1 " ]; }
+scripts/test/mkdata.sh
+run rmenu "rightmouse:click:7"
+check "right click shows the context menu" "grep -q 'Copy' build/shots/reg-rmenu-menu.txt"
+scripts/test/mkdata.sh; rightmarks
+run rclick "rightmouse:click:7 rightmouse:click:8 f5 wait enter wait wait"
+check "right click marks files (marking mode)" "[ ! -s build/shots/reg-rclick-menu.txt ] && only 'cp1251.txt data.csv'"
+scripts/test/mkdata.sh; rightmarks
+run rdrag "rightmouse:drag:7-10 f5 wait enter wait wait"
+check "a right-button drag marks the files it passes" "only 'cp1251.txt data.csv file10.txt file2.txt'"
+scripts/test/mkdata.sh; rightmarks
+run runmark "rightmouse:drag:7-10 rightmouse:drag:8-9 f5 wait enter wait wait"
+check "a right-button drag from a marked file unmarks" "only 'cp1251.txt file10.txt'"
+scripts/test/mkdata.sh; rightmarks
+run rhold "rightmouse:hold:7 down f5 wait enter wait wait"
+check "the right button held still shows the menu, nothing marked" "grep -q 'Copy' build/shots/reg-rhold-menu.txt && only 'data.csv'"
+rightmarks
+run rparent "rightmouse:click:0"
+check "right click on [..] shows the menu at once (marking mode)" "grep -q . build/shots/reg-rparent-menu.txt"
+scripts/test/mkdata.sh; rightmarks
+run rctrl "rightmouse:ctrlclick:7 down f5 wait enter wait wait"
+check "Control-click shows the menu at once (marking mode), nothing marked" "grep -q 'Copy' build/shots/reg-rctrl-menu.txt && only 'data.csv'"
+
 # Application buttons, with the empty gamma.app (never started); an empty menu file means no menu.
 scripts/test/mkdata.sh; rm -f build/shots/reg-app{menu,remove,sheet}-menu.txt
 run appmenu "dropapp:$PWD/$L/gamma.app wait rightclickapp:gamma"

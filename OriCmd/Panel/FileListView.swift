@@ -626,6 +626,59 @@ final class FileListView: NSView {
         }
     }
 
+    /// How long the right button is held still on a file for the context menu when
+    /// it marks files.
+    private static let menuHoldTime: TimeInterval = 0.5
+
+    /// When the right button marks files (Settings → Panels): a click marks or unmarks
+    /// the file, a drag over files makes them all as the first one became, holding the
+    /// button still shows the context menu. Elsewhere, the menu at once.
+    override func rightMouseDown(with event: NSEvent) {
+        guard Settings.rightButton == .marks, let window,
+              let row = index(at: convert(event.locationInWindow, from: nil)), !items[row].isParent else {
+            super.rightMouseDown(with: event)
+            return
+        }
+        window.makeFirstResponder(self)
+        let mark = !marked.contains(items[row].name)
+        let deadline = Date(timeIntervalSinceNow: Self.menuHoldTime)
+        var last: Int?
+        while true {
+            guard let next = window.nextEvent(matching: [.rightMouseUp, .rightMouseDragged],
+                                              until: last == nil ? deadline : .distantFuture,
+                                              inMode: .eventTracking, dequeue: true) else {
+                if let menu = menu(for: event) {
+                    NSMenu.popUpContextMenu(menu, with: event, for: self)
+                }
+                return
+            }
+            if next.type == .rightMouseUp {
+                if last == nil {
+                    setMarks(mark, from: row, to: row)
+                    moveCursor(to: row)
+                }
+                return
+            }
+            // Moving within the first file is still a click (or a hold).
+            guard let current = index(at: convert(next.locationInWindow, from: nil)),
+                  current != (last ?? row) else { continue }
+            setMarks(mark, from: last ?? row, to: current)
+            moveCursor(to: current)
+            last = current
+        }
+    }
+
+    private func setMarks(_ mark: Bool, from start: Int, to end: Int) {
+        let names = items[min(start, end)...max(start, end)].filter { !$0.isParent }.map(\.name)
+        if mark {
+            marked.formUnion(names)
+        } else {
+            marked.subtract(names)
+        }
+        needsDisplay = true
+        delegate?.fileListMarksDidChange(self)
+    }
+
     // MARK: - Keyboard
 
     override func keyDown(with event: NSEvent) {

@@ -8,7 +8,7 @@ import ApplicationServices
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
-///   button), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `promise:/path` (the file on the
+///   button), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
@@ -49,6 +49,51 @@ enum DebugAutomation {
                     }
                     try? titles.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                                                 atomically: true, encoding: .utf8)
+                } else if token.hasPrefix("rightmouse:"), let list = window.firstResponder as? FileListView {
+                    // The right button on rows of the focused panel: `click:N`, `hold:N` (not
+                    // let go), `drag:N-M`, or `ctrlclick:N` (Control and the left button). A
+                    // context menu shown is written to <snapshot>-menu.txt (empty when none)
+                    // and closed.
+                    let parts = token.split(separator: ":").map(String.init)
+                    let rows = parts.count == 3 ? parts[2].split(separator: "-").compactMap { Int($0) } : []
+                    guard let first = rows.first, let last = rows.last else { continue }
+                    let control = parts[1] == "ctrlclick"
+                    @MainActor func event(_ type: NSEvent.EventType, at row: Int) -> NSEvent? {
+                        let rect = list.rowRect(row)
+                        let type: NSEvent.EventType = !control ? type : type == .rightMouseDown ? .leftMouseDown : .leftMouseUp
+                        return NSEvent.mouseEvent(
+                            with: type, location: list.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil),
+                            modifierFlags: control ? [.control] : [], timestamp: ProcessInfo.processInfo.systemUptime,
+                            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                            pressure: type == .rightMouseUp || type == .leftMouseUp ? 0 : 1)
+                    }
+                    let menuFile = snapshot?.replacingOccurrences(of: ".png", with: "-menu.txt")
+                    if let menuFile {
+                        try? "".write(toFile: menuFile, atomically: true, encoding: .utf8)
+                    }
+                    let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification,
+                                                                          object: nil, queue: nil) { note in
+                        nonisolated(unsafe) let tracked = note.object as? NSMenu
+                        MainActor.assumeIsolated {
+                            guard let menu = tracked else { return }
+                            if let menuFile {
+                                try? menu.items.map { $0.isSeparatorItem ? "---" : $0.title }.joined(separator: "\n")
+                                    .write(toFile: menuFile, atomically: true, encoding: .utf8)
+                            }
+                            nonisolated(unsafe) let shown = menu
+                            RunLoop.main.perform(inModes: [.eventTracking, .default]) { shown.cancelTracking() }
+                        }
+                    }
+                    if parts[1] == "drag" {
+                        for row in stride(from: first, through: last, by: first <= last ? 1 : -1) {
+                            event(.rightMouseDragged, at: row).map { NSApp.postEvent($0, atStart: false) }
+                        }
+                    }
+                    if parts[1] != "hold" {
+                        event(.rightMouseUp, at: last).map { NSApp.postEvent($0, atStart: false) }
+                    }
+                    event(.rightMouseDown, at: first).map(window.sendEvent)
+                    NotificationCenter.default.removeObserver(observer)
                 } else if token.hasPrefix("drop:"), let list = window.firstResponder as? FileListView {
                     // Simulates dropping a file onto the focused panel.
                     _ = list.delegate?.fileList(list, drop: [URL(filePath: String(token.dropFirst(5)))], into: nil, moving: false)
@@ -114,11 +159,12 @@ enum DebugAutomation {
                                     .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                            atomically: true, encoding: .utf8)
                             }
-                            let item = menu.items.first { $0.title == choice }
+                            nonisolated(unsafe) let shown = menu
+                            let index = menu.items.firstIndex { $0.title == choice }
                             RunLoop.main.perform(inModes: [.eventTracking, .default]) {
-                                menu.cancelTracking()
-                                if let item, let index = menu.items.firstIndex(of: item) {
-                                    menu.performActionForItem(at: index)
+                                shown.cancelTracking()
+                                if let index {
+                                    shown.performActionForItem(at: index)
                                 }
                             }
                         }

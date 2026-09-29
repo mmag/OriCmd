@@ -279,6 +279,11 @@ show in Finder, clipboard, rename, delete, pack, and the system Services. Files
 can be dragged between the panels, from Finder and to Finder; copying by
 default, moving with `⌘`. Dropping onto a folder row puts the files into it.
 
+The right button can mark files instead (Settings → Panels → Mouse): a click
+marks or unmarks a file, a drag over files makes them all as the first one
+became, and holding the button still for half a second opens the context menu.
+On `[..]`, on empty space and with `Ctrl`-click the menu opens at once.
+
 A click on the path above a panel makes it editable: type a folder (or a file:
 it is shown selected; an archive opens), a folder on the server or in the archive
 shown, or another server's address, and press `Enter`; `Esc` cancels. `Tab`

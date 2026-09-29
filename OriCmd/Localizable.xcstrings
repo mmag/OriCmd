@@ -2711,6 +2711,26 @@
         }
       }
     },
+    "Marking: a click marks or unmarks a file, a drag over files makes them all as the first one became; hold the button still for the context menu. On [..] and with Control-click the menu opens at once.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отметка: щелчок отмечает файл или снимает отметку, протяжка по файлам делает их все такими же, каким стал первый; задержите кнопку, не двигая мышь, — откроется контекстное меню. На [..] и по Control-клику меню открывается сразу."
+          }
+        }
+      }
+    },
+    "Marks files, held down shows the context menu": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отмечает файлы, при удержании — контекстное меню"
+          }
+        }
+      }
+    },
     "Mask": {
       "localizations": {
         "ru": {
@@ -2767,6 +2787,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Дата изменения:"
+          }
+        }
+      }
+    },
+    "Mouse": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мышь"
           }
         }
       }
@@ -4031,6 +4061,16 @@
         }
       }
     },
+    "Right button:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правая кнопка:"
+          }
+        }
+      }
+    },
     "Right:": {
       "localizations": {
         "ru": {
@@ -4417,6 +4457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать:"
+          }
+        }
+      }
+    },
+    "Shows the context menu": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывает контекстное меню"
           }
         }
       }

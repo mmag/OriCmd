@@ -235,6 +235,22 @@ private final class PanelsPane: SettingsPane {
         row(nil, checkbox(String(localized: "Drive buttons"), Settings.showsDriveButtons, #selector(driveButtonsChanged(_:))))
         row(String(localized: "Button bar:"), button(String(localized: "Customize Toolbar…"), #selector(customizeToolbar(_:))))
         note(String(localized: "Optional columns (kind, created, dimensions, duration, tags) are chosen by right-clicking a panel's column headers."))
+
+        section(String(localized: "Mouse"))
+        let rightButton = NSPopUpButton()
+        rightButton.addItems(withTitles: [
+            String(localized: "Shows the context menu"),
+            String(localized: "Marks files, held down shows the context menu"),
+        ])
+        rightButton.selectItem(at: Settings.rightButton == .menu ? 0 : 1)
+        rightButton.target = self
+        rightButton.action = #selector(rightButtonChanged(_:))
+        row(String(localized: "Right button:"), rightButton)
+        note(String(localized: "Marking: a click marks or unmarks a file, a drag over files makes them all as the first one became; hold the button still for the context menu. On [..] and with Control-click the menu opens at once."))
+    }
+
+    @objc private func rightButtonChanged(_ sender: NSPopUpButton) {
+        Settings.rightButton = sender.indexOfSelectedItem == 0 ? .menu : .marks
     }
 
     private func updateFontLabel() {

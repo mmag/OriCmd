@@ -29,6 +29,7 @@ enum Settings {
         static let copyAttributes = "CopyAttributes"
         static let copySkipUnreadable = "CopySkipUnreadable"
         static let copyOverwriteLocked = "CopyOverwriteLocked"
+        static let rightButton = "RightMouseButton"
     }
 
     static let defaultFontSize: CGFloat = 12
@@ -58,6 +59,20 @@ enum Settings {
     static var quickSearchMode: QuickSearchMode {
         get { AppDefaults.store.string(forKey: Key.quickSearch).flatMap(QuickSearchMode.init) ?? .optionLetters }
         set { set(newValue.rawValue, Key.quickSearch) }
+    }
+
+    /// What the right mouse button does on a panel's files.
+    enum RightButton: String {
+        /// Shows the context menu, as in the Finder.
+        case menu
+        /// Marks and unmarks files (a drag over several marks them all); held still,
+        /// shows the context menu.
+        case marks
+    }
+
+    static var rightButton: RightButton {
+        get { AppDefaults.store.string(forKey: Key.rightButton).flatMap(RightButton.init) ?? .menu }
+        set { set(newValue.rawValue, Key.rightButton) }
     }
 
     static var showsCommandLine: Bool {
