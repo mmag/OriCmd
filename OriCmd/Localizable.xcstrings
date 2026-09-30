@@ -1951,6 +1951,16 @@
         }
       }
     },
+    "Eject “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Извлечь «%@»"
+          }
+        }
+      }
+    },
     "Encoding": {
       "localizations": {
         "ru": {
@@ -3081,6 +3091,16 @@
         }
       }
     },
+    "New name:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое имя:"
+          }
+        }
+      }
+    },
     "Next Difference": {
       "localizations": {
         "ru": {
@@ -3287,6 +3307,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Открыть в программе"
+          }
+        }
+      }
+    },
+    "Open in New Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в новой вкладке"
+          }
+        }
+      }
+    },
+    "Open in Other Panel": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в другой панели"
           }
         }
       }
@@ -3957,6 +3997,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Маска имени:"
+          }
+        }
+      }
+    },
+    "Rename “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать «%@»"
+          }
+        }
+      }
+    },
+    "Rename “%@”…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать «%@»…"
           }
         }
       }

@@ -12,6 +12,10 @@ protocol FilePanelControllerDelegate: AnyObject {
     func filePanel(_ panel: FilePanelController, otherTabsShow server: String) -> Bool
     /// A server address typed into the path bar: connect to it, as Connect to Server.
     func filePanel(_ panel: FilePanelController, openAddress address: String)
+    /// A drive button's "Open in Other Panel".
+    func filePanel(_ panel: FilePanelController, openDriveInOtherPanel url: URL)
+    /// A drive button's "Eject": the volume is left in both panels first.
+    func filePanel(_ panel: FilePanelController, eject volume: URL)
 }
 
 /// Owns one panel: its current directory, listing, sort order and view.
@@ -226,6 +230,7 @@ final class FilePanelController: NSViewController {
         panelView.onGoToParent = { [weak self] in self?.goToParent() }
         panelView.onVolumeSelected = { [weak self] volume in self?.openDrive(volume.url) }
         panelView.driveBar.onSelect = { [weak self] url in self?.openDrive(url) }
+        panelView.driveBar.menuProvider = { [weak self] url in self?.driveMenu(for: url) }
         panelView.setDriveBarVisible(Settings.showsDriveButtons)
         panelView.tabBar.onSelect = { [weak self] index in self?.selectTab(index) }
         panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
@@ -286,9 +291,12 @@ final class FilePanelController: NSViewController {
     /// Reads `directory` and shows it, placing the cursor on `name` if given.
     /// The folder is read in the background (a slow network volume must not
     /// freeze the window); only the latest request is shown. Esc cancels it.
-    func load(_ directory: URL, selecting name: String? = nil, recordingHistory: Bool = true) {
+    func load(_ directory: URL, selecting name: String? = nil, recordingHistory: Bool = true,
+              then completion: (() -> Void)? = nil) {
         if remote != nil {
-            leaveServer { [weak self] in self?.load(directory, selecting: name, recordingHistory: recordingHistory) }
+            leaveServer { [weak self] in
+                self?.load(directory, selecting: name, recordingHistory: recordingHistory, then: completion)
+            }
             return
         }
         let directory = directory.standardizedFileURL
@@ -314,6 +322,7 @@ final class FilePanelController: NSViewController {
             switch result {
             case .success(let listing):
                 show(listing, of: directory, selecting: name, recordingHistory: recordingHistory)
+                completion?()
             case .failure(let error):
                 if !(error is CancellationError) {
                     present(error, reading: directory)
@@ -579,7 +588,7 @@ final class FilePanelController: NSViewController {
 
     /// A drive button (or the volume list) on a server tab opens the drive in a new
     /// tab: the server keeps its tab.
-    private func openDrive(_ url: URL) {
+    func openDrive(_ url: URL) {
         if remote != nil {
             openTab(url)
         } else {
@@ -932,7 +941,7 @@ final class FilePanelController: NSViewController {
     /// Shows the contents of an archive as a folder (Enter / Ctrl+PgDn on it).
     /// Shows an archive as a folder. It is read in the background (a big tar.gz is
     /// decompressed as a whole), and a folder load still under way is dropped.
-    func openArchive(_ url: URL, inside outer: OuterArchive? = nil) {
+    func openArchive(_ url: URL, inside outer: OuterArchive? = nil, folder: String = "", selecting name: String? = nil) {
         loadGeneration += 1
         let generation = loadGeneration
         // A folder still loading is dropped, with its indicator; Esc stops this one.
@@ -953,13 +962,58 @@ final class FilePanelController: NSViewController {
                 let (entries, stamp) = try await Self.readArchive(url)
                 guard generation == loadGeneration else { return }
                 listView.setMarked([])
-                archive = ArchiveLocation(url: url, folder: "", entries: entries, stamp: stamp, outer: outer)
-                showArchiveFolder(selecting: nil)
+                // A folder asked for that the archive does not have: its root.
+                let known = folder.isEmpty || entries.contains { $0.path == folder || $0.path.hasPrefix(folder + "/") }
+                archive = ArchiveLocation(url: url, folder: known ? folder : "", entries: entries, stamp: stamp, outer: outer)
+                showArchiveFolder(selecting: known ? name : nil)
             } catch {
                 guard generation == loadGeneration else { return }
                 Prompt.error(String(localized: "Cannot open archive \u{201C}\(url.lastPathComponent)\u{201D}"), error,
                              in: view.window)
             }
+        }
+    }
+
+    /// Shows here what the other panel `source` has under its cursor (Ctrl+Left/Right):
+    /// a folder or an archive opened, a file in its folder, selected. Without
+    /// `underCursor`, the folder (or archive folder) `source` shows. A server's folders
+    /// and archives inside archives (temporary copies) stay where they are.
+    func show(locationOf source: FilePanelController, underCursor: Bool) {
+        let item = underCursor ? source.listView.currentItem : nil
+        if source.remote != nil || source.archive?.outer != nil {
+            NSSound.beep()
+        } else if let archive = source.archive {
+            var folder = archive.folder
+            var name: String?
+            if let item, item.isParent {
+                guard !folder.isEmpty else {
+                    load(archive.url.deletingLastPathComponent(), selecting: archive.url.lastPathComponent)
+                    return
+                }
+                name = (folder as NSString).lastPathComponent
+                folder = (folder as NSString).deletingLastPathComponent
+            } else if let item, item.isDirectory {
+                folder = archive.path(of: item.name)
+            } else {
+                name = item?.name
+            }
+            load(archive.url.deletingLastPathComponent(), selecting: archive.url.lastPathComponent) { [weak self] in
+                self?.openArchive(archive.url, folder: folder, selecting: name)
+            }
+        } else if let item, item.isParent {
+            load(source.directory.deletingLastPathComponent(), selecting: source.directory.lastPathComponent)
+        } else if let item, item.isFolder {
+            load(item.url)
+        } else if let item {
+            // Also a file of search results or the branch view: its own folder.
+            let folder = item.url.deletingLastPathComponent()
+            if !item.isDirectory, ArchiveReader.isArchive(item.name) {
+                load(folder, selecting: item.url.lastPathComponent) { [weak self] in self?.openArchive(item.url) }
+            } else {
+                load(folder, selecting: item.url.lastPathComponent)
+            }
+        } else {
+            load(source.directory)
         }
     }
 
@@ -1351,6 +1405,27 @@ final class FilePanelController: NSViewController {
     }
 
     /// Mounted volumes changed: refresh the volume list, leave a vanished volume.
+    /// A volume was renamed: its mount point moved, and a folder shown on it moves
+    /// along. Whether it did.
+    func volumeWasRenamed(from old: URL, to new: URL) -> Bool {
+        let path = directory.path, oldPath = old.path
+        guard remote == nil, path == oldPath || path.hasPrefix(oldPath.hasSuffix("/") ? oldPath : oldPath + "/")
+        else { return false }
+        let rest = String(path.dropFirst(oldPath.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let moved = rest.isEmpty ? new : new.appending(path: rest)
+        if let archive, archive.outer == nil {
+            let inside = archive.url.path.dropFirst(oldPath.count).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            let url = new.appending(path: inside)
+            let folder = archive.folder
+            load(moved, selecting: url.lastPathComponent, recordingHistory: false) { [weak self] in
+                self?.openArchive(url, folder: folder)
+            }
+        } else {
+            load(moved, selecting: listView.currentItem?.name, recordingHistory: false)
+        }
+        return true
+    }
+
     func volumesDidChange() {
         guard FileManager.default.fileExists(atPath: directory.path) else {
             leaveLocalFolder(for: FileManager.default.homeDirectoryForCurrentUser)
@@ -2161,6 +2236,95 @@ extension FilePanelController: NSMenuItemValidation {
         return menu
     }
 
+    // MARK: - Drive buttons
+
+    /// A drive button's context menu, as the Finder's for a volume.
+    private func driveMenu(for url: URL) -> NSMenu {
+        let menu = NSMenu()
+        @discardableResult
+        func add(_ title: String, _ action: Selector) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.representedObject = url
+            menu.addItem(item)
+            return item
+        }
+        let isHome = url.path == FileManager.default.homeDirectoryForCurrentUser.path
+        let values = try? url.resourceValues(forKeys: [.volumeLocalizedNameKey, .volumeSupportsRenamingKey])
+        let name = values?.volumeLocalizedName ?? url.lastPathComponent
+        add(String(localized: "Open"), #selector(openDriveItem(_:)))
+        add(String(localized: "Open in New Tab"), #selector(openDriveInNewTab(_:)))
+        add(String(localized: "Open in Other Panel"), #selector(openDriveInOtherPanel(_:)))
+        add(String(localized: "Show in Finder"), #selector(showDriveInFinder(_:)))
+        if !isHome, Volume.isEjectable(url) {
+            menu.addItem(.separator())
+            add(String(localized: "Eject \u{201C}\(name)\u{201D}"), #selector(ejectDrive(_:)))
+        }
+        menu.addItem(.separator())
+        add(Command.properties.title, #selector(showDriveInfo(_:)))
+        if !isHome, values?.volumeSupportsRenaming == true {
+            add(String(localized: "Rename \u{201C}\(name)\u{201D}…"), #selector(renameDrive(_:)))
+        }
+        add(Command.copyFullNamesToClip.title, #selector(copyDrivePath(_:)))
+        return menu
+    }
+
+    @objc private func openDriveItem(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        focus()
+        openDrive(url)
+    }
+
+    @objc private func openDriveInNewTab(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        focus()
+        openTab(url)
+    }
+
+    @objc private func openDriveInOtherPanel(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        delegate?.filePanel(self, openDriveInOtherPanel: url)
+    }
+
+    @objc private func showDriveInFinder(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
+    }
+
+    @objc private func ejectDrive(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        delegate?.filePanel(self, eject: url)
+    }
+
+    @objc private func showDriveInfo(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        showInfo([url])
+    }
+
+    @objc private func copyDrivePath(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        copyToClipboard([url.path])
+    }
+
+    /// Renames a volume (its mount point follows; the panels go along, see
+    /// `volumeWasRenamed`).
+    @objc private func renameDrive(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL, let window = view.window else { return }
+        let name = (try? url.resourceValues(forKeys: [.volumeNameKey]))?.volumeName ?? url.lastPathComponent
+        Prompt.text(String(localized: "Rename \u{201C}\(name)\u{201D}"), message: String(localized: "New name:"),
+                    initial: name, okTitle: String(localized: "Rename"), in: window) { newName in
+            guard !newName.isEmpty, newName != name else { return }
+            var values = URLResourceValues()
+            values.volumeName = newName
+            var volume = url
+            do {
+                try volume.setResourceValues(values)
+            } catch {
+                Prompt.error(String(localized: "Cannot rename \u{201C}\(name)\u{201D}"), error, in: window)
+            }
+        }
+    }
+
     private func openWithMenu(for url: URL) -> NSMenu {
         let menu = NSMenu()
         let defaultApplication = NSWorkspace.shared.urlForApplication(toOpen: url)
@@ -2213,7 +2377,10 @@ extension FilePanelController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
-        let urls = selectedItems.isEmpty ? [directory] : selectedItems.map(\.url)
+        showInfo(selectedItems.isEmpty ? [directory] : selectedItems.map(\.url))
+    }
+
+    private func showInfo(_ urls: [URL]) {
         let filenames = NSPasteboard.PasteboardType("NSFilenamesPboardType")
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("ru.themmag.OriCmd.ShowInfo"))
         pasteboard.declareTypes([filenames], owner: nil)

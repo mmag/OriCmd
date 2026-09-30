@@ -8,7 +8,7 @@ import ApplicationServices
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
-///   button), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
@@ -127,6 +127,28 @@ enum DebugAutomation {
                 } else if token.hasPrefix("drive:"), let main = window.contentViewController as? MainViewController {
                     // Simulates a click on a drive button of the active panel.
                     main.activePanel.panelView.driveBar.onSelect?(URL(filePath: String(token.dropFirst(6))))
+                } else if token.hasPrefix("drivemenu:"), let main = window.contentViewController as? MainViewController {
+                    // A drive button's context menu (active panel): written to <snapshot>-menu.txt,
+                    // or with `|Item_Title` (the start of its title) that item chosen.
+                    let parts = token.dropFirst(10).split(separator: "|", maxSplits: 1).map(String.init)
+                    let bar = main.activePanel.panelView.driveBar
+                    guard let rect = bar.buttonRect(for: URL(filePath: parts[0])),
+                          let event = NSEvent.mouseEvent(
+                            with: .rightMouseDown, location: bar.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil),
+                            modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                            windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber,
+                            clickCount: 1, pressure: 1),
+                          let menu = bar.menu(for: event) else { continue }
+                    if parts.count == 2 {
+                        let title = parts[1].replacingOccurrences(of: "_", with: " ")
+                        if let index = menu.items.firstIndex(where: { $0.title.hasPrefix(title) }) {
+                            menu.performActionForItem(at: index)
+                        }
+                    } else if let snapshot {
+                        try? menu.items.map { $0.isSeparatorItem ? "---" : $0.title }.joined(separator: "\n")
+                            .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
+                                   atomically: true, encoding: .utf8)
+                    }
                 } else if token.hasPrefix("colorpreset:"), let index = Int(token.dropFirst(12)),
                           ColorSettings.Preset.allCases.indices.contains(index) {
                     ColorSettings.Preset.allCases[index].apply()
@@ -223,6 +245,16 @@ enum DebugAutomation {
             try? await Task.sleep(for: .milliseconds(400))
             if let snapshot {
                 save(window, to: snapshot)
+                // Where the panels are: the path shown, the cursor's name, the tabs.
+                if let main = window.contentViewController as? MainViewController {
+                    let lines = zip(["left", "right"], main.panels).map { side, panel in
+                        "\(side)\(panel === main.activePanel ? "*" : ""): \(panel.panelView.pathBar.path)"
+                            + " | cursor: \(panel.listView.currentItem?.name ?? "")"
+                            + " | tabs: \(panel.panelView.tabBar.titles.joined(separator: ", "))"
+                    }
+                    try? lines.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-panels.txt"),
+                                                            atomically: true, encoding: .utf8)
+                }
                 // The active panel's terminal, as text and as a picture of its own
                 // (its layer's drawing does not show in the window's picture).
                 if let main = window.contentViewController as? MainViewController,

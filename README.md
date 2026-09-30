@@ -114,7 +114,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `Tab` | Switch panels |
 | `Alt+←` / `Alt+→` (`⌘[` / `⌘]`) | Back / forward in the folder history |
 | `Alt+↓` | Recent folders |
-| `Ctrl+←` / `Ctrl+→` (`⌥⌘←` / `⌥⌘→`) | Show the folder under the cursor in the left / right panel |
+| `Ctrl+Shift+←` / `Ctrl+Shift+→`, `Ctrl+←` / `Ctrl+→` (`⌥⌘←` / `⌥⌘→`) | Show in the left / right panel what is under the cursor: a folder's or an archive's contents, the folder of a file (with the file selected) |
 | `Alt+F1` / `Alt+F2` | Volume list of the left / right panel |
 | `Ctrl+\` | Root of the volume |
 | `⌘T` / `⌘W` | New tab (or a double click on the empty part of the tab bar) / close tab |
@@ -284,7 +284,9 @@ application → Add to Button Bar). A click on its button starts the application
 files dropped on the button open in it; right-click for Show in Finder and Remove
 from Button Bar. Above each panel there are
 drive buttons: the startup volume, the home folder and mounted volumes (can be
-hidden in Settings).
+hidden in Settings). Right-click a drive button for the Finder's volume menu: open
+(also in a new tab or the other panel), eject a disk or a disk image, rename, Get
+Info. When the buttons do not fit, they scroll (wheel, trackpad, arrows at the ends).
 
 ### Servers (SFTP, FTP)
 

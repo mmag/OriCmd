@@ -173,8 +173,16 @@ final class MainViewController: NSViewController {
     }
 
     @objc private func volumesDidChange(_ notification: Notification) {
-        leftPanel.volumesDidChange()
-        rightPanel.volumesDidChange()
+        for panel in panels {
+            // Panels on a renamed volume follow it rather than leave its old path.
+            if notification.name == NSWorkspace.didRenameVolumeNotification,
+               let old = notification.userInfo?[NSWorkspace.oldVolumeURLUserInfoKey] as? URL,
+               let new = notification.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL,
+               panel.volumeWasRenamed(from: old, to: new) {
+                continue
+            }
+            panel.volumesDidChange()
+        }
     }
 
     /// Panel commands reach the active panel even when the command line has focus.
@@ -596,9 +604,10 @@ extension MainViewController: NSMenuItemValidation {
             && first.st_dev == second.st_dev && first.st_ino == second.st_ino
     }
 
-    /// Ctrl+Left/Right: shows the folder under the cursor (or the current folder)
-    /// in the given panel; pressed towards the active panel itself, it shows the
-    /// other panel's folder there.
+    /// Ctrl+Left/Right (or Ctrl+Shift+Left/Right): shows the folder or archive under
+    /// the cursor in the given panel, or the folder of the file under the cursor with
+    /// that file selected; pressed towards the active panel itself, it shows the other
+    /// panel's folder there.
     @objc(cm_TransferLeft:)
     func transferLeft(_ sender: Any?) {
         transfer(to: leftPanel)
@@ -610,12 +619,8 @@ extension MainViewController: NSMenuItemValidation {
     }
 
     private func transfer(to target: FilePanelController) {
-        let source = target === activePanel ? inactivePanel : activePanel
-        var directory = source.directory
-        if source === activePanel, let item = source.listView.currentItem, item.isFolder {
-            directory = item.isParent ? source.directory.deletingLastPathComponent() : item.url
-        }
-        target.load(directory)
+        let towardsItself = target === activePanel
+        target.show(locationOf: towardsItself ? inactivePanel : activePanel, underCursor: !towardsItself)
     }
 
     /// Alt+F1 / Alt+F2: opens the volume list of the left or right panel.
@@ -917,9 +922,14 @@ extension MainViewController: NSMenuItemValidation {
             NSSound.beep()
             return
         }
+        eject(volume)
+    }
+
+    private func eject(_ volume: URL) {
         // Leave the volume in both panels first, so nothing keeps it busy.
         let home = FileManager.default.homeDirectoryForCurrentUser
-        for panel in [leftPanel, rightPanel] where panel.directory.path.hasPrefix(volume.path) {
+        let root = volume.path.hasSuffix("/") ? volume.path : volume.path + "/"
+        for panel in [leftPanel, rightPanel] where panel.directory.path == volume.path || panel.directory.path.hasPrefix(root) {
             panel.leaveLocalFolder(for: home)
         }
         let window = view.window
@@ -933,13 +943,8 @@ extension MainViewController: NSMenuItemValidation {
 
     /// The volume of the active panel's folder, if it can be ejected.
     private var ejectableVolume: URL? {
-        guard let volume = Volume.containing(activePanel.directory, in: Volume.mounted())?.url,
-              volume.path != "/" else { return nil }
-        let values = try? volume.resourceValues(forKeys: [.volumeIsEjectableKey, .volumeIsRemovableKey,
-                                                         .volumeIsLocalKey])
-        let ejectable = values?.volumeIsEjectable == true || values?.volumeIsRemovable == true
-            || values?.volumeIsLocal == false
-        return ejectable ? volume : nil
+        guard let volume = Volume.containing(activePanel.directory, in: Volume.mounted())?.url else { return nil }
+        return Volume.isEjectable(volume) ? volume : nil
     }
 
     @concurrent
@@ -1099,6 +1104,14 @@ extension MainViewController: NSMenuItemValidation {
 }
 
 extension MainViewController: FilePanelControllerDelegate {
+    func filePanel(_ panel: FilePanelController, openDriveInOtherPanel url: URL) {
+        (panel === leftPanel ? rightPanel : leftPanel).openDrive(url)
+    }
+
+    func filePanel(_ panel: FilePanelController, eject volume: URL) {
+        eject(volume)
+    }
+
     func filePanel(_ panel: FilePanelController, openAddress address: String) {
         activate(panel)
         connect(to: address)

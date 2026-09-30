@@ -461,10 +461,15 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     static func defaultMode(for url: URL) -> Mode {
         if bookFormat(for: url) != nil { return .book }
         let type = UTType(filenameExtension: url.pathExtension.lowercased())
-        if let type, [.image, .pdf, .audiovisualContent, .rtf, .rtfd, .font].contains(where: type.conforms(to:)) {
+        if let type, [.image, .pdf, .rtf, .rtfd, .font].contains(where: type.conforms(to:)) {
             return .preview
         }
         let text = looksLikeText(url)
+        // Video and sound by the contents too: TypeScript shares .ts with MPEG transport
+        // streams (and .mts, .cts with camera video).
+        if let type, !text, type.conforms(to: .audiovisualContent) {
+            return .preview
+        }
         if let type, !text, [.presentation, .spreadsheet].contains(where: type.conforms(to:))
             || officePrefixes.contains(where: type.identifier.hasPrefix) {
             return .preview

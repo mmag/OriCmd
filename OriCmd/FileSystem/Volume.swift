@@ -23,6 +23,17 @@ nonisolated struct Volume: Hashable, Sendable {
         }
     }
 
+    /// Whether the volume at `url` can be ejected: removable media, disk images,
+    /// external and network disks (not the startup disk).
+    static func isEjectable(_ url: URL) -> Bool {
+        guard url.path != "/" else { return false }
+        let values = try? url.resourceValues(forKeys: [.volumeIsEjectableKey, .volumeIsRemovableKey, .volumeIsLocalKey,
+                                                      .volumeIsInternalKey, .volumeIsRootFileSystemKey])
+        guard values?.volumeIsRootFileSystem != true else { return false }
+        return values?.volumeIsEjectable == true || values?.volumeIsRemovable == true || values?.volumeIsLocal == false
+            || values?.volumeIsInternal == false
+    }
+
     /// The mounted volume that contains `url`.
     static func containing(_ url: URL, in volumes: [Volume]) -> Volume? {
         let path = url.standardizedFileURL.path

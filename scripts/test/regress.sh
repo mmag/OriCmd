@@ -533,6 +533,51 @@ check "app button: Remove from Button Bar" "[ -f build/shots/reg-appremove-menu.
 run appsheet "dropapp:$PWD/$L/gamma.app wait f7 wait rightclickapp:gamma"
 check "app button: no menu under a sheet" "[ -f build/shots/reg-appsheet-menu.txt ] && [ ! -s build/shots/reg-appsheet-menu.txt ]"
 
+# Ctrl+Shift+Left/Right (Ctrl+arrows switch spaces in macOS): the other panel shows the
+# folder of a file (the file selected), a folder's contents, an archive's contents; in an
+# archive, the same archive folder.
+panels() { cat build/shots/reg-$1-panels.txt 2>/dev/null; }
+scripts/test/mkdata.sh
+run xfile "alt+r wait text:eadme escape ctrl+shift+right wait wait"
+check "Ctrl+Shift+Right on a file: its folder, the file selected" "panels xfile | grep -q '^right: .*/left | cursor: readme.txt'"
+run xfolder "alt+a wait text:lpha escape ctrl+shift+right wait wait"
+check "Ctrl+Shift+Right on a folder: its contents" "panels xfolder | grep -q '^right: .*/left/alpha |'"
+run xarchive "alt+a wait text:rchive-t escape ctrl+shift+right wait wait wait"
+check "Ctrl+Shift+Right on an archive: its contents" "panels xarchive | grep -q '^right: .*/left/archive-test.zip |'"
+run xinarchive "alt+a wait text:rchive-t enter wait wait alt+b wait text:eta escape ctrl+shift+right wait wait wait"
+check "Ctrl+Shift+Right in an archive: the same archive folder" "panels xinarchive | grep -q '^right: .*/archive-test.zip/beta |'"
+mkdir -p $R/sub
+run xleft "tab alt+s wait text:ub escape ctrl+shift+left wait wait"
+check "Ctrl+Shift+Left from the right panel" "panels xleft | grep -q '^left: .*/right/sub |'"
+
+# Drive buttons: the Finder's volume menu; a disk image (in build/testdata) is renamed
+# (its mount point stays: it is not in /Volumes) and ejected from it, the panel on it
+# leaving first.
+run drivehome "wait drivemenu:$HOME"
+check "drive menu of the home folder: no Eject" "grep -qx 'Open in Other Panel' build/shots/reg-drivehome-menu.txt && ! grep -q Eject build/shots/reg-drivehome-menu.txt"
+if hdiutil create -quiet -size 4m -fs HFS+ -volname OriTest build/testdata/ori.dmg \
+   && mkdir -p build/testdata/mnt && hdiutil attach -quiet build/testdata/ori.dmg -mountroot $PWD/build/testdata/mnt; then
+  M=$PWD/build/testdata/mnt/OriTest
+  run drivemenu "wait drivemenu:$M"
+  check "drive menu of a disk image: Eject and Rename" "grep -q '^Eject' build/shots/reg-drivemenu-menu.txt && grep -q '^Rename' build/shots/reg-drivemenu-menu.txt"
+  run driveother "wait drivemenu:$M|Open_in_Other wait wait"
+  check "drive menu: Open in Other Panel" "panels driveother | grep -q '^right: .*/mnt/OriTest |'"
+  run driverename "drive:$M wait drivemenu:$M|Rename wait cmd+a text:OriRenamed enter wait wait wait"
+  check "drive menu: Rename" "diskutil info $M | grep -q 'Volume Name: *OriRenamed'"
+  run driveeject "drive:$M wait drivemenu:$M|Eject wait wait wait wait"
+  check "drive menu: Eject, the panel leaves first" "! hdiutil info | grep -q testdata/ori.dmg && ! panels driveeject | grep -q mnt/"
+  hdiutil info | grep -q testdata/ori.dmg && hdiutil detach -quiet -force $M
+fi
+
+# TypeScript shares .ts with MPEG transport streams: text is shown as code, a stream
+# with Quick Look.
+printf 'interface User {\n  name: string;\n}\nexport const greet = (u: User): string => `Hi ${u.name}`;\n' > $L/app.ts
+python3 -c "open('$L/clip.ts','wb').write((bytes([0x47,0x40,0x11,0x10])+bytes(184))*50)"
+run tstext "alt+a wait text:pp.ts escape f3 wait wait wait"
+check "Lister: TypeScript .ts is colored text" "grep -q 'interface User' build/shots/reg-tstext-win1.txt && grep -q 'text colors: [1-9]' build/shots/reg-tstext-win1.txt"
+run tsvideo "alt+c wait text:lip.ts escape f3 wait wait wait"
+check "Lister: an MPEG transport stream .ts is not text" "[ \"\$(wc -l < build/shots/reg-tsvideo-win1.txt)\" -le 1 ]"
+
 scripts/test/servers.sh start
 connect() { echo "cmd:connectToServer wait cmd+a text:$1 enter wait $2 wait wait"; }
 

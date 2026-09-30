@@ -759,9 +759,10 @@ final class FileListView: NSView {
             tryToPerform(Command.branchView.selector, with: self)
         case (nil, [.control]) where event.shortcutCharacters == "d":
             tryToPerform(Command.directoryHotlist.selector, with: self)
-        case (.leftArrow?, [.control]), (.leftArrow?, [.command, .option]):
+        // macOS takes Ctrl+arrows for its spaces by default; Ctrl+Shift+arrows are left.
+        case (.leftArrow?, [.control]), (.leftArrow?, [.control, .shift]), (.leftArrow?, [.command, .option]):
             tryToPerform(Command.transferLeft.selector, with: self)
-        case (.rightArrow?, [.control]), (.rightArrow?, [.command, .option]):
+        case (.rightArrow?, [.control]), (.rightArrow?, [.control, .shift]), (.rightArrow?, [.command, .option]):
             tryToPerform(Command.transferRight.selector, with: self)
         case (.deleteForward?, []), (.delete?, [.command]):
             tryToPerform(Command.delete.selector, with: self)
