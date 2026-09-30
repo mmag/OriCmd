@@ -153,7 +153,11 @@ nonisolated struct BookDocument: Sendable {
             .separator: paragraph { $0.alignment = .center },
         ]
         if !notice.isEmpty {
-            text.append(NSAttributedString(string: notice + "\n", attributes: [
+            // Notices come as codes, said here in the interface's language.
+            let said = notice == "drm"
+                ? String(localized: "This book is protected (DRM): it can only be read in the program it was bought for.")
+                : notice
+            text.append(NSAttributedString(string: said + "\n", attributes: [
                 .font: Self.serif(size: 16, bold: true), .foregroundColor: NSColor.systemRed,
                 .paragraphStyle: styles[.heading] as Any,
             ]))

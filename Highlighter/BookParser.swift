@@ -20,6 +20,8 @@ enum BookParser {
         case "epub":
             guard var zip = ZipReader(data) else { return nil }
             EPUBReader(builder).read(&zip)
+        case "mobi":
+            MobiReader(builder, data).read()
         default:
             return nil
         }
@@ -129,10 +131,17 @@ final class BookBuilder {
     func end() {
         guard var block = open else { return }
         open = nil
-        if !keepsSpaces, let last = block.runs.indices.last {
-            let trimmed = String(block.runs[last].1.reversed().drop(while: { $0 == " " }).reversed())
-            if trimmed.isEmpty { block.runs.removeLast() } else { block.runs[last].1 = trimmed }
+        // Spaces and line breaks at the end go; so does a paragraph left empty or a bare bullet.
+        while !keepsSpaces, let last = block.runs.indices.last {
+            let trimmed = String(block.runs[last].1.reversed().drop(while: { $0 == " " || $0 == "\u{2028}" }).reversed())
+            if trimmed.isEmpty {
+                block.runs.removeLast()
+            } else {
+                block.runs[last].1 = trimmed
+                break
+            }
         }
+        if block.runs.map(\.1).joined().trimmingCharacters(in: .whitespaces) == "•" { block.runs = [] }
         guard !block.runs.isEmpty, blocks.count < Self.maxBlocks else { return }
         blocks.append(block)
     }
@@ -636,12 +645,14 @@ final class HTMLBookReader {
             if !closing { builder.begin(.preformatted) }
         case "br":
             if isInParagraph { builder.lineBreak() }
-        case "hr":
+        case "hr", "pagebreak":
             builder.separator()
             isInParagraph = false
         case "img", "image":
             guard !closing else { return }
+            // Mobipocket numbers its pictures (recindex).
             let source = attributes["src"] ?? attributes["href"] ?? attributes["xlink:href"]
+                ?? attributes["recindex"].map { "recindex:" + $0 }
             if let source, let index = picture(source) {
                 builder.image(index)
                 isInParagraph = false

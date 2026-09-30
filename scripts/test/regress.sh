@@ -360,6 +360,45 @@ run bkepub "alt+m wait text:aster.e escape f3 wait wait wait wait"
 check "Lister shows an EPUB's chapters in spine order, without scripts" "head -1 build/shots/reg-bkepub-win1.txt | grep -q 'Мастер и Маргарита$' && [ \"\$(grep -n 'по порядку' build/shots/reg-bkepub-win1.txt | head -1 | grep -c Первая)\" = 1 ] && ! grep -qx 'x' build/shots/reg-bkepub-win1.txt"
 run bkbomb "alt+b wait text:omb.e escape f3 wait wait wait wait"
 check "an EPUB zip bomb is refused (shown as hex, not read)" "! head -1 build/shots/reg-bkbomb-win1.txt | grep -q '·' && grep -q '^00000000' build/shots/reg-bkbomb-win1.txt"
+# Mobipocket and Kindle: MOBI 6 (PalmDOC) and AZW3 (KF8) made by calibre from the EPUB
+# above (scripts/test/samples), a HUFF/CDIC-compressed MOBI (one phrase compressed in
+# turn), and a book protected by DRM, which is said so.
+cp scripts/test/samples/book.mobi $L/master.mobi
+cp scripts/test/samples/book.azw3 $L/master.azw3
+python3 - "$L" <<'PY'
+import struct, sys
+L = sys.argv[1]
+def palmdb(records):
+    table, offset = b'', 78 + len(records) * 8 + 2
+    for r in records:
+        table += struct.pack('>I', offset) + b'\0' * 4
+        offset += len(r)
+    return b'huff'.ljust(32, b'\0') + b'\0' * 28 + b'BOOKMOBI' + struct.pack('>IIH', 0, 0, len(records)) + table + b'\0\0' + b''.join(records)
+text = 'Привет, <b>мир</b>! \x01 конец.'.encode()
+mobi = bytearray(0xE8)
+mobi[0:4] = b'MOBI'
+for offset, value in ((4, 0xE8), (0x1C - 16, 65001), (0x24 - 16, 6), (0x6C - 16, 0xFFFFFFFF), (0x70 - 16, 2), (0x74 - 16, 2)):
+    struct.pack_into('>I', mobi, offset, value)
+record0 = struct.pack('>HHIHHHH', 17480, 0, len(text), 1, 4096, 0, 0) + bytes(mobi)
+huff = b'HUFF' + struct.pack('>III', 0x18, 24, 24 + 1024) + b'\0' * 8 + struct.pack('>I', (255 << 8) | 0x88) * 256 + b'\0' * 256
+entries = [struct.pack('>H', 2) + bytes([190, 189]) if j == 1 else struct.pack('>H', 0x8001) + bytes([j]) for j in range(256)]
+offsets, position = b'', 512
+for entry in entries:
+    offsets += struct.pack('>H', position)
+    position += len(entry)
+cdic = b'CDIC' + struct.pack('>III', 0x10, 256, 8) + offsets + b''.join(entries)
+open(L + '/huff.mobi', 'wb').write(palmdb([record0, bytes(255 - b for b in text), huff, cdic]))
+data = bytearray(open(L + '/master.mobi', 'rb').read())
+struct.pack_into('>H', data, struct.unpack_from('>I', data, 78)[0] + 12, 2)
+open(L + '/drm.mobi', 'wb').write(bytes(data))
+PY
+run bkmobi "alt+m wait text:aster.m escape f3 wait wait wait wait"
+run bkazw3 "alt+m wait text:aster.a escape f3 wait wait wait wait"
+check "Lister shows MOBI 6 and AZW3 books (title, author, chapters, a picture)" "head -1 build/shots/reg-bkmobi-win1.txt | grep -q 'Булгаков · Мастер и Маргарита$' && grep -q 'Никогда не разговаривайте.' build/shots/reg-bkmobi-win1.txt && grep -q \"\$(printf '\\357\\277\\274')\" build/shots/reg-bkmobi-win1.txt && grep -q 'Вторая по порядку' build/shots/reg-bkazw3-win1.txt && grep -q \"\$(printf '\\357\\277\\274')\" build/shots/reg-bkazw3-win1.txt"
+run bkhuff "alt+h wait text:uff escape f3 wait wait wait wait"
+check "Lister reads a HUFF/CDIC-compressed MOBI" "grep -q 'Привет, мир! AB конец.' build/shots/reg-bkhuff-win1.txt"
+run bkdrm "alt+d wait text:rm.m escape f3 wait wait wait wait"
+check "a MOBI protected by DRM is said so, its text not shown" "grep -q 'protected (DRM)' build/shots/reg-bkdrm-win1.txt && ! grep -q 'разговаривайте' build/shots/reg-bkdrm-win1.txt"
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
 # The service locks itself down: no file (the user's or the system's), no other

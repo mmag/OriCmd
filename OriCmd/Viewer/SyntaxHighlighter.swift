@@ -79,7 +79,7 @@ enum SyntaxHighlighter {
         return await Task.detached { ViewerTable(data) }.value
     }
 
-    /// The book in `data` ("fb2", "fb2.zip", "epub"), read in the service; nil when
+    /// The book in `data` ("fb2", "fb2.zip", "epub", "mobi"), read in the service; nil when
     /// it cannot be read, or the service fails, hangs or replies nonsense (the reply
     /// is checked as a stranger's, see BookDocument).
     static func book(_ data: Data, format: String) async -> BookDocument? {

@@ -4991,6 +4991,16 @@
         }
       }
     },
+    "This book is protected (DRM): it can only be read in the program it was bought for.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Книга защищена (DRM): её можно прочитать только в программе, где она куплена."
+          }
+        }
+      }
+    },
     "This cannot be undone.": {
       "localizations": {
         "ru": {

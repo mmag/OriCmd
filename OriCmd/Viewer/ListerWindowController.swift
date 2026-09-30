@@ -451,6 +451,11 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         switch url.pathExtension.lowercased() {
         case "fb2": return "fb2"
         case "epub": return "epub"
+        case "mobi", "azw", "azw3", "prc": return "mobi"
+        case "pdb":
+            // Palm databases share the name with Visual Studio's debug files: by the header.
+            let type = String(decoding: head(of: url, limit: 68).data.dropFirst(60), as: UTF8.self)
+            return type == "BOOKMOBI" || type == "TEXtREAd" ? "mobi" : nil
         default: return nil
         }
     }
