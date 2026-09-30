@@ -233,6 +233,9 @@ enum DebugAutomation {
                     sheet = current.attachedSheet
                     suffix += "2"
                 }
+                try? "kills: \(SyntaxHighlighter.kills)\n"
+                    .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-highlighter.txt"),
+                           atomically: true, encoding: .utf8)
                 let others = NSApp.windows.filter { $0 !== window && $0.isVisible && $0.sheetParent == nil }
                 for (index, other) in others.enumerated() {
                     save(other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).png"))

@@ -282,11 +282,26 @@ run hlarm "alt+a wait text:rm.s escape f3 wait wait wait"
 check "Lister highlights assembly (x86 .asm, ARM .s)" "[ \"\$(colors hlasm)\" -ge 4 ] && [ \"\$(colors hlarm)\" -ge 4 ]"
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
-echo "$PWD/$L/readme.txt" > $L/probe.oricmdfiles
-run hlsandbox "alt+p wait text:robe escape f3 wait wait wait wait"
-echo /System/Library/CoreServices/SystemVersion.plist > $L/probe.oricmdfiles
-run hlsystem "alt+p wait text:robe escape f3 wait wait wait wait"
-check "the highlighting service cannot read the user's files (it can read system ones)" "[ \"\$(colors hlsandbox)\" = 1 ] && [ \"\$(colors hlsystem)\" = 2 ]"
+# The service locks itself down: no file (the user's or the system's), no other
+# service (the pasteboard, LaunchServices); a probe colors one character if it got
+# through, two if it was refused.
+probe() { echo "$2" > $L/probe.$1; run probe-$1-$3 "alt+p wait text:robe.$1 escape f3 wait wait wait wait"; }
+probe oricmdfiles "$PWD/$L/readme.txt" user
+probe oricmdfiles /System/Library/CoreServices/SystemVersion.plist system
+probe oricmdlookup com.apple.pasteboard.1 pasteboard
+probe oricmdlookup com.apple.coreservices.launchservicesd launchservices
+check "the highlighting service reads no files, not even system ones" "[ \"\$(colors probe-oricmdfiles-user)\" = 3 ] && [ \"\$(colors probe-oricmdfiles-system)\" = 3 ]"
+check "the highlighting service reaches neither the pasteboard nor LaunchServices" "[ \"\$(colors probe-oricmdlookup-pasteboard)\" = 3 ] && [ \"\$(colors probe-oricmdlookup-launchservices)\" = 3 ]"
+# A reply with overlapping ranges (which could keep the main thread coloring for
+# minutes) is refused whole; a service that died and was started again is still
+# killed when it hangs (the next text asks its new process identifier).
+printf 'abcdef\n' > $L/probe.oricmdoverlap
+run hloverlap "alt+p wait text:robe.oricmdo escape f3 wait wait wait wait"
+check "Lister refuses a highlighting reply whose ranges overlap" "[ \"\$(colors hloverlap)\" = 1 ]"
+printf 'x\n' > $L/r1.oricmdexit
+printf 'let x = 1\n' > $L/r2.oricmdhang
+run hlrestart "alt+r wait text:1.o escape f3 wait wait wait wait wait wait wait wait wait wait n $(printf 'wait %.0s' {1..40})"
+check "a service started again after dying is still killed when it hangs" "grep -q '^kills: 1' build/shots/reg-hlrestart-highlighter.txt"
 
 # Ready-made colors: High contrast's stripes go with another preset, stripes turned on
 # in Settings stay. Prints the setting the keys leave.

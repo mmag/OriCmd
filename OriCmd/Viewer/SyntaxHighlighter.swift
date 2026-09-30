@@ -20,14 +20,16 @@ enum SyntaxHighlighter {
     /// it was killed.
     private static let startLimit: Duration = .seconds(15)
     private static let serviceName = "ru.themmag.OriCmd.Highlighter"
-    /// The connection and its service process, as the service tells (an XPC
-    /// service connection has no process identifier of its own).
-    private static var service: (connection: NSXPCConnection, pid: Task<pid_t?, Never>)?
+    private static var connection: NSXPCConnection?
+    #if DEBUG
+    /// Services killed for hanging (for the regression checks).
+    static var kills = 0
+    #endif
 
     /// The colored ranges of `text` in the first of `languages` highlight.js knows;
     /// nil when none fits, the text is too long, the task was cancelled (another
-    /// file is shown), or the service fails or hangs. One text at a time goes to the
-    /// service, so the time limit counts only its own work.
+    /// file is shown), or the service fails, hangs or replies nonsense. One text at a
+    /// time goes to the service, so the time limit counts only its own work.
     static func highlight(_ text: String, languages: [String]) async -> [(range: NSRange, scope: String)]? {
         guard !languages.isEmpty, text.utf16.count <= sizeLimit else { return nil }
         await takeTurn()
@@ -38,19 +40,41 @@ enum SyntaxHighlighter {
         if case .broken = outcome, !Task.isCancelled {
             outcome = await request(text, languages: languages)
         }
-        // The reply is checked as coming from a stranger: a service taken over could
-        // send anything. At most four ranges a character and a thousand scope names.
-        let length = text.utf16.count
-        guard case .done(let data?, let scopes?) = outcome, data.count <= 48 * (length + 1),
-              scopes.count <= 1000 else { return nil }
-        let values: [UInt32] = data.withUnsafeBytes { bytes in
-            (0..<bytes.count / 4).map { bytes.loadUnaligned(fromByteOffset: $0 * 4, as: UInt32.self) }
+        guard case .done(let data?, let scopes?) = outcome else { return nil }
+        return checkedRanges(data, scopes: scopes, length: text.utf16.count)
+    }
+
+    /// The ranges of a reply, all or none. The reply is checked as coming from a
+    /// stranger — a service taken over could send anything, e.g. overlapping ranges
+    /// that would keep the main thread coloring for minutes: the ranges must lie in
+    /// the text, start in order and nest properly, and together cover at most eight
+    /// times the text.
+    private static func checkedRanges(_ data: Data, scopes: [String], length: Int)
+        -> [(range: NSRange, scope: String)]? {
+        guard data.count % 12 == 0, data.count / 12 <= 2 * length + 64, scopes.count <= 1000 else { return nil }
+        var ranges: [(range: NSRange, scope: String)] = []
+        ranges.reserveCapacity(data.count / 12)
+        let valid = data.withUnsafeBytes { bytes -> Bool in
+            var enclosingEnds: [Int] = []
+            var previousStart = 0
+            var covered = 0
+            for offset in stride(from: 0, to: bytes.count, by: 12) {
+                let start = Int(bytes.loadUnaligned(fromByteOffset: offset, as: UInt32.self))
+                let count = Int(bytes.loadUnaligned(fromByteOffset: offset + 4, as: UInt32.self))
+                let scope = Int(bytes.loadUnaligned(fromByteOffset: offset + 8, as: UInt32.self))
+                guard start >= previousStart, start + count <= length, scopes.indices.contains(scope) else { return false }
+                previousStart = start
+                guard count > 0 else { continue }
+                while let end = enclosingEnds.last, end <= start { enclosingEnds.removeLast() }
+                if let end = enclosingEnds.last, start + count > end { return false }
+                enclosingEnds.append(start + count)
+                covered += count
+                guard covered <= 8 * length + 1024 else { return false }
+                ranges.append((NSRange(location: start, length: count), scopes[scope]))
+            }
+            return true
         }
-        return stride(from: 0, to: values.count - 2, by: 3).compactMap { index in
-            let start = Int(values[index]), count = Int(values[index + 1]), scope = Int(values[index + 2])
-            guard scopes.indices.contains(scope), count > 0, start + count <= length else { return nil }
-            return (NSRange(location: start, length: count), scopes[scope])
-        }
+        return valid ? ranges : nil
     }
 
     private enum Outcome: Sendable {
@@ -59,10 +83,12 @@ enum SyntaxHighlighter {
         case timedOut
     }
 
-    /// Sends `text` once the service runs; the time limit starts then.
+    /// Sends `text` once the service runs and has told its process identifier (asked
+    /// every time: a service that died is started again under another one); the time
+    /// limit starts then.
     private static func request(_ text: String, languages: [String]) async -> Outcome {
-        let (connection, pidTask) = currentService()
-        guard let pid = await pidTask.value else {
+        let connection = currentConnection()
+        guard let pid = await processIdentifier(of: connection) else {
             drop(connection)
             return .broken
         }
@@ -79,6 +105,21 @@ enum SyntaxHighlighter {
             Task {
                 try? await Task.sleep(for: timeLimit)
                 if answer.give(.timedOut) { stop(connection, pid: pid) }
+            }
+        }
+    }
+
+    /// The service's process (an XPC service connection has no process identifier
+    /// of its own); nil when it does not start or answer in time.
+    private static func processIdentifier(of connection: NSXPCConnection) async -> pid_t? {
+        await withCheckedContinuation { continuation in
+            let answer = Once<pid_t?>(continuation)
+            let proxy = connection.remoteObjectProxyWithErrorHandler { @Sendable _ in answer.give(nil) } as? Highlighting
+            proxy?.processIdentifier { @Sendable pid in answer.give(pid) }
+            if proxy == nil { answer.give(nil) }
+            Task {
+                try? await Task.sleep(for: startLimit)
+                answer.give(nil)
             }
         }
     }
@@ -102,31 +143,26 @@ enum SyntaxHighlighter {
         }
     }
 
-    private static func currentService() -> (connection: NSXPCConnection, pid: Task<pid_t?, Never>) {
-        if let service { return service }
+    private static func currentConnection() -> NSXPCConnection {
+        if let connection { return connection }
         let connection = NSXPCConnection(serviceName: serviceName)
         connection.remoteObjectInterface = .highlighting
         let id = ObjectIdentifier(connection)
+        // The service died (crashed, killed, or ended by the system): the next text
+        // goes over a new connection.
+        connection.interruptionHandler = { @Sendable in
+            Task { @MainActor in
+                if let current = SyntaxHighlighter.connection, ObjectIdentifier(current) == id { drop(current) }
+            }
+        }
         connection.invalidationHandler = { @Sendable in
             Task { @MainActor in
-                if service.map({ ObjectIdentifier($0.connection) }) == id { service = nil }
+                if SyntaxHighlighter.connection.map(ObjectIdentifier.init) == id { SyntaxHighlighter.connection = nil }
             }
         }
         connection.resume()
-        let pid = Task { () -> pid_t? in
-            await withCheckedContinuation { continuation in
-                let answer = Once(continuation)
-                let proxy = connection.remoteObjectProxyWithErrorHandler { @Sendable _ in answer.give(nil) } as? Highlighting
-                proxy?.processIdentifier { @Sendable pid in answer.give(pid) }
-                if proxy == nil { answer.give(nil) }
-                Task {
-                    try? await Task.sleep(for: startLimit)
-                    answer.give(nil)
-                }
-            }
-        }
-        service = (connection, pid)
-        return (connection, pid)
+        self.connection = connection
+        return connection
     }
 
     /// Ends a service that hangs: killed, as JavaScript cannot be interrupted. Only
@@ -134,13 +170,16 @@ enum SyntaxHighlighter {
     private static func stop(_ connection: NSXPCConnection, pid: pid_t) {
         if pid > 0, isService(pid) {
             kill(pid, SIGKILL)
+            #if DEBUG
+            kills += 1
+            #endif
         }
         drop(connection)
     }
 
     private static func drop(_ connection: NSXPCConnection) {
         connection.invalidate()
-        if service?.connection === connection { service = nil }
+        if self.connection === connection { self.connection = nil }
     }
 
     private static func isService(_ pid: pid_t) -> Bool {
@@ -187,6 +226,9 @@ enum SyntaxHighlighter {
         #if DEBUG
         if ext == "oricmdhang" { return ["oricmd-test-hang"] }
         if ext == "oricmdfiles" { return ["oricmd-test-files"] }
+        if ext == "oricmdoverlap" { return ["oricmd-test-overlap"] }
+        if ext == "oricmdexit" { return ["oricmd-test-exit"] }
+        if ext == "oricmdlookup" { return ["oricmd-test-lookup"] }
         #endif
         guard !plainExtensions.contains(ext) else { return [] }
         if ["asm", "s", "nasm"].contains(ext) { return [assemblyLanguage(start)] }
@@ -294,7 +336,8 @@ enum SyntaxTheme {
         var italic = false
     }
 
-    private static func color(_ light: UInt32, _ dark: UInt32) -> NSColor {
+    /// The provider may be called off the main thread (drawing elsewhere).
+    nonisolated private static func color(_ light: UInt32, _ dark: UInt32) -> NSColor {
         func rgb(_ value: UInt32) -> NSColor {
             NSColor(srgbRed: CGFloat(value >> 16 & 0xFF) / 255, green: CGFloat(value >> 8 & 0xFF) / 255,
                     blue: CGFloat(value & 0xFF) / 255, alpha: 1)

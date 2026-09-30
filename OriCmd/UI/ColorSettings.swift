@@ -82,7 +82,7 @@ enum ColorSettings {
 
     /// A file color as chosen, and lighter on a dark background, where the
     /// usual dark purples and blues would hardly be readable.
-    private static func readable(_ color: NSColor) -> NSColor {
+    nonisolated private static func readable(_ color: NSColor) -> NSColor {
         let lighter = color.blended(withFraction: 0.4, of: .white) ?? color
         return NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? lighter : color

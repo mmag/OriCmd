@@ -16,8 +16,11 @@ xcodebuild -project OriCmd.xcodeproj -scheme OriCmd -configuration Release \
 
 APP="$WORK/DerivedData/Build/Products/Release/OriCmd.app"
 codesign --verify --deep --strict "$APP"
-lipo -archs "$APP/Contents/MacOS/OriCmd"
-lipo -archs "$APP/Contents/XPCServices/OriCmdHighlighter.xpc/Contents/MacOS/OriCmdHighlighter"
+for binary in "$APP/Contents/MacOS/OriCmd" "$APP/Contents/XPCServices/OriCmdHighlighter.xpc/Contents/MacOS/OriCmdHighlighter"; do
+  for arch in x86_64 arm64; do
+    lipo "$binary" -verify_arch $arch || { echo "$binary has no $arch"; exit 1; }
+  done
+done
 
 STAGE="$WORK/dmg"
 mkdir -p "$STAGE"

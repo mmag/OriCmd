@@ -11,8 +11,11 @@ keyboard and mouse, so typing elsewhere while its window is in front changes not
   and writes `build/shots/<name>.png` (plus sheets and other windows, each with a
   `.txt` of its title and texts, and for a text view `[text colors: N]`; `menu` and
   `textmenu` write a context menu to `<name>-menu.txt`). In the Lister of a Debug
-  build, `*.oricmdhang` files make the highlighting service hang (it must be killed)
-  and `*.oricmdfiles` ones ask it to read the file named inside (the sandbox must refuse). `rightmouse:click:N`, `hold:N`, `drag:N-M` and `ctrlclick:N`
+  build, test extensions drive the highlighting service: `*.oricmdhang` makes it hang
+  (it must be killed), `*.oricmdexit` makes it quit, `*.oricmdoverlap` makes it reply
+  overlapping ranges (OriCmd must refuse them), `*.oricmdfiles` / `*.oricmdlookup`
+  ask it to read the file / reach the service named inside (it must be refused);
+  `<name>-highlighter.txt` counts the services killed. `rightmouse:click:N`, `hold:N`, `drag:N-M` and `ctrlclick:N`
   play the right button on panel rows.
   Modifiers: `cmd+`, `shift+`, `alt+`, `ctrl+`, `num+`; `ru+` types the key as the
   Russian layout would (`ru+ctrl+d` sends "в" with the D key code).

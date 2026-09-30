@@ -82,8 +82,8 @@ xcodebuild -project OriCmd.xcodeproj -scheme OriCmd -configuration Debug build
 
 The terminal is [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (a Swift
 package; Xcode fetches it on the first build). Syntax highlighting is
-[highlight.js](https://highlightjs.org), kept in `Highlighter/` (the sandboxed
-`OriCmdHighlighter` XPC service, built with the app);
+[highlight.js](https://highlightjs.org), kept in `Highlighter/` (the
+`OriCmdHighlighter` XPC service, locked down, built with the app);
 `scripts/update-highlightjs.sh <version>` takes another version from npm,
 checking the package's checksum.
 
@@ -197,11 +197,14 @@ button moves it to a separate window so you can keep working with the panels.
 
 The viewer colors program code with [highlight.js](https://highlightjs.org)
 (about 190 languages). The language follows the file's extension or name
-(`Makefile`, `Dockerfile`, `.zshrc`), or the program on its `#!` line; files up to
-512 KB are highlighted, the context menu and `H` turn it on and off. highlight.js
-runs in a separate helper, `OriCmdHighlighter`, sandboxed without access to your
-files or the network: a file made to attack the JavaScript engine gets nothing
-there, and a highlighting that takes more than 5 seconds is stopped (the text
+(`Makefile`, `Dockerfile`, `.zshrc`), or the program on its `#!` line (assembly by
+its instructions: x86, ARM, MIPS, AVR); texts up to about 512 thousand characters
+are highlighted, the context menu and `H` turn it on and off. highlight.js runs in
+a separate helper, `OriCmdHighlighter`, which locks itself down before it gets any
+text: no files (not even system ones), no network, no pasteboard, no opening of
+URLs, no other services. A file made to attack the JavaScript engine could at most
+see the texts shown in the viewer afterwards and send back a wrong coloring, which
+OriCmd checks; a highlighting that takes more than 5 seconds is stopped (the text
 stays plain).
 
 #### The copy and move dialog (`F5` / `F6`)

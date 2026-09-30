@@ -56,7 +56,6 @@ cask "oricmd" do
 
   zap trash: [
     "~/Library/Caches/ru.themmag.OriCmd",
-    "~/Library/Containers/ru.themmag.OriCmd.Highlighter",
     "~/Library/Preferences/ru.themmag.OriCmd.plist",
     "~/Library/Saved Application State/ru.themmag.OriCmd.savedState",
   ]
