@@ -22,8 +22,8 @@ keep working as always.
   passwords) with the server's terminal under the files, FTP/FTPS, saved and
   recent connections; smb, afp, NFS and WebDAV as volumes.
 - **Tools:** viewer (`F3`) for text (UTF-8, UTF-16, Windows-1251, DOS, KOI8-R
-  and other encodings), hex and Quick Look (office documents too), compare files
-  by content, synchronize directories, multi-rename, find files, checksums,
+  and other encodings) with syntax highlighting of code in about 190 languages,
+  hex and Quick Look (office documents too), compare files by content, synchronize directories, multi-rename, find files, checksums,
   attributes, the Finder's Get Info.
 - **Make it yours:** your own keyboard shortcuts (including import from
   `wincmd.ini`), a Start menu, programs for `Enter`/`F3`/`F4` by file mask, a
@@ -81,7 +81,11 @@ xcodebuild -project OriCmd.xcodeproj -scheme OriCmd -configuration Debug build
 ```
 
 The terminal is [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (a Swift
-package; Xcode fetches it on the first build).
+package; Xcode fetches it on the first build). Syntax highlighting is
+[highlight.js](https://highlightjs.org), kept in `Highlighter/` (the sandboxed
+`OriCmdHighlighter` XPC service, built with the app);
+`scripts/update-highlightjs.sh <version>` takes another version from npm,
+checking the package's checksum.
 
 The icon is drawn by `swift scripts/make-icon.swift`.
 
@@ -157,7 +161,7 @@ shortcuts in parentheses.
 
 | Key | Action |
 |---|---|
-| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once), `W` word wrap; encodings: `8` UTF-8, `U` UTF-16, `A` Windows-1251, `S` DOS (866), `K` KOI8-R, all of them (and Automatically) in the text's context menu — the one used is in the title, kept for `N`/`P`; `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
+| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once), `W` word wrap; encodings: `8` UTF-8, `U` UTF-16, `A` Windows-1251, `S` DOS (866), `K` KOI8-R, all of them (and Automatically) in the text's context menu — the one used is in the title, kept for `N`/`P`; `H` syntax highlighting on/off (see below); `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
 | `F4` | Open in the default text editor (or the program from the associations) |
 | `Shift+F4` | Create a new file and open it in the editor |
 | `F5` | Copy (to the other panel by default) |
@@ -188,6 +192,17 @@ shortcuts in parentheses.
 
 Long operations (copy, move, archives) show their progress; the "Background"
 button moves it to a separate window so you can keep working with the panels.
+
+#### Syntax highlighting in the viewer
+
+The viewer colors program code with [highlight.js](https://highlightjs.org)
+(about 190 languages). The language follows the file's extension or name
+(`Makefile`, `Dockerfile`, `.zshrc`), or the program on its `#!` line; files up to
+512 KB are highlighted, the context menu and `H` turn it on and off. highlight.js
+runs in a separate helper, `OriCmdHighlighter`, sandboxed without access to your
+files or the network: a file made to attack the JavaScript engine gets nothing
+there, and a highlighting that takes more than 5 seconds is stopped (the text
+stays plain).
 
 #### The copy and move dialog (`F5` / `F6`)
 
@@ -384,8 +399,9 @@ image and updates the Homebrew cask in `mmag/homebrew-tap` (needs `gh auth login
 ## License
 
 GPL-3.0 — see [LICENSE](LICENSE). The terminal uses
-[SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (MIT License; its notice
-is in About OriCmd).
+[SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (MIT License), syntax
+highlighting [highlight.js](https://highlightjs.org) (BSD 3-Clause License);
+their notices are in About OriCmd.
 
 OriCmd is not affiliated with Ghisler Software GmbH. Total Commander is a
 trademark of its owner.

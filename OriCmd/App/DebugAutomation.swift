@@ -33,6 +33,7 @@ enum DebugAutomation {
         }
         let snapshot = environment["ORICMD_SNAPSHOT"]
         guard !keys.isEmpty || snapshot != nil else { return }
+        ignoreRealInput()
 
         Task {
             try? await Task.sleep(for: .milliseconds(800))
@@ -53,7 +54,7 @@ enum DebugAutomation {
                           let event = NSEvent.mouseEvent(
                             with: .rightMouseDown, location: text.convert(NSPoint(x: 20, y: 10), to: nil), modifierFlags: [],
                             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: text.window?.windowNumber ?? 0,
-                            context: nil, eventNumber: 0, clickCount: 1, pressure: 1),
+                            context: nil, eventNumber: harnessEventNumber, clickCount: 1, pressure: 1),
                           let menu = text.menu(for: event) {
                     // Writes the context menu of the frontmost window's text (e.g. the Lister's).
                     let titles = menu.items.map { item in
@@ -83,7 +84,7 @@ enum DebugAutomation {
                         return NSEvent.mouseEvent(
                             with: type, location: list.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil),
                             modifierFlags: control ? [.control] : [], timestamp: ProcessInfo.processInfo.systemUptime,
-                            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                            windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber, clickCount: 1,
                             pressure: type == .rightMouseUp || type == .leftMouseUp ? 0 : 1)
                     }
                     let menuFile = snapshot?.replacingOccurrences(of: ".png", with: "-menu.txt")
@@ -132,7 +133,7 @@ enum DebugAutomation {
                     let point = bar.convert(NSPoint(x: bar.bounds.maxX - 4, y: bar.bounds.midY), to: nil)
                     if let event = NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [],
                                                       timestamp: ProcessInfo.processInfo.systemUptime,
-                                                      windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                                                      windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber,
                                                       clickCount: 2, pressure: 1) {
                         bar.mouseDown(with: event)
                     }
@@ -165,7 +166,7 @@ enum DebugAutomation {
                           let event = NSEvent.mouseEvent(
                             with: .rightMouseDown, location: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil),
                             modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+                            windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber, clickCount: 1, pressure: 1)
                     else { continue }
                     let choice = parts.count > 1 ? parts[1] : nil
                     let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification,
@@ -250,12 +251,38 @@ enum DebugAutomation {
         return view.subviews.lazy.compactMap(textView(in:)).first
     }
 
+    /// Mouse events the harness makes carry this number (real ones count from 0).
+    private static let harnessEventNumber = 0x0C1D_0000
+
+    /// A test run ignores the real keyboard and mouse: what the user types or clicks
+    /// while its window is in front would otherwise play in the test, and could take
+    /// it out of the test folders. The harness's keys go to the windows directly, its
+    /// mouse events carry `harnessEventNumber`.
+    private static func ignoreRealInput() {
+        let input: NSEvent.EventTypeMask = [
+            .keyDown, .keyUp, .flagsChanged, .leftMouseDown, .leftMouseUp, .leftMouseDragged, .rightMouseDown,
+            .rightMouseUp, .rightMouseDragged, .otherMouseDown, .otherMouseUp, .otherMouseDragged, .scrollWheel,
+        ]
+        _ = NSEvent.addLocalMonitorForEvents(matching: input) { event in
+            let isMouse = event.type != .keyDown && event.type != .keyUp && event.type != .flagsChanged
+            return isMouse && event.eventNumber == harnessEventNumber ? event : nil
+        }
+    }
+
     /// Writes the texts `window` shows (its title, labels, fields, text views), one per line.
     private static func saveTexts(of window: NSWindow, to path: String) {
         func texts(in view: NSView) -> [String] {
             var result: [String] = []
             if let field = view as? NSTextField, !field.stringValue.isEmpty { result.append(field.stringValue) }
-            if let text = view as? NSTextView, !text.string.isEmpty { result.append(text.string) }
+            if let text = view as? NSTextView, !text.string.isEmpty {
+                result.append(text.string)
+                // How many text colors it shows (syntax highlighting).
+                var colors = Set<NSColor>()
+                text.textStorage?.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: text.textStorage?.length ?? 0)) {
+                    value, _, _ in if let color = value as? NSColor { colors.insert(color) }
+                }
+                result.append("[text colors: \(colors.count)]")
+            }
             return result + view.subviews.flatMap(texts(in:))
         }
         let lines = (window.title.isEmpty ? [] : [window.title]) + (window.contentView.map(texts(in:)) ?? [])

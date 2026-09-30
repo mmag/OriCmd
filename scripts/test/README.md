@@ -2,14 +2,17 @@
 
 Debug builds of OriCmd can play keystrokes and save window snapshots (see
 `OriCmd/App/DebugAutomation.swift`). These scripts drive that on throw-away
-folders in `build/testdata` only — never on real files.
+folders in `build/testdata` only — never on real files. A test run ignores the real
+keyboard and mouse, so typing elsewhere while its window is in front changes nothing.
 
 - `mkdata.sh` — recreates `build/testdata/{left,right}` with sample files and archives.
 - `run.sh <name> "<keys>"` — launches the Debug app on the test folders, plays the
   keys (e.g. `"down space f5 wait enter"`, `cmd:cm_SyncDirs`, `click:Background`)
   and writes `build/shots/<name>.png` (plus sheets and other windows, each with a
-  `.txt` of its title and texts; `menu` and `textmenu` write a context menu to
-  `<name>-menu.txt`). `rightmouse:click:N`, `hold:N`, `drag:N-M` and `ctrlclick:N`
+  `.txt` of its title and texts, and for a text view `[text colors: N]`; `menu` and
+  `textmenu` write a context menu to `<name>-menu.txt`). In the Lister of a Debug
+  build, `*.oricmdhang` files make the highlighting service hang (it must be killed)
+  and `*.oricmdfiles` ones ask it to read the file named inside (the sandbox must refuse). `rightmouse:click:N`, `hold:N`, `drag:N-M` and `ctrlclick:N`
   play the right button on panel rows.
   Modifiers: `cmd+`, `shift+`, `alt+`, `ctrl+`, `num+`; `ru+` types the key as the
   Russian layout would (`ru+ctrl+d` sends "в" with the D key code).

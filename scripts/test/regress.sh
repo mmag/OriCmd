@@ -257,6 +257,32 @@ check "Lister: the context menu lists the encodings" "grep -q '^Encoding ▸ Aut
 run enchex "alt+c wait text:p1251 escape f3 wait wait 3 wait a wait"
 check "Lister: A from hex shows Windows-1251 text" "head -1 build/shots/reg-enchex-win1.txt | grep -q 'Windows-1251$' && grep -q 'Привет, мир' build/shots/reg-enchex-win1.txt"
 
+# Syntax highlighting (highlight.js in the sandboxed OriCmdHighlighter service): code
+# is colored, plain text is not, H turns it off, a #! script goes by its program; a
+# highlighting that never ends (a Debug-only test language) is killed and the next
+# file (N) gets a new service; the service reads system files but not the user's.
+scripts/test/mkdata.sh
+cp OriCmd/Viewer/SyntaxHighlighter.swift $L/code.swift
+cp $L/code.swift $L/spin2.swift
+printf '#!/usr/bin/env python3\n# comment\ndef hello(name):\n    return f"Hi {name}" + str(42)\n' > $L/pyscript
+printf 'let x = 1\n' > $L/spin.oricmdhang
+colors() { sed -n 's/^\[text colors: \([0-9]*\)\]$/\1/p' build/shots/reg-$1-win1.txt; }
+run hlcode "alt+c wait text:ode.s escape f3 wait wait wait"
+check "Lister highlights program code" "[ \"\$(colors hlcode)\" -ge 5 ]"
+run hlplain "alt+c wait text:p1251 escape f3 wait wait wait"
+check "Lister leaves plain text plain" "[ \"\$(colors hlplain)\" = 1 ]"
+run hloff "alt+c wait text:ode.s escape f3 wait wait wait h wait"
+check "Lister: H turns highlighting off" "[ \"\$(colors hloff)\" = 1 ]"
+run hlshebang "alt+p wait text:yscr escape f3 wait wait wait"
+check "Lister highlights a #! script by its program" "[ \"\$(colors hlshebang)\" -ge 3 ]"
+run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
+check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
+echo "$PWD/$L/readme.txt" > $L/probe.oricmdfiles
+run hlsandbox "alt+p wait text:robe escape f3 wait wait wait wait"
+echo /System/Library/CoreServices/SystemVersion.plist > $L/probe.oricmdfiles
+run hlsystem "alt+p wait text:robe escape f3 wait wait wait wait"
+check "the highlighting service cannot read the user's files (it can read system ones)" "[ \"\$(colors hlsandbox)\" = 1 ] && [ \"\$(colors hlsystem)\" = 2 ]"
+
 # Ready-made colors: High contrast's stripes go with another preset, stripes turned on
 # in Settings stay. Prints the setting the keys leave.
 alternating() {

@@ -8,13 +8,21 @@ import UniformTypeIdentifiers
 /// Keys: 1 text, 3 hex, 7 preview, W word wrap, N / P next / previous file,
 /// F7 or ⌘F find, F3 / ⇧F3 find next / previous, Esc closes. Encodings: 8 UTF-8,
 /// U UTF-16, A Windows-1251, S DOS (866), K KOI8-R; all of them in the text's
-/// context menu, with Automatically.
+/// context menu, with Automatically. H turns syntax highlighting on and off (the
+/// language follows the file's extension, see SyntaxHighlighter).
 final class ListerWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, HandlesEscapeKey {
     enum Mode {
         case text, hex, preview
     }
 
     private nonisolated static let textLimit = 32 * 1024 * 1024
+    private static let highlightingKey = "ListerSyntaxHighlighting"
+
+    /// Syntax highlighting of program code (on unless turned off with H).
+    private static var highlights: Bool {
+        get { AppDefaults.store.object(forKey: highlightingKey) as? Bool ?? true }
+        set { AppDefaults.store.set(newValue, forKey: highlightingKey) }
+    }
     private nonisolated static let hexLimit = 256 * 1024
     private static var openControllers: [ListerWindowController] = []
 
@@ -33,6 +41,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     private var preview: QLPreviewView?
     /// Only the latest requested text or hex view is shown.
     private var loadToken = 0
+    /// The highlighting of the text shown, cancelled when another text comes.
+    private var highlighting: Task<Void, Never>?
 
     /// Shows `url`; N / P step through `siblings` (the other files of its folder).
     /// `title` replaces the path in the window title (for files from servers and archives).
@@ -64,7 +74,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         textView.delegate = self
         textView.usesFindBar = true
         textView.isIncrementalSearchingEnabled = true
-        textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.font = textFont
         show(Self.defaultMode(for: url))
         updateTitle()
         window.keyHandler = { [weak self] event in self?.handleKey(event) ?? false }
@@ -82,6 +92,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     }
 
     func windowWillClose(_ notification: Notification) {
+        highlighting?.cancel()
         preview?.close()
         Self.openControllers.removeAll { $0 === self }
     }
@@ -108,6 +119,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             case "w": toggleWrapping()
             case "n": step(1)
             case "p": step(-1)
+            case "h": toggleHighlighting()
             case let key? where TextEncoding.allCases.contains(where: { $0.key == key }):
                 choose(TextEncoding.allCases.first { $0.key == key } ?? .automatic)
             default: return false
@@ -149,6 +161,52 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         show(.text, keepingPlace: mode == .text)
     }
 
+    private func toggleHighlighting() {
+        Self.highlights.toggle()
+        if Self.highlights {
+            highlight()
+        } else {
+            highlighting?.cancel()
+            makePlain()
+        }
+    }
+
+    /// The text without colors (new text takes the attributes where the cursor was).
+    private func makePlain() {
+        let plain: [NSAttributedString.Key: Any] = [.font: textFont, .foregroundColor: NSColor.textColor]
+        textView.typingAttributes = plain
+        textView.textStorage?.setAttributes(plain, range: NSRange(location: 0, length: textView.textStorage?.length ?? 0))
+    }
+
+    @objc private func highlightingChosen(_ sender: NSMenuItem) {
+        toggleHighlighting()
+    }
+
+    private var textFont: NSFont { .monospacedSystemFont(ofSize: 12, weight: .regular) }
+
+    /// Colors the text shown when it is program code, in the background; the text
+    /// stays plain if the highlighting fails or takes too long.
+    private func highlight() {
+        highlighting?.cancel()
+        guard Self.highlights, mode == .text else { return }
+        let text = textView.string
+        let languages = SyntaxHighlighter.languages(for: url, firstLine: text.prefix(200).prefix { $0 != "\n" })
+        guard !languages.isEmpty else { return }
+        let token = loadToken
+        highlighting = Task {
+            guard let ranges = await SyntaxHighlighter.highlight(text, languages: languages),
+                  token == loadToken, mode == .text, Self.highlights, let storage = textView.textStorage,
+                  storage.length == text.utf16.count else { return }
+            storage.beginEditing()
+            for (range, scope) in ranges {
+                if let attributes = SyntaxTheme.attributes(for: scope, font: textFont) {
+                    storage.addAttributes(attributes, range: range)
+                }
+            }
+            storage.endEditing()
+        }
+    }
+
     @objc private func encodingChosen(_ sender: NSMenuItem) {
         guard let encoding = sender.representedObject as? TextEncoding else { return }
         choose(encoding)
@@ -171,7 +229,13 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         let item = NSMenuItem(title: String(localized: "Encoding"), action: nil, keyEquivalent: "")
         item.submenu = encodings
         menu.insertItem(item, at: 0)
-        menu.insertItem(.separator(), at: 1)
+        let highlighting = NSMenuItem(title: String(localized: "Syntax Highlighting"),
+                                      action: #selector(highlightingChosen(_:)), keyEquivalent: "h")
+        highlighting.keyEquivalentModifierMask = []
+        highlighting.target = self
+        highlighting.state = Self.highlights ? .on : .off
+        menu.insertItem(highlighting, at: 1)
+        menu.insertItem(.separator(), at: 2)
         return menu
     }
 
@@ -180,6 +244,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     /// `keepingPlace`: the text shown again (in another encoding) stays about where it was.
     private func show(_ mode: Mode, keepingPlace: Bool = false) {
         guard let window else { return }
+        highlighting?.cancel()
         self.mode = mode
         updateTitle()
         switch mode {
@@ -200,10 +265,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
                 let content = await Self.content(of: url, hex: mode == .hex, encoding: encoding)
                 guard token == loadToken else { return }
                 textView.string = content.text
+                makePlain()
                 if let name = content.encoding {
                     encodingName = name
                     updateTitle()
                 }
+                highlight()
                 if let place {
                     // The same place at the top of the view again.
                     let range = NSRange(location: Int(place * Double(textView.string.utf16.count)), length: 0)

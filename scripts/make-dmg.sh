@@ -17,6 +17,7 @@ xcodebuild -project OriCmd.xcodeproj -scheme OriCmd -configuration Release \
 APP="$WORK/DerivedData/Build/Products/Release/OriCmd.app"
 codesign --verify --deep --strict "$APP"
 lipo -archs "$APP/Contents/MacOS/OriCmd"
+lipo -archs "$APP/Contents/XPCServices/OriCmdHighlighter.xpc/Contents/MacOS/OriCmdHighlighter"
 
 STAGE="$WORK/dmg"
 mkdir -p "$STAGE"

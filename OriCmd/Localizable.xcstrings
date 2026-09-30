@@ -4761,6 +4761,16 @@
         }
       }
     },
+    "Syntax Highlighting": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсветка синтаксиса"
+          }
+        }
+      }
+    },
     "Tags": {
       "localizations": {
         "ru": {
