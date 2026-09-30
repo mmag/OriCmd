@@ -112,7 +112,14 @@ enum DebugAutomation {
                     if parts[1] != "hold" {
                         event(.rightMouseUp, at: last).map { NSApp.postEvent($0, atStart: false) }
                     }
-                    event(.rightMouseDown, at: first).map(window.sendEvent)
+                    if control, !NSApp.isActive, let down = event(.rightMouseDown, at: first) {
+                        // macOS may refuse to activate a test run, and a left click on an
+                        // inactive window only activates it: the menu is asked for as
+                        // AppKit does for a Control-click.
+                        list.menu(for: down).map { NSMenu.popUpContextMenu($0, with: down, for: list) }
+                    } else {
+                        event(.rightMouseDown, at: first).map(window.sendEvent)
+                    }
                     NotificationCenter.default.removeObserver(observer)
                 } else if token.hasPrefix("drop:"), let list = window.firstResponder as? FileListView {
                     // Simulates dropping a file onto the focused panel.
