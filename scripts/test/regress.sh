@@ -310,7 +310,9 @@ check "Lister refuses a highlighting reply with a scope name far too long" "[ \"
 # A text in no language highlight.js knows (a key) never goes to the service.
 printf -- '-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----\n' > $L/secret.pem
 run hlpem "alt+s wait text:ecret escape f3 wait wait wait"
-check "a text in no known language is not sent to the highlighting service" "grep -q '^texts: 0' build/shots/reg-hlpem-highlighter.txt && grep -q 'BEGIN PRIVATE KEY' build/shots/reg-hlpem-win1.txt"
+printf -- '-----BEGIN PGP PRIVATE KEY BLOCK-----\nlQOYBF\n-----END PGP PRIVATE KEY BLOCK-----\n' > $L/secret.asc
+run hlasc "alt+s wait text:ecret.a escape f3 wait wait wait"
+check "a key (PEM, or an armored .asc that highlight.js would take for AsciiDoc) is not sent to the highlighting service" "grep -q '^texts: 0' build/shots/reg-hlpem-highlighter.txt && grep -q 'BEGIN PRIVATE KEY' build/shots/reg-hlpem-win1.txt && grep -q '^texts: 0' build/shots/reg-hlasc-highlighter.txt && grep -q 'PGP PRIVATE KEY' build/shots/reg-hlasc-win1.txt"
 printf 'x\n' > $L/r1.oricmdexit
 printf 'let x = 1\n' > $L/r2.oricmdhang
 run hlrestart "alt+r wait text:1.o escape f3 wait wait wait wait wait wait wait wait wait wait n $(printf 'wait %.0s' {1..40})"

@@ -197,18 +197,26 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             guard let ranges = await SyntaxHighlighter.highlight(text, languages: languages),
                   token == loadToken, mode == .text, Self.highlights, let storage = textView.textStorage,
                   storage.length == text.utf16.count else { return }
-            // Each scope's attributes once (there are few scopes and many ranges).
+            // Each scope's attributes once (there are few scopes and many ranges); in
+            // portions, so a long text never holds the window up.
             var attributesByScope: [String: [NSAttributedString.Key: Any]?] = [:]
-            storage.beginEditing()
-            for (range, scope) in ranges {
-                if attributesByScope[scope] == nil {
-                    attributesByScope[scope] = SyntaxTheme.attributes(for: scope, font: textFont)
+            for start in stride(from: 0, to: ranges.count, by: 50_000) {
+                if start > 0 {
+                    await Task.yield()
+                    guard token == loadToken, mode == .text, Self.highlights,
+                          storage.length == text.utf16.count else { return }
                 }
-                if let attributes = attributesByScope[scope] ?? nil {
-                    storage.addAttributes(attributes, range: range)
+                storage.beginEditing()
+                for (range, scope) in ranges[start..<min(start + 50_000, ranges.count)] {
+                    if attributesByScope[scope] == nil {
+                        attributesByScope[scope] = SyntaxTheme.attributes(for: scope, font: textFont)
+                    }
+                    if let attributes = attributesByScope[scope] ?? nil {
+                        storage.addAttributes(attributes, range: range)
+                    }
                 }
+                storage.endEditing()
             }
-            storage.endEditing()
         }
     }
 

@@ -94,12 +94,12 @@ enum SyntaxHighlighter {
 
     /// The ranges of a reply, all or none. The reply is checked as coming from a
     /// stranger — a service taken over could send anything, e.g. overlapping ranges
-    /// that would keep the main thread coloring for minutes: the ranges must lie in
-    /// the text, start in order and nest properly, and together cover at most eight
-    /// times the text.
+    /// that would keep the main thread coloring for minutes: at most one range a
+    /// character (and a few), lying in the text, starting in order, nesting properly
+    /// and together covering at most eight times the text.
     private static func checkedRanges(_ data: Data, scopes: [String], length: Int)
         -> [(range: NSRange, scope: String)]? {
-        guard data.count % 12 == 0, data.count / 12 <= 2 * length + 64 else { return nil }
+        guard data.count % 12 == 0, data.count / 12 <= length + 64 else { return nil }
         var ranges: [(range: NSRange, scope: String)] = []
         ranges.reserveCapacity(data.count / 12)
         let valid = data.withUnsafeBytes { bytes -> Bool in
@@ -143,7 +143,7 @@ enum SyntaxHighlighter {
         #if DEBUG
         textsSent += 1
         #endif
-        return await withCheckedContinuation { continuation in
+        let outcome: Outcome = await withCheckedContinuation { continuation in
             let answer = Once(continuation)
             // XPC calls these on its own queues.
             let proxy = connection.remoteObjectProxyWithErrorHandler { @Sendable _ in
@@ -158,6 +158,9 @@ enum SyntaxHighlighter {
                 if answer.give(.timedOut) { stop(connection, pid: pid) }
             }
         }
+        // The retry goes over a new connection.
+        if case .broken = outcome { drop(connection) }
+        return outcome
     }
 
     /// The service's process: as the kernel tells once the service answered (a
@@ -201,17 +204,19 @@ enum SyntaxHighlighter {
         if let connection { return connection }
         let connection = NSXPCConnection(serviceName: serviceName)
         connection.remoteObjectInterface = .highlighting
-        let id = ObjectIdentifier(connection)
+        let this = WeakConnection(connection)
         // The service died (crashed, killed, or ended by the system): the next text
         // goes over a new connection.
         connection.interruptionHandler = { @Sendable in
             Task { @MainActor in
-                if let current = SyntaxHighlighter.connection, ObjectIdentifier(current) == id { drop(current) }
+                if let connection = this.connection, SyntaxHighlighter.connection === connection { drop(connection) }
             }
         }
         connection.invalidationHandler = { @Sendable in
             Task { @MainActor in
-                if SyntaxHighlighter.connection.map(ObjectIdentifier.init) == id { SyntaxHighlighter.connection = nil }
+                if let connection = this.connection, SyntaxHighlighter.connection === connection {
+                    SyntaxHighlighter.connection = nil
+                }
             }
         }
         connection.resume()
@@ -222,6 +227,8 @@ enum SyntaxHighlighter {
     /// Ends a service that hangs: killed, as JavaScript cannot be interrupted. Only
     /// a process running our service's program is killed, whatever it told.
     private static func stop(_ connection: NSXPCConnection, pid: pid_t) {
+        // The kernel's current answer: the service may have been started again since.
+        let pid = connection.processIdentifier > 0 ? connection.processIdentifier : pid
         if pid > 0, isService(pid) {
             kill(pid, SIGKILL)
             #if DEBUG
@@ -249,6 +256,12 @@ enum SyntaxHighlighter {
         let service = own.deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "XPCServices/OriCmdHighlighter.xpc/Contents/MacOS/OriCmdHighlighter")
         return target.path == service.resolvingSymlinksInPath().path
+    }
+
+    /// A connection its own handlers refer to without keeping it.
+    private nonisolated final class WeakConnection: @unchecked Sendable {
+        weak var connection: NSXPCConnection?
+        init(_ connection: NSXPCConnection) { self.connection = connection }
     }
 
     /// Resumes a waiting task once: with the reply, a failure or the timeout.
@@ -299,14 +312,19 @@ enum SyntaxHighlighter {
         return languages
     }
 
-    private static let plainExtensions: Set<String> = ["txt", "text", "log", "out", "plaintext"]
+    /// Plain text, and files that usually hold keys, certificates or signatures:
+    /// never sent to the service, whatever highlight.js would make of them.
+    private static let plainExtensions: Set<String> = [
+        "txt", "text", "log", "out", "plaintext",
+        "asc", "gpg", "pgp", "sig", "key", "pem", "crt", "cer", "csr", "der", "p8", "p12", "pfx", "keystore",
+    ]
 
     private static let byName: [String: String] = [
         "makefile": "makefile", "gnumakefile": "makefile", "dockerfile": "dockerfile", "containerfile": "dockerfile",
         "cmakelists.txt": "cmake", "gemfile": "ruby", "podfile": "ruby", "rakefile": "ruby", "vagrantfile": "ruby",
         "fastfile": "ruby", "brewfile": "ruby", "appfile": "ruby", "guardfile": "ruby",
         ".bashrc": "bash", ".bash_profile": "bash", ".bash_aliases": "bash", ".profile": "bash", ".zshrc": "bash",
-        ".zprofile": "bash", ".zshenv": "bash", ".env": "bash", ".gitconfig": "ini", ".editorconfig": "ini",
+        ".zprofile": "bash", ".zshenv": "bash", ".gitconfig": "ini", ".editorconfig": "ini",
         "nginx.conf": "nginx",
     ]
 

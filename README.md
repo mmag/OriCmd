@@ -202,12 +202,14 @@ its instructions: x86, ARM, MIPS, AVR); texts up to about 512 thousand character
 are highlighted, the context menu and `H` turn it on and off. highlight.js runs in
 a separate helper, `OriCmdHighlighter`, which locks itself down before it reads
 anything from OriCmd: no files (not even system ones), no network, no pasteboard,
-no opening of URLs, no looking up other services (the preferences and log daemons
-it met while starting check the lockdown too). Only texts in a language
-highlight.js knows are sent to it. A file made to attack the JavaScript engine
-could at most see the texts shown in the viewer afterwards, write to the system
-log and send back a wrong coloring, which OriCmd checks; a highlighting that takes
-more than 5 seconds is stopped (the text stays plain).
+no opening of URLs, no starting or signalling other programs, no looking up other
+services (the preferences daemon it met while starting checks the lockdown too).
+Only texts in a language highlight.js knows are sent to it, never key, certificate
+or signature files. A file made to attack the JavaScript engine could at most see
+the texts shown in the viewer afterwards, see which programs run, post system
+notifications, take up shared memory until a restart and send back a wrong
+coloring, which OriCmd checks; nothing can leave the Mac through it. A highlighting
+that takes more than 5 seconds is stopped (the text stays plain).
 
 #### The copy and move dialog (`F5` / `F6`)
 
