@@ -13,7 +13,7 @@ import UniformTypeIdentifiers
 /// HTML pages named as Excel files, CSV and TSV show as tables (7; 1 shows the text).
 final class ListerWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, HandlesEscapeKey {
     enum Mode {
-        case text, hex, preview, table
+        case text, hex, preview, table, book
     }
 
     private nonisolated static let textLimit = 32 * 1024 * 1024
@@ -35,6 +35,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     /// Excel 2003 XML, an HTML page named as an Excel file, CSV or TSV: shown as a
     /// table (7), by default too.
     private var tableFormat: String?
+    /// FB2, EPUB…: shown as a book to read (7), by default too.
+    private var bookFormat: String?
+    /// The book's headings, for the Contents menu.
+    private var bookContents: [(title: String, location: Int, level: Int)] = []
+    private var bookTitle = ""
+    private lazy var plainInset = textView.textContainerInset
     /// Chosen by the user; kept for the next and previous files.
     private var encoding = TextEncoding.automatic
     /// The encoding the text is shown in (the one told, when automatic).
@@ -65,6 +71,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         self.siblings = siblings
         shownPath = url.path
         tableFormat = Self.tableFormat(for: url)
+        bookFormat = Self.bookFormat(for: url)
         let window = ListerWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 650),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -87,8 +94,9 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
 
     /// The path, and in text mode the encoding.
     private func updateTitle() {
-        let encoding = mode == .text || mode == .table ? encodingName.map { " \u{2014} \($0)" } ?? "" : ""
-        window?.title = "Lister - [\(shownPath)]" + encoding
+        let detail = mode == .book ? (bookTitle.isEmpty ? nil : bookTitle)
+            : mode == .text || mode == .table ? encodingName : nil
+        window?.title = "Lister - [\(shownPath)]" + (detail.map { " \u{2014} \($0)" } ?? "")
     }
 
     @available(*, unavailable)
@@ -120,7 +128,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             case "\u{1b}": window?.close()
             case "1": show(.text)
             case "3": show(.hex)
-            case "7": show(tableFormat != nil ? .table : .preview)
+            case "7": show(bookFormat != nil ? .book : tableFormat != nil ? .table : .preview)
             case "w": toggleWrapping()
             case "n": step(1)
             case "p": step(-1)
@@ -158,6 +166,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         url = siblings[index + offset]
         shownPath = url.path
         tableFormat = Self.tableFormat(for: url)
+        bookFormat = Self.bookFormat(for: url)
         encodingName = nil
         show(Self.defaultMode(for: url))
     }
@@ -237,8 +246,23 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         choose(encoding)
     }
 
-    /// The text's context menu starts with the encodings.
+    /// The text's context menu starts with the encodings; a book's, with its contents.
     func textView(_ view: NSTextView, menu: NSMenu, for event: NSEvent, at charIndex: Int) -> NSMenu? {
+        if mode == .book {
+            guard !bookContents.isEmpty else { return menu }
+            let contents = NSMenu()
+            for (index, entry) in bookContents.enumerated() {
+                let item = contents.addItem(withTitle: entry.title, action: #selector(contentsChosen(_:)), keyEquivalent: "")
+                item.target = self
+                item.tag = index
+                item.indentationLevel = entry.level - 1
+            }
+            let item = NSMenuItem(title: String(localized: "Contents"), action: nil, keyEquivalent: "")
+            item.submenu = contents
+            menu.insertItem(item, at: 0)
+            menu.insertItem(.separator(), at: 1)
+            return menu
+        }
         let encodings = NSMenu()
         for encoding in TextEncoding.allCases {
             let item = encodings.addItem(withTitle: encoding.title, action: #selector(encodingChosen(_:)),
@@ -271,6 +295,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         guard let window else { return }
         highlighting?.cancel()
         self.mode = mode
+        textView.textContainerInset = plainInset
         updateTitle()
         switch mode {
         case .text, .hex:
@@ -316,8 +341,56 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             window.contentView = preview
         case .table:
             showTable()
+        case .book:
+            showBook()
         }
         window.makeFirstResponder(window.contentView)
+    }
+
+    /// Reads the book in the helper service (the file is a stranger's data) and
+    /// shows it to read; the text or hex instead when it cannot be read.
+    private func showBook() {
+        textView.string = ""
+        bookContents = []
+        bookTitle = ""
+        setWrapping(true)
+        window?.contentView = scrollView
+        loadToken += 1
+        let token = loadToken
+        let url = self.url
+        guard let format = bookFormat else { return show(.text) }
+        Task {
+            let data = await Self.wholeFile(url, limit: SyntaxHighlighter.bookSizeLimit)
+            let book = await data.asyncMap { await SyntaxHighlighter.book($0, format: format) } ?? nil
+            guard token == loadToken, mode == .book else { return }
+            guard let book else { return show(Self.looksLikeText(url) ? .text : .hex) }
+            let typeset = await Task.detached { Typeset(book.typeset()) }.value
+            guard token == loadToken, mode == .book else { return }
+            bookTitle = [book.author, book.title].filter { !$0.isEmpty }.joined(separator: " \u{00B7} ")
+            bookContents = typeset.contents
+            updateTitle()
+            fitBook()
+            textView.textStorage?.setAttributedString(typeset.text)
+            textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+        }
+    }
+
+    /// A column of about 720 points in the middle of the window.
+    private func fitBook() {
+        guard mode == .book else { return }
+        let margin = max(24, (scrollView.contentSize.width - 720) / 2)
+        textView.textContainerInset = NSSize(width: margin, height: 24)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        fitBook()
+    }
+
+    @objc private func contentsChosen(_ sender: NSMenuItem) {
+        guard bookContents.indices.contains(sender.tag) else { return }
+        let location = bookContents[sender.tag].location
+        textView.scrollRangeToVisible(NSRange(location: textView.string.utf16.count, length: 0))
+        textView.scrollRangeToVisible(NSRange(location: location, length: 0))
     }
 
     /// Reads the table in the helper service (the file is a stranger's data) and
@@ -355,6 +428,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     }
 
     static func defaultMode(for url: URL) -> Mode {
+        if bookFormat(for: url) != nil { return .book }
         let type = UTType(filenameExtension: url.pathExtension.lowercased())
         if let type, [.image, .pdf, .audiovisualContent, .rtf, .rtfd, .font].contains(where: type.conforms(to:)) {
             return .preview
@@ -368,6 +442,17 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             return .table
         }
         return text ? .text : .hex
+    }
+
+    /// The book format of `url` by its name, if it is one.
+    static func bookFormat(for url: URL) -> String? {
+        let name = url.lastPathComponent.lowercased()
+        if name.hasSuffix(".fb2.zip") { return "fb2.zip" }
+        switch url.pathExtension.lowercased() {
+        case "fb2": return "fb2"
+        case "epub": return "epub"
+        default: return nil
+        }
     }
 
     /// The table format of `url`, if it has one: CSV and TSV by the extension, Excel
@@ -414,6 +499,13 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         let size = (try? handle.seekToEnd()).map(Int.init) ?? 0
         try? handle.seek(toOffset: 0)
         return ((try? handle.read(upToCount: limit)) ?? Data(), size)
+    }
+
+    /// The whole file, if it is no larger than `limit`.
+    @concurrent
+    private nonisolated static func wholeFile(_ url: URL, limit: Int) async -> Data? {
+        let (data, size) = head(of: url, limit: limit)
+        return size <= data.count ? data : nil
     }
 
     /// The whole file as text for the table view (none past the text limit).

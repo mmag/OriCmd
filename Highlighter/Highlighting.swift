@@ -21,6 +21,10 @@ import Foundation
     /// The tables of `text` in `format` ("spreadsheetml", "html", "csv", "tsv") for
     /// the Lister's table view, as plain data (see TableBuilder); nil when there are none.
     func table(_ text: String, format: String, reply: @escaping @Sendable (Data?) -> Void)
+
+    /// The book in `data` ("fb2", "fb2.zip", "epub") for the Lister's book view, as
+    /// plain data (see BookBuilder); nil when it cannot be read.
+    func book(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void)
 }
 
 extension NSXPCInterface {

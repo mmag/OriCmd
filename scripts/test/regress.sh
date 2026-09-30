@@ -317,6 +317,49 @@ run tbkeys "alt+r wait text:eport.x escape f3 wait wait wait 1 wait wait 7 wait 
 check "Lister: 1 shows a table's text, 7 the table again" "grep -qx 'Sales report' build/shots/reg-tbkeys-win1.txt && ! grep -q '<Workbook' build/shots/reg-tbkeys-win1.txt"
 run tbxxe "alt+x wait text:xe.x escape f3 wait wait wait wait"
 check "a table's external entity reads nothing" "! grep -qi 'localhost' build/shots/reg-tbxxe-win1.txt"
+
+# Books (read in the locked helper, pictures sent as pixels): FB2 in Windows-1251
+# with a cover, an epigraph, verses and notes; the same zipped; EPUB chapters in
+# spine order with a picture; a zip bomb (an entry claiming gigabytes) is refused.
+python3 - "$L" <<'PY'
+import base64, sys, zipfile, zlib, struct
+L = sys.argv[1]
+def png(w, h):
+    rows = b''.join(b'\x00' + bytes((200, 60, 60)) * w for _ in range(h))
+    chunk = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
+cover = base64.b64encode(png(60, 90)).decode()
+fb2 = f'''<?xml version="1.0" encoding="windows-1251"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+<description><title-info><author><first-name>Лев</first-name><last-name>Толстой</last-name></author><book-title>Война и мир</book-title><coverpage><image l:href="#c.png"/></coverpage></title-info></description>
+<body><section><title><p>Глава первая</p></title><epigraph><p>Эпиграф</p><text-author>Автор</text-author></epigraph>
+<p>Текст с <emphasis>курсивом</emphasis><a l:href="#n1" type="note">1</a>.</p><poem><stanza><v>Строка стиха</v></stanza></poem></section></body>
+<body name="notes"><section id="n1"><p>Текст сноски.</p></section></body><binary id="c.png" content-type="image/png">{cover}</binary></FictionBook>'''
+open(L + '/war.fb2', 'wb').write(fb2.encode('cp1251'))
+with zipfile.ZipFile(L + '/war.fb2.zip', 'w', zipfile.ZIP_DEFLATED) as z: z.writestr('war.fb2', fb2.encode('cp1251'))
+with zipfile.ZipFile(L + '/master.epub', 'w', zipfile.ZIP_DEFLATED) as z:
+    z.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
+    z.writestr('META-INF/container.xml', '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/book.opf"/></rootfiles></container>')
+    z.writestr('OPS/book.opf', '<package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Мастер и Маргарита</dc:title><dc:creator>Булгаков</dc:creator></metadata><manifest><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="text/b.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="b"/><itemref idref="a"/></spine></package>')
+    z.writestr('OPS/a.xhtml', '<html><body><h1>Вторая по порядку</h1><p>Конец.</p></body></html>')
+    z.writestr('OPS/text/b.xhtml', '<html><head><script>x</script></head><body><h1>Первая по порядку</h1><p>Никогда не <i>разговаривайте</i>.</p><img src="../img/p.png"/></body></html>')
+    z.writestr('OPS/img/p.png', png(40, 30))
+# A zip whose entry claims 4 GB unpacked.
+with zipfile.ZipFile(L + '/bomb.epub', 'w', zipfile.ZIP_DEFLATED) as z:
+    z.writestr('META-INF/container.xml', '<container><rootfiles><rootfile full-path="x.opf"/></rootfiles></container>')
+data = bytearray(open(L + '/bomb.epub', 'rb').read())
+at = data.find(b'PK\x01\x02')
+data[at + 24:at + 28] = struct.pack('<I', 0xFFFFFFF0)
+open(L + '/bomb.epub', 'wb').write(bytes(data))
+PY
+run bkfb2 "alt+w wait text:ar.fb2 escape f3 wait wait wait wait textmenu"
+check "Lister shows an FB2 book (Windows-1251): title, author, chapter, notes, cover, contents" "grep -q '^Contents ▸ Глава первая' build/shots/reg-bkfb2-menu.txt && head -1 build/shots/reg-bkfb2-win1.txt | grep -q 'Лев Толстой · Война и мир$' && grep -q 'Глава первая' build/shots/reg-bkfb2-win1.txt && grep -q 'Текст сноски.' build/shots/reg-bkfb2-win1.txt && grep -q \"\$(printf '\\357\\277\\274')\" build/shots/reg-bkfb2-win1.txt"
+run bkfb2zip "alt+w wait text:ar.fb2.z escape f3 wait wait wait wait"
+check "Lister shows a zipped FB2 book" "grep -q 'Строка стиха' build/shots/reg-bkfb2zip-win1.txt"
+run bkepub "alt+m wait text:aster.e escape f3 wait wait wait wait"
+check "Lister shows an EPUB's chapters in spine order, without scripts" "head -1 build/shots/reg-bkepub-win1.txt | grep -q 'Мастер и Маргарита$' && [ \"\$(grep -n 'по порядку' build/shots/reg-bkepub-win1.txt | head -1 | grep -c Первая)\" = 1 ] && ! grep -qx 'x' build/shots/reg-bkepub-win1.txt"
+run bkbomb "alt+b wait text:omb.e escape f3 wait wait wait wait"
+check "an EPUB zip bomb is refused (shown as hex, not read)" "! head -1 build/shots/reg-bkbomb-win1.txt | grep -q '·' && grep -q '^00000000' build/shots/reg-bkbomb-win1.txt"
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
 # The service locks itself down: no file (the user's or the system's), no other

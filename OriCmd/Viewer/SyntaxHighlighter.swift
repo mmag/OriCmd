@@ -7,6 +7,7 @@ import AppKit
     func processIdentifier(reply: @escaping @Sendable (Int32) -> Void)
     func languageNames(reply: @escaping @Sendable (Data?) -> Void)
     func table(_ text: String, format: String, reply: @escaping @Sendable (Data?) -> Void)
+    func book(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void)
 }
 
 /// Syntax highlighting for the Lister. highlight.js runs in the OriCmdHighlighter
@@ -20,6 +21,10 @@ enum SyntaxHighlighter {
     private static let timeLimit: Duration = .seconds(5)
     /// For reading a table (up to 32 MB of text).
     private static let tableTimeLimit: Duration = .seconds(20)
+    /// For reading a book (with its pictures).
+    private static let bookTimeLimit: Duration = .seconds(60)
+    /// Larger books are not sent.
+    static let bookSizeLimit = 100 * 1024 * 1024
     /// For the service to start; launchd starts it again only some seconds after
     /// it was killed.
     private static let startLimit: Duration = .seconds(15)
@@ -72,6 +77,21 @@ enum SyntaxHighlighter {
         }
         guard case .done(let data?, _) = outcome else { return nil }
         return await Task.detached { ViewerTable(data) }.value
+    }
+
+    /// The book in `data` ("fb2", "fb2.zip", "epub"), read in the service; nil when
+    /// it cannot be read, or the service fails, hangs or replies nonsense (the reply
+    /// is checked as a stranger's, see BookDocument).
+    static func book(_ data: Data, format: String) async -> BookDocument? {
+        guard data.count <= bookSizeLimit else { return nil }
+        await takeTurn()
+        defer { endTurn() }
+        guard !Task.isCancelled else { return nil }
+        let outcome = await requestTwice(timeLimit: bookTimeLimit) { proxy, answer in
+            proxy.book(data, format: format) { @Sendable reply in answer.give(.done(reply, nil)) }
+        }
+        guard case .done(let reply?, _) = outcome else { return nil }
+        return await Task.detached { BookDocument(reply) }.value
     }
 
     /// A request, once more on a new connection when the service went away (not

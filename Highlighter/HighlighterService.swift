@@ -1,4 +1,6 @@
+import Compression
 import Foundation
+import ImageIO
 import JavaScriptCore
 
 /// Runs highlight.js and reads tables (TableParser) for the Lister. When OriCmd
@@ -53,6 +55,13 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         }
     }
 
+    func book(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void) {
+        queue.async { [self] in
+            guard isLockedDown else { return reply(nil) }
+            reply(BookParser.parse(data, format: format))
+        }
+    }
+
     private func highlighted(_ text: String, languages: [String]) -> (Data?, Data?) {
         guard isLockedDown, let context else { return (nil, nil) }
         #if DEBUG
@@ -91,6 +100,7 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         _ = TableParser.parse(#"<?xml version="1.0" encoding="windows-1251"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Лист"><Table><Row><Cell ss:Index="2" ss:MergeAcross="1"><Data ss:Type="String">Ячейка</Data></Cell></Row></Table></Worksheet></Workbook>"#, format: "spreadsheetml")
         _ = TableParser.parse("<table><tr><td colspan=2 rowspan='2'>Ячейка &amp; &#171;x&#xBB;</td></tr></table>", format: "html")
         _ = TableParser.parse("a;\"b\"\"c\";Ж\n1;2;3\n", format: "csv")
+        warmUpBooks()
         typealias SandboxInit = @convention(c) (
             UnsafePointer<CChar>, UInt64, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
         ) -> Int32
@@ -100,6 +110,29 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         let status = unsafeBitCast(symbol, to: SandboxInit.self)("(version 1) (deny default)", 0, &error)
         if let error { free(error) }
         return status == 0
+    }
+
+    /// Book reading used once before the lockdown: picture decoders (each format
+    /// OriCmd shows), an FB2 in Windows-1251 (the XML parser's encodings) and a zip.
+    private func warmUpBooks() {
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 8, space: space,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let image = context.makeImage() else { return }
+        for type in ["public.png", "public.jpeg", "com.compuserve.gif", "public.tiff", "com.microsoft.bmp"] {
+            let data = NSMutableData()
+            if let destination = CGImageDestinationCreateWithData(data, type as CFString, 1, nil) {
+                CGImageDestinationAddImage(destination, image, nil)
+                if CGImageDestinationFinalize(destination) { _ = BookBuilder.pixels(of: data as Data) }
+            }
+        }
+        let fb2 = #"<?xml version="1.0" encoding="windows-1251"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"><body><section><p>Ж</p></section></body></FictionBook>"#
+        if let data = fb2.data(using: .windowsCP1251) { _ = BookParser.parse(data, format: "fb2") }
+        // Deflate (zip entries) both ways.
+        let plain = [UInt8](repeating: 65, count: 256)
+        var packed = [UInt8](repeating: 0, count: 512), unpacked = [UInt8](repeating: 0, count: 256)
+        let size = compression_encode_buffer(&packed, packed.count, plain, plain.count, nil, COMPRESSION_ZLIB)
+        _ = compression_decode_buffer(&unpacked, unpacked.count, packed, size, nil, COMPRESSION_ZLIB)
     }
 
     private func loadedContext() -> JSContext? {
