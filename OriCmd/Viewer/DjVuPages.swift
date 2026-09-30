@@ -283,10 +283,10 @@ final class DjVuPagesView: NSView, NSTableViewDataSource, NSTableViewDelegate {
                 width = max(width * DjVuPages.maxHeight / height, 1)
                 height = DjVuPages.maxHeight
             }
-            width = min(width, DjVuPages.maxWidth)
+            let size = (width: min(width, DjVuPages.maxWidth), height: height)
             let file = self.file
             Task {
-                let image = await DjVuPages.render(file, page: row, width: width, height: height)
+                let image = await DjVuPages.render(file, page: row, width: size.width, height: size.height)
                 drawing.remove(row)
                 if image == nil, !drewPage, !reportedFailure {
                     // ddjvu cannot draw this document: its text instead.

@@ -485,10 +485,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             // DjVu: its pages as pictures when DjVuLibre draws them.
             if format == "djvu", !djvuShowsText, !book.pages.isEmpty, DjVuPages.program != nil, let window {
                 let pages = DjVuPagesView(file: url, pages: book.pages)
-                pages.onFailure = { [weak self] in
-                    guard let self, token == loadToken, mode == .book else { return }
-                    djvuShowsText = true
-                    show(.book)
+                // Weakly: the window holds the view, the view this closure.
+                weak var controller = self
+                pages.onFailure = {
+                    guard let controller, token == controller.loadToken, controller.mode == .book else { return }
+                    controller.djvuShowsText = true
+                    controller.show(.book)
                 }
                 window.contentView = pages
                 window.makeFirstResponder(pages.firstResponderView)
