@@ -600,7 +600,7 @@ check "a service started again after dying is still killed when it hangs" "grep 
 # in Settings stay. Prints the setting the keys leave.
 alternating() {
   defaults write ru.themmag.OriCmd.tests AlternatingRows -bool $1
-  timeout 120 open -W -n --env ORICMD_LEFT=$PWD/$L --env ORICMD_RIGHT=$PWD/$R --env "ORICMD_KEYS=$2" --env ORICMD_QUIT=1 \
+  timeout 120 open -g -W -n --env ORICMD_LEFT=$PWD/$L --env ORICMD_RIGHT=$PWD/$R --env "ORICMD_KEYS=$2" --env ORICMD_QUIT=1 \
     build/DerivedData/Build/Products/Debug/OriCmd.app
   defaults read ru.themmag.OriCmd.tests AlternatingRows; defaults delete ru.themmag.OriCmd.tests 2>/dev/null
 }

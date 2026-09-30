@@ -21,7 +21,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let window = controller.window { DebugAutomation.run(in: window) }
         #endif
 
-        NSApp.activate()
+        #if DEBUG
+        // Test runs (scripts/test) stay in the background: the user keeps working.
+        let activates = !DebugAutomation.isTestRun
+        #else
+        let activates = true
+        #endif
+        if activates { NSApp.activate() }
         // A little after launch, so the first look is not an alert.
         Task {
             try? await Task.sleep(for: .seconds(5))

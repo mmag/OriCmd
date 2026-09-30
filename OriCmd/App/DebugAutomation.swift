@@ -23,6 +23,11 @@ import WebKit
 enum DebugAutomation {
     private static var environment: [String: String] { ProcessInfo.processInfo.environment }
 
+    /// Keys to play or a snapshot to take: a test run, which stays in the background.
+    static var isTestRun: Bool {
+        environment["ORICMD_KEYS"] != nil || environment["ORICMD_SNAPSHOT"] != nil
+    }
+
     static func initialDirectory(left: Bool) -> URL? {
         environment[left ? "ORICMD_LEFT" : "ORICMD_RIGHT"].map { URL(filePath: $0) }
     }
@@ -75,11 +80,6 @@ enum DebugAutomation {
                     let rows = parts.count == 3 ? parts[2].split(separator: "-").compactMap { Int($0) } : []
                     guard let first = rows.first, let last = rows.last else { continue }
                     let control = parts[1] == "ctrlclick"
-                    // A left click on an inactive window only activates it.
-                    if control && !NSApp.isActive {
-                        NSApp.activate()
-                        try? await Task.sleep(for: .milliseconds(500))
-                    }
                     @MainActor func event(_ type: NSEvent.EventType, at row: Int) -> NSEvent? {
                         let rect = list.rowRect(row)
                         let type: NSEvent.EventType = !control ? type : type == .rightMouseDown ? .leftMouseDown : .leftMouseUp
@@ -115,7 +115,7 @@ enum DebugAutomation {
                         event(.rightMouseUp, at: last).map { NSApp.postEvent($0, atStart: false) }
                     }
                     if control, !NSApp.isActive, let down = event(.rightMouseDown, at: first) {
-                        // macOS may refuse to activate a test run, and a left click on an
+                        // A test run stays in the background, and a left click on an
                         // inactive window only activates it: the menu is asked for as
                         // AppKit does for a Control-click.
                         list.menu(for: down).map { NSMenu.popUpContextMenu($0, with: down, for: list) }
