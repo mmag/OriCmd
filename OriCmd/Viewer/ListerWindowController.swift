@@ -40,6 +40,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     /// The book's headings, for the Contents menu.
     private var bookContents: [(title: String, location: Int, level: Int)] = []
     private var bookTitle = ""
+    /// A DjVu document shows its text layer (to search it) instead of its pages.
+    private var djvuShowsText = false
     private lazy var plainInset = textView.textContainerInset
     /// Chosen by the user; kept for the next and previous files.
     private var encoding = TextEncoding.automatic
@@ -128,7 +130,9 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             case "\u{1b}": window?.close()
             case "1": show(.text)
             case "3": show(.hex)
-            case "7": show(bookFormat != nil ? .book : tableFormat != nil ? .table : .preview)
+            case "7":
+                djvuShowsText = false
+                show(bookFormat != nil ? .book : tableFormat != nil ? .table : .preview)
             case "w": toggleWrapping()
             case "n": step(1)
             case "p": step(-1)
@@ -143,8 +147,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
 
     private func find(_ action: NSTextFinder.Action) {
         guard mode != .preview else { return }
-        // Tables are searched as text.
+        // Tables are searched as text, DjVu pages in their text layer.
         if mode == .table { show(.text) }
+        if mode == .book, bookFormat == "djvu", !djvuShowsText {
+            djvuShowsText = true
+            show(.book)
+        }
         window?.makeFirstResponder(textView)
         let item = NSMenuItem()
         item.tag = action.rawValue
@@ -167,6 +175,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         shownPath = url.path
         tableFormat = Self.tableFormat(for: url)
         bookFormat = Self.bookFormat(for: url)
+        djvuShowsText = false
         encodingName = nil
         show(Self.defaultMode(for: url))
     }
@@ -364,6 +373,15 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             let book = await data.asyncMap { await SyntaxHighlighter.book($0, format: format) } ?? nil
             guard token == loadToken, mode == .book else { return }
             guard let book else { return show(Self.looksLikeText(url) ? .text : .hex) }
+            // DjVu: its pages as pictures when DjVuLibre draws them.
+            if format == "djvu", !djvuShowsText, !book.pages.isEmpty, DjVuPages.program != nil, let window {
+                let pages = DjVuPagesView(file: url, pages: book.pages)
+                window.contentView = pages
+                window.makeFirstResponder(pages.firstResponderView)
+                bookTitle = String(localized: "\(book.pages.count) pages")
+                updateTitle()
+                return
+            }
             let typeset = await Task.detached { Typeset(book.typeset()) }.value
             guard token == loadToken, mode == .book else { return }
             bookTitle = [book.author, book.title].filter { !$0.isEmpty }.joined(separator: " \u{00B7} ")
@@ -371,6 +389,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             updateTitle()
             fitBook()
             textView.textStorage?.setAttributedString(typeset.text)
+            if format == "djvu", DjVuPages.program == nil {
+                let hint = String(localized: "To see the pages themselves, install DjVuLibre (brew install djvulibre).")
+                textView.textStorage?.insert(NSAttributedString(string: hint + "\n\n", attributes: [
+                    .font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.secondaryLabelColor,
+                ]), at: 0)
+            }
             textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
         }
     }
@@ -452,6 +476,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         case "fb2": return "fb2"
         case "epub": return "epub"
         case "mobi", "azw", "azw3", "prc": return "mobi"
+        case "djvu", "djv": return "djvu"
         case "pdb":
             // Palm databases share the name with Visual Studio's debug files: by the header.
             let type = String(decoding: head(of: url, limit: 68).data.dropFirst(60), as: UTF8.self)

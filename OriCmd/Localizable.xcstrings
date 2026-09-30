@@ -131,6 +131,16 @@
         }
       }
     },
+    "%lld pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "страниц: %lld"
+          }
+        }
+      }
+    },
     "%lld → , %lld ← , %lld ≠ , %lld files compared; %@ to copy": {
       "localizations": {
         "ru": {
@@ -4981,6 +4991,26 @@
         }
       }
     },
+    "This DjVu document has no text layer.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этом документе DjVu нет текстового слоя."
+          }
+        }
+      }
+    },
+    "This DjVu document keeps its pages in other files; open the one that lists them all.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страницы этого документа DjVu лежат в отдельных файлах; откройте тот, в котором они перечислены."
+          }
+        }
+      }
+    },
     "This archive is read-only": {
       "localizations": {
         "ru": {
@@ -5037,6 +5067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Название:"
+          }
+        }
+      }
+    },
+    "To see the pages themselves, install DjVuLibre (brew install djvulibre).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтобы видеть сами страницы, установите DjVuLibre (brew install djvulibre)."
           }
         }
       }

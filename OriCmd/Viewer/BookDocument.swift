@@ -33,6 +33,8 @@ nonisolated struct BookDocument: Sendable {
     var notice: String
     var blocks: [Block]
     var pictures: [Picture]
+    /// A DjVu document's pages: pixels and resolution.
+    var pages: [(width: Int, height: Int, dpi: Int)] = []
 
     private static let maxBlocks = 1_000_000
     private static let maxRuns = 4_000_000
@@ -86,7 +88,17 @@ nonisolated struct BookDocument: Sendable {
             pictureBytes += pixels.count
             pictures.append(Picture(width: width, height: height, pixels: pixels))
         }
+        var pages: [(width: Int, height: Int, dpi: Int)] = []
+        if reader.offset < data.count {
+            guard let count = reader.count(max: 100_000) else { return nil }
+            for _ in 0..<count {
+                guard let width = reader.count(max: 65_535), let height = reader.count(max: 65_535),
+                      let dpi = reader.count(max: 6000) else { return nil }
+                pages.append((width, height, dpi))
+            }
+        }
         guard reader.offset == data.count, pictureReferences.allSatisfy({ $0 < pictures.count }) else { return nil }
+        self.pages = pages
         self.title = title
         self.author = author
         self.notice = notice
@@ -154,9 +166,12 @@ nonisolated struct BookDocument: Sendable {
         ]
         if !notice.isEmpty {
             // Notices come as codes, said here in the interface's language.
-            let said = notice == "drm"
-                ? String(localized: "This book is protected (DRM): it can only be read in the program it was bought for.")
-                : notice
+            let said = switch notice {
+            case "drm": String(localized: "This book is protected (DRM): it can only be read in the program it was bought for.")
+            case "djvu-no-text": String(localized: "This DjVu document has no text layer.")
+            case "djvu-indirect": String(localized: "This DjVu document keeps its pages in other files; open the one that lists them all.")
+            default: notice
+            }
             text.append(NSAttributedString(string: said + "\n", attributes: [
                 .font: Self.serif(size: 16, bold: true), .foregroundColor: NSColor.systemRed,
                 .paragraphStyle: styles[.heading] as Any,

@@ -399,6 +399,33 @@ run bkhuff "alt+h wait text:uff escape f3 wait wait wait wait"
 check "Lister reads a HUFF/CDIC-compressed MOBI" "grep -q 'Привет, мир! AB конец.' build/shots/reg-bkhuff-win1.txt"
 run bkdrm "alt+d wait text:rm.m escape f3 wait wait wait wait"
 check "a MOBI protected by DRM is said so, its text not shown" "grep -q 'protected (DRM)' build/shots/reg-bkdrm-win1.txt && ! grep -q 'разговаривайте' build/shots/reg-bkdrm-win1.txt"
+# DjVu (samples made with DjVuLibre): the text layer (BZZ) page after page, with a
+# hint when DjVuLibre is not there; a document without a text layer is said so; a
+# damaged text layer neither hangs nor crashes. With DjVuLibre's ddjvu (built into
+# build/djvulibre, if it is) the pages are drawn by it in a sandbox, F7 shows the text.
+cp scripts/test/samples/scan.djvu $L/scan.djvu
+cp scripts/test/samples/notext.djvu $L/notext.djvu
+python3 - "$L" <<'PY'
+import sys
+L = sys.argv[1]
+data = bytearray(open(L + '/scan.djvu', 'rb').read())
+at = data.find(b'TXTz')
+for k in range(at + 12, min(at + 60, len(data)), 3):
+    data[k] ^= 0xA5
+open(L + '/broken.djvu', 'wb').write(bytes(data))
+PY
+run djtext "alt+s wait text:can.d escape f3 wait wait wait wait"
+check "Lister shows a DjVu text layer page after page (a hint without DjVuLibre)" "grep -q 'Привет, мир! Первая страница.' build/shots/reg-djtext-win1.txt && grep -q 'Текст второй страницы.' build/shots/reg-djtext-win1.txt && grep -q 'install DjVuLibre' build/shots/reg-djtext-win1.txt"
+run djnotext "alt+n wait text:otext.d escape f3 wait wait wait wait"
+run djbroken "alt+b wait text:roken.d escape f3 wait wait wait wait"
+check "a DjVu without a text layer is said so; a damaged one does not hang" "grep -q 'no text layer' build/shots/reg-djnotext-win1.txt && [ -f build/shots/reg-djbroken-win1.txt ]"
+if [ -x build/djvulibre/bin/ddjvu ]; then
+  ORICMD_DDJVU=$PWD/build/djvulibre/bin/ddjvu run djpages "alt+s wait text:can.d escape f3 wait wait wait wait wait"
+  ORICMD_DDJVU=$PWD/build/djvulibre/bin/ddjvu run djfind "alt+s wait text:can.d escape f3 wait wait wait wait f7 wait wait wait"
+  check "DjVu pages are drawn by ddjvu (sandboxed); F7 shows the text layer" "head -1 build/shots/reg-djpages-win1.txt | grep -q '— 2 pages$' && grep -qx '1 / 2' build/shots/reg-djpages-win1.txt && grep -q 'Привет, мир!' build/shots/reg-djfind-win1.txt"
+else
+  echo "skip DjVu pages: no build/djvulibre/bin/ddjvu"
+fi
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
 # The service locks itself down: no file (the user's or the system's), no other

@@ -22,6 +22,8 @@ enum BookParser {
             EPUBReader(builder).read(&zip)
         case "mobi":
             MobiReader(builder, data).read()
+        case "djvu":
+            DjVuReader(builder, data).read()
         default:
             return nil
         }
@@ -34,7 +36,8 @@ enum BookParser {
 /// Blocks of styled text and pictures, written out as "OBK1", then the title, the
 /// author, the notice, the block count and the blocks (kind, level, and runs of
 /// style and text, or a picture's index), the picture count and the pictures
-/// (width, height, RGBA bytes); counts UInt32 little-endian, texts as their UTF-8
+/// (width, height, RGBA bytes), and for a DjVu document its pages (count, then
+/// width, height, dpi each); counts UInt32 little-endian, texts as their UTF-8
 /// length and bytes.
 final class BookBuilder {
     enum Kind: UInt8 {
@@ -67,6 +70,8 @@ final class BookBuilder {
 
     var title = ""
     var author = ""
+    /// A DjVu document's pages (pixels and resolution), for drawing them.
+    var pages: [(width: Int, height: Int, dpi: Int)] = []
     /// Said instead of or before the book (a book protected by DRM, say).
     var notice = ""
     private var blocks: [Block] = []
@@ -80,7 +85,7 @@ final class BookBuilder {
     private var endsWithSpace = true
     private var keepsSpaces = false
 
-    var isEmpty: Bool { blocks.isEmpty && open == nil && notice.isEmpty }
+    var isEmpty: Bool { blocks.isEmpty && open == nil && notice.isEmpty && pages.isEmpty }
 
     /// Starts a paragraph of `kind` (ending one still open).
     func begin(_ kind: Kind, level: Int = 0) {
@@ -226,6 +231,15 @@ final class BookBuilder {
             put(image.width)
             put(image.height)
             data.append(image.pixels)
+        }
+        // Pages, when a document has them (DjVu).
+        if !pages.isEmpty {
+            put(pages.count)
+            for page in pages {
+                put(page.width)
+                put(page.height)
+                put(page.dpi)
+            }
         }
         return data
     }
