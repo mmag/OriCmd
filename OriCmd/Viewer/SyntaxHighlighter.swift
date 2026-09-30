@@ -177,8 +177,10 @@ enum SyntaxHighlighter {
     // MARK: - Languages
 
     /// highlight.js names to try for `url`: by the file's name, its extension (most
-    /// extensions are highlight.js aliases), or the program on its `#!` line.
-    static func languages(for url: URL, firstLine: Substring) -> [String] {
+    /// extensions are highlight.js aliases), or the program on its `#!` line. `start`
+    /// is the beginning of the text (assembly is told by it).
+    static func languages(for url: URL, start: Substring) -> [String] {
+        let firstLine = start.prefix { $0 != "\n" }
         let name = url.lastPathComponent.lowercased()
         if let language = byName[name] { return [language] }
         let ext = url.pathExtension.lowercased()
@@ -187,6 +189,7 @@ enum SyntaxHighlighter {
         if ext == "oricmdfiles" { return ["oricmd-test-files"] }
         #endif
         guard !plainExtensions.contains(ext) else { return [] }
+        if ["asm", "s", "nasm"].contains(ext) { return [assemblyLanguage(start)] }
         var languages = byExtension[ext].map { [$0] } ?? []
         if !ext.isEmpty { languages.append(ext) }
         if languages.isEmpty, let language = interpreterLanguage(firstLine) { languages.append(language) }
@@ -200,15 +203,45 @@ enum SyntaxHighlighter {
         "cmakelists.txt": "cmake", "gemfile": "ruby", "podfile": "ruby", "rakefile": "ruby", "vagrantfile": "ruby",
         "fastfile": "ruby", "brewfile": "ruby", "appfile": "ruby", "guardfile": "ruby",
         ".bashrc": "bash", ".bash_profile": "bash", ".bash_aliases": "bash", ".profile": "bash", ".zshrc": "bash",
-        ".zprofile": "bash", ".zshenv": "bash", ".gitconfig": "ini", ".editorconfig": "ini", "nginx.conf": "nginx",
+        ".zprofile": "bash", ".zshenv": "bash", ".env": "bash", ".gitconfig": "ini", ".editorconfig": "ini",
+        "nginx.conf": "nginx",
     ]
 
     /// Extensions highlight.js has no alias for.
     private static let byExtension: [String: String] = [
-        "m": "objectivec", "command": "bash", "plist": "xml", "xib": "xml", "storyboard": "xml",
-        "entitlements": "xml", "csproj": "xml", "vcxproj": "xml", "xaml": "xml", "jsonc": "json", "json5": "json",
-        "conf": "ini", "cfg": "ini", "xcconfig": "ini", "pyw": "python", "sbt": "scala",
+        "m": "objectivec", "command": "bash", "ksh": "bash", "fish": "bash",
+        "cu": "cpp", "cuh": "cpp", "ipp": "cpp", "tpp": "cpp", "metal": "cpp", "hlsl": "cpp",
+        "vert": "glsl", "frag": "glsl", "geom": "glsl", "comp": "glsl", "tesc": "glsl", "tese": "glsl",
+        "pyw": "python", "pyi": "python", "pyx": "python", "pxd": "python", "gypi": "python", "bzl": "python",
+        "bazel": "python", "star": "python",
+        "rake": "ruby", "ru": "ruby", "jbuilder": "ruby", "sbt": "scala", "sc": "scala",
+        "fsx": "fsharp", "fsi": "fsharp", "mli": "ocaml", "lhs": "haskell", "hrl": "erlang",
+        "cljs": "clojure", "cljc": "clojure", "rkt": "scheme", "el": "lisp", "jl": "julia",
+        "psm1": "powershell", "psd1": "powershell", "bas": "basic", "lpr": "delphi", "f": "fortran",
+        "for": "fortran", "adb": "ada", "ads": "ada", "vhd": "vhdl", "csx": "csharp", "ll": "llvm", "wat": "wasm",
+        "au3": "autoit", "nsi": "nsis", "sass": "scss",
+        "htm": "xml", "vue": "xml", "svelte": "xml", "astro": "xml", "ejs": "xml", "phtml": "php-template",
+        "mustache": "handlebars", "liquid": "django",
+        "plist": "xml", "xib": "xml", "storyboard": "xml", "entitlements": "xml", "csproj": "xml",
+        "vcxproj": "xml", "xaml": "xml", "props": "xml", "targets": "xml", "resx": "xml", "wxs": "xml",
+        "nuspec": "xml", "xslt": "xml", "kml": "xml", "gpx": "xml",
+        "jsonc": "json", "json5": "json", "ipynb": "json",
+        "conf": "ini", "cfg": "ini", "xcconfig": "ini", "service": "ini", "socket": "ini", "timer": "ini",
+        "reg": "ini",
     ]
+
+    /// Assembly files share their extensions whatever the processor: ARM by its
+    /// registers and instructions, MIPS by `$` registers, AVR by r0–r31 with its
+    /// instructions, x86 otherwise.
+    private static func assemblyLanguage(_ text: Substring) -> String {
+        func has(_ pattern: String) -> Bool {
+            text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+        }
+        if has(#"\b[xw]([0-9]|[12][0-9]|30)\b|\b(adrp|ldp|stp|cbnz|cbz|ldr)\b"#) { return "armasm" }
+        if has(#"\$(t[0-9]|s[0-7]|a[0-3]|v[01]|ra|sp|zero)\b"#) { return "mipsasm" }
+        if has(#"\br([0-9]|[12][0-9]|3[01])\b"#), has(#"\b(ldi|rjmp|rcall|brne|sbi|cbi)\b"#) { return "avrasm" }
+        return "x86asm"
+    }
 
     /// The language of the program on a `#!` line (`#!/usr/bin/env python3` → python).
     private static func interpreterLanguage(_ line: Substring) -> String? {

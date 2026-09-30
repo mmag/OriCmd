@@ -275,6 +275,11 @@ run hloff "alt+c wait text:ode.s escape f3 wait wait wait h wait"
 check "Lister: H turns highlighting off" "[ \"\$(colors hloff)\" = 1 ]"
 run hlshebang "alt+p wait text:yscr escape f3 wait wait wait"
 check "Lister highlights a #! script by its program" "[ \"\$(colors hlshebang)\" -ge 3 ]"
+printf 'section .text\n_start:\n    mov eax, 4  ; write\n    int 0x80\n' > $L/boot.asm
+printf '// arm64\n_main:\n    adrp x0, msg@PAGE\n    mov  x16, #4\n    svc  #0x80\n' > $L/arm.s
+run hlasm "alt+b wait text:oot.a escape f3 wait wait wait"
+run hlarm "alt+a wait text:rm.s escape f3 wait wait wait"
+check "Lister highlights assembly (x86 .asm, ARM .s)" "[ \"\$(colors hlasm)\" -ge 4 ] && [ \"\$(colors hlarm)\" -ge 4 ]"
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
 echo "$PWD/$L/readme.txt" > $L/probe.oricmdfiles

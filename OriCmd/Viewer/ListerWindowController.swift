@@ -190,7 +190,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         highlighting?.cancel()
         guard Self.highlights, mode == .text else { return }
         let text = textView.string
-        let languages = SyntaxHighlighter.languages(for: url, firstLine: text.prefix(200).prefix { $0 != "\n" })
+        let languages = SyntaxHighlighter.languages(for: url, start: text.prefix(4096))
         guard !languages.isEmpty else { return }
         let token = loadToken
         highlighting = Task {

@@ -293,7 +293,12 @@ enum DebugAutomation {
     /// The window that receives keys: the frontmost window (e.g. a Lister)
     /// or its topmost sheet.
     private static func topmost(_ window: NSWindow) -> NSWindow {
-        var target = NSApp.orderedWindows.first { $0.isVisible && $0.sheetParent == nil } ?? window
+        // An app in the background (the user works in another one) keeps its main
+        // window first in the order: then the newest window (the highest number) is
+        // the one just opened.
+        let candidates = NSApp.windows.filter { $0.isVisible && $0.sheetParent == nil && $0.canBecomeKey }
+        var target = (NSApp.isActive ? NSApp.orderedWindows.first { candidates.contains($0) }
+            : candidates.max { $0.windowNumber < $1.windowNumber }) ?? window
         while let sheet = target.attachedSheet {
             target = sheet
         }
