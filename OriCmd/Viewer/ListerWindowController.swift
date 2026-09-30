@@ -486,7 +486,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             if format == "djvu", !djvuShowsText, !book.pages.isEmpty, DjVuPages.program != nil, let window {
                 let pages = DjVuPagesView(file: url, pages: book.pages)
                 // Weakly: the window holds the view, the view this closure.
-                weak var controller = self
+                weak let controller = self
                 pages.onFailure = {
                     guard let controller, token == controller.loadToken, controller.mode == .book else { return }
                     controller.djvuShowsText = true
