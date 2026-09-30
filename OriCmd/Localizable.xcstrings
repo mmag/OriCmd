@@ -5992,6 +5992,16 @@
         }
       }
     },
+    "triangles: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "треугольников: %lld"
+          }
+        }
+      }
+    },
     "“%@”": {
       "localizations": {
         "ru": {

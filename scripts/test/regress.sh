@@ -521,6 +521,43 @@ check "a ddjvu pouring out data is cut off; the text layer is shown" "grep -q '�
 ORICMD_DDJVU=$PWD/build/fakeddjvu/stubborn/bin/ddjvu run djstubborn "alt+s wait text:can.d escape f3 $(printf 'wait %.0s' {1..34})"
 check "a ddjvu ignoring SIGTERM is killed after the time limit; the text layer is shown" "grep -q 'Привет, мир!' build/shots/reg-djstubborn-win1.txt && ! pgrep -f build/fakeddjvu/stubborn >/dev/null"
 pkill -KILL -f "$PWD/build/fakeddjvu/" 2>/dev/null
+# STL models in 3D (read in the helper): binary (with a header starting "solid", as
+# many have), text (numbers with exponents), triangles with corners that are not
+# numbers left out; a file that is neither shows as hex; 1 shows the text of a text STL.
+python3 - "$L" <<'PY'
+import math, struct, sys, os
+L = sys.argv[1]
+def binary(name, triangles, header=b'solid binary part'):
+    with open(L + '/' + name, 'wb') as f:
+        f.write(header.ljust(80, b' ') + struct.pack('<I', len(triangles)))
+        for t in triangles:
+            f.write(struct.pack('<3f', 0, 0, 0) + b''.join(struct.pack('<3f', *v) for v in t) + b'\0\0')
+ring = []
+for i in range(64):
+    for j in range(32):
+        p = lambda i, j: ((30 + 10 * math.cos(2 * math.pi * j / 32)) * math.cos(2 * math.pi * i / 64),
+                          (30 + 10 * math.cos(2 * math.pi * j / 32)) * math.sin(2 * math.pi * i / 64),
+                          10 + 10 * math.sin(2 * math.pi * j / 32))
+        ring += [(p(i, j), p(i + 1, j), p(i + 1, j + 1)), (p(i, j), p(i + 1, j + 1), p(i, j + 1))]
+binary('ring.stl', ring)
+nan = float('nan')
+binary('holes.stl', [((0, 0, 0), (1, 0, 0), (0, 1, 0)), ((nan, 0, 0), (1, 0, 0), (0, 1, 0)), ((0, 0, 0), (1, 0, 0), (0, 0, 2))])
+with open(L + '/box.stl', 'w') as f:
+    f.write('solid box\n')
+    for t in [((0, 0, 0), (10, 0, 0), (10, 10, 5)), ((0, 0, 0), (10, 10, 5), (0, 10, 5))]:
+        f.write('facet normal 0 0 0\nouter loop\n' + ''.join('vertex %.3E %g %g\n' % v for v in t) + 'endloop\nendfacet\n')
+    f.write('endsolid box\n')
+open(L + '/noise.stl', 'wb').write(os.urandom(5000))
+PY
+run stlring "alt+r wait text:ing.s escape f3 wait wait wait"
+check "Lister shows a binary STL in 3D (its size and triangles in the title)" "grep -q '\[model: 4096 triangles\]' build/shots/reg-stlring-win1.txt && head -1 build/shots/reg-stlring-win1.txt | grep -q '80 × 80 × 20, triangles: 4.*096'"
+run stlbox "alt+b wait text:ox.s escape f3 wait wait wait"
+run stlholes "alt+h wait text:oles.s escape f3 wait wait wait"
+check "Lister shows a text STL, and leaves out triangles that are not numbers" "grep -q '\[model: 2 triangles\]' build/shots/reg-stlbox-win1.txt && grep -q '\[model: 2 triangles\]' build/shots/reg-stlholes-win1.txt"
+run stlnoise "alt+n wait text:oise.s escape f3 wait wait wait"
+run stltext "alt+b wait text:ox.s escape f3 wait wait wait 1 wait"
+check "a file named .stl that is no model shows as hex; 1 shows a text STL's text" "! grep -q '\[model' build/shots/reg-stlnoise-win1.txt && grep -q '00000000' build/shots/reg-stlnoise-win1.txt && grep -q 'vertex 1.000E+01' build/shots/reg-stltext-win1.txt"
+
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
 # The service locks itself down: no file (the user's or the system's), no other

@@ -10,6 +10,7 @@ import AppKit
     func book(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void)
     func markdown(_ text: String, reply: @escaping @Sendable (Data?) -> Void)
     func format(_ text: String, language: String, reply: @escaping @Sendable (Data?) -> Void)
+    func mesh(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void)
 }
 
 /// Syntax highlighting for the Lister. highlight.js runs in the OriCmdHighlighter
@@ -33,6 +34,8 @@ enum SyntaxHighlighter {
     /// For formatting a text or making a page of Markdown (js-beautify takes some
     /// seconds for megabytes).
     private static let formatTimeLimit: Duration = .seconds(20)
+    /// Larger 3D models are not sent (4 million triangles take 200 MB as binary STL).
+    static let meshSizeLimit = 256 * 1024 * 1024
     /// Longer texts are neither formatted nor made into pages.
     static let formatSizeLimit = 8 * 1024 * 1024
     /// For the service to start; launchd starts it again only some seconds after
@@ -132,6 +135,21 @@ enum SyntaxHighlighter {
         }
         guard case .done(let data?, _) = outcome, data.count <= text.utf8.count * 8 + 1_000_000 else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+
+    /// The 3D model in `data` ("stl"), read in the service; nil when it has no
+    /// triangles, is too large, or the service fails, hangs or replies nonsense
+    /// (checked as a stranger's, see MeshDocument).
+    static func mesh(_ data: Data, format: String) async -> MeshDocument? {
+        guard data.count <= meshSizeLimit else { return nil }
+        await takeTurn()
+        defer { endTurn() }
+        guard !Task.isCancelled else { return nil }
+        let outcome = await requestTwice(timeLimit: bookTimeLimit) { proxy, answer in
+            proxy.mesh(data, format: format) { @Sendable reply in answer.give(.done(reply, nil)) }
+        }
+        guard case .done(let reply?, _) = outcome else { return nil }
+        return await Task.detached { MeshDocument(reply) }.value
     }
 
     /// A request, once more on a new connection when the service went away (not

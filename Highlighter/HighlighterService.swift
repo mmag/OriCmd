@@ -4,11 +4,12 @@ import ImageIO
 import JavaScriptCore
 
 /// Runs highlight.js, markdown-it, js-beautify and prettier, formats JSON and XML
-/// (CodeFormatter), reads tables (TableParser) and books (BookParser) for the
-/// Lister. When OriCmd connects, the scripts are loaded and this process forbids
-/// itself everything (see `lockDown`) before it reads any message: code run through
-/// a flaw in the JavaScript engine or a parser can only answer OriCmd, which checks
-/// the answer and kills this process when its work takes too long.
+/// (CodeFormatter), reads tables (TableParser), books (BookParser) and 3D models
+/// (MeshParser) for the Lister. When OriCmd connects, the scripts are loaded and
+/// this process forbids itself everything (see `lockDown`) before it reads any
+/// message: code run through a flaw in the JavaScript engine or a parser can only
+/// answer OriCmd, which checks the answer and kills this process when its work
+/// takes too long.
 final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @unchecked Sendable {
     /// highlight.js is used from one queue at a time.
     private let queue = DispatchQueue(label: "ru.themmag.OriCmd.Highlighter")
@@ -96,6 +97,13 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         }
     }
 
+    func mesh(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void) {
+        queue.async { [self] in
+            guard isLockedDown else { return reply(nil) }
+            reply(MeshParser.parse(data, format: format))
+        }
+    }
+
     private func highlighted(_ text: String, languages: [String]) -> (Data?, Data?) {
         guard isLockedDown, let context else { return (nil, nil) }
         #if DEBUG
@@ -142,6 +150,7 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
             oricmdFormat("const e=<div className='a'>{b ? <B/> : null}</div>", "tsx");
             oricmdPendingResult();
             """)
+        _ = MeshParser.parse(Data("solid a\n facet normal 0 0 1\n outer loop\n vertex 0 0 0\n vertex 1 0 0\n vertex 0 1.5e0 0\n endloop\n endfacet\nendsolid a\n".utf8), format: "stl")
         _ = CodeFormatter.json(#"{"a": [1, 2.5e3, "ж\"", {}], // c\n "b": {"c": null}}"#)
         _ = CodeFormatter.xml(#"<?xml version="1.0"?><!DOCTYPE a [<!ENTITY b "c">]><a x="1>"><!-- к --><b>т</b><c/><![CDATA[<>]]></a>"#)
         // The table readers too: the XML parser (libxml2) and regular expressions.

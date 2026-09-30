@@ -280,6 +280,11 @@ enum DebugAutomation {
                 for (index, other) in others.enumerated() {
                     save(other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).png"))
                     saveTexts(of: other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).txt"))
+                    if let model = other.contentView as? ModelView,
+                       let tiff = model.snapshot().tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
+                        try? rep.representation(using: .png, properties: [:])?
+                            .write(to: URL(filePath: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1)-model.png")))
+                    }
                     if let web = webView(in: other.contentView) {
                         await savePage(web, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1)-page"))
                     }
@@ -327,6 +332,7 @@ enum DebugAutomation {
             var result: [String] = []
             if let field = view as? NSTextField, !field.stringValue.isEmpty { result.append(field.stringValue) }
             if let pages = view as? DjVuPagesView { result.append("[pages drawn: \(pages.drawnCount)]") }
+            if let model = view as? ModelView { result.append("[model: \(model.triangleCount) triangles]") }
             if let text = view as? NSTextView, !text.string.isEmpty {
                 result.append(text.string)
                 // How many text colors it shows (syntax highlighting).

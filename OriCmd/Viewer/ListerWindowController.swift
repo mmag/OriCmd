@@ -12,10 +12,11 @@ import UniformTypeIdentifiers
 /// language follows the file's extension, see SyntaxHighlighter), F formatting of
 /// JSON, XML, JavaScript, TypeScript, CSS and HTML. Excel 2003 XML, HTML pages
 /// named as Excel files, CSV and TSV show as tables (7; 1 shows the text); HTML
-/// and Markdown as pages (7; 1 shows the source).
+/// and Markdown as pages (7; 1 shows the source); STL models in 3D, to be turned
+/// with the mouse (7).
 final class ListerWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, HandlesEscapeKey {
     enum Mode {
-        case text, hex, preview, table, book
+        case text, hex, preview, table, book, model
     }
 
     private nonisolated static let textLimit = 32 * 1024 * 1024
@@ -45,6 +46,10 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     private var tableFormat: String?
     /// FB2, EPUB…: shown as a book to read (7), by default too.
     private var bookFormat: String?
+    /// STL: shown as a 3D model (7), by default too.
+    private var modelFormat: String?
+    /// The model's size and triangles, for the title.
+    private var modelTitle = ""
     /// The book's headings, for the Contents menu.
     private var bookContents: [(title: String, location: Int, level: Int)] = []
     private var bookTitle = ""
@@ -84,6 +89,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         shownPath = url.path
         tableFormat = Self.tableFormat(for: url)
         bookFormat = Self.bookFormat(for: url)
+        modelFormat = Self.modelFormat(for: url)
         let window = ListerWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 650),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -108,6 +114,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     private func updateTitle() {
         let formatted = mode == .text && isFormatted ? String(localized: "formatted") : nil
         let detail = mode == .book ? (bookTitle.isEmpty ? nil : bookTitle)
+            : mode == .model ? (modelTitle.isEmpty ? nil : modelTitle)
             : mode == .text ? [encodingName, formatted].compactMap { $0 }.joined(separator: ", ")
             : mode == .table ? encodingName : nil
         window?.title = "Lister - [\(shownPath)]" + (detail.map { " \u{2014} \($0)" } ?? "")
@@ -144,7 +151,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             case "3": show(.hex)
             case "7":
                 djvuShowsText = false
-                show(bookFormat != nil ? .book : tableFormat != nil ? .table : .preview)
+                show(bookFormat != nil ? .book : modelFormat != nil ? .model : tableFormat != nil ? .table : .preview)
             case "w": toggleWrapping()
             case "n": step(1)
             case "p": step(-1)
@@ -160,7 +167,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     }
 
     private func find(_ action: NSTextFinder.Action) {
-        guard mode != .preview else { return }
+        guard mode != .preview, mode != .model else { return }
         // Tables are searched as text, DjVu pages in their text layer.
         if mode == .table { show(.text) }
         if mode == .book, bookFormat == "djvu", !djvuShowsText {
@@ -189,6 +196,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         shownPath = url.path
         tableFormat = Self.tableFormat(for: url)
         bookFormat = Self.bookFormat(for: url)
+        modelFormat = Self.modelFormat(for: url)
         djvuShowsText = false
         encodingName = nil
         show(Self.defaultMode(for: url))
@@ -429,6 +437,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             showTable()
         case .book:
             showBook()
+        case .model:
+            showModel()
         }
         window.makeFirstResponder(window.contentView)
     }
@@ -503,6 +513,32 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         }
     }
 
+    /// Reads the model in the helper service (the file is a stranger's data) and shows
+    /// it in 3D; the text or hex when it cannot be read.
+    private func showModel() {
+        textView.string = ""
+        window?.contentView = scrollView
+        modelTitle = ""
+        loadToken += 1
+        let token = loadToken
+        let url = self.url
+        guard let format = modelFormat else { return show(.text) }
+        Task {
+            let data = await Self.wholeFile(url, limit: SyntaxHighlighter.meshSizeLimit)
+            let model = await data.asyncMap { await SyntaxHighlighter.mesh($0, format: format) } ?? nil
+            guard token == loadToken, mode == .model, let window else { return }
+            guard let model else { return show(Self.looksLikeText(url) ? .text : .hex) }
+            let view = ModelView(model: model)
+            window.contentView = view
+            window.makeFirstResponder(view.firstResponderView)
+            let size = model.maximum - model.minimum
+            let dimensions = [size.x, size.y, size.z]
+                .map { Double($0).formatted(.number.precision(.significantDigits(1...4))) }.joined(separator: " × ")
+            modelTitle = dimensions + ", " + String(localized: "triangles: \(model.triangleCount)")
+            updateTitle()
+        }
+    }
+
     /// A column of about 720 points in the middle of the window.
     private func fitBook() {
         guard mode == .book else { return }
@@ -563,6 +599,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
 
     static func defaultMode(for url: URL) -> Mode {
         if bookFormat(for: url) != nil { return .book }
+        if modelFormat(for: url) != nil { return .model }
         let type = UTType(filenameExtension: url.pathExtension.lowercased())
         if let type, [.image, .pdf, .rtf, .rtfd, .font].contains(where: type.conforms(to:)) {
             return .preview
@@ -612,6 +649,11 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             rest = rest[tag.endIndex...]
         }
         return false
+    }
+
+    /// The 3D model format of `url` by its name, if it is one.
+    static func modelFormat(for url: URL) -> String? {
+        url.pathExtension.lowercased() == "stl" ? "stl" : nil
     }
 
     /// The book format of `url` by its name, if it is one.

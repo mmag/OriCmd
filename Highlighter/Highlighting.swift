@@ -33,6 +33,10 @@ import Foundation
     /// `text` laid out for reading, UTF-8: "json", "xml" (CodeFormatter), "js", "css",
     /// "html" (js-beautify), "ts", "tsx" (prettier); nil when it cannot be.
     func format(_ text: String, language: String, reply: @escaping @Sendable (Data?) -> Void)
+
+    /// The 3D model in `data` ("stl") for the Lister's model view, as plain data
+    /// (see MeshParser); nil when it has no triangles.
+    func mesh(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void)
 }
 
 extension NSXPCInterface {
