@@ -2,12 +2,12 @@ import AppKit
 import SceneKit
 import simd
 
-/// A 3D model to turn and look at: dragging turns it, the wheel or a pinch brings it
-/// nearer, dragging with Option or two fingers moves it, a double click shows it as
-/// at first. Z is up, as 3D printing and CAD programs have it; the model is centered
-/// and brought to one size, whatever its units.
+/// A 3D model to turn and look at: dragging turns it, a mouse wheel or a pinch
+/// brings it nearer, dragging with Option or two fingers on a trackpad moves it, a
+/// double click shows it as at first. Z is up, as 3D printing and CAD programs have
+/// it; the model is centered and brought to one size, whatever its units.
 final class ModelView: NSView {
-    private let sceneView = SCNView()
+    private let sceneView = ModelSceneView()
     let triangleCount: Int
 
     init(model: MeshDocument) {
@@ -79,6 +79,11 @@ final class ModelView: NSView {
     /// the window's cached picture).
     func snapshot() -> NSImage { sceneView.snapshot() }
 
+    /// Brings the model nearer (`lines` > 0) or farther, as a mouse wheel does.
+    func zoom(lines: CGFloat) {
+        sceneView.zoom(lines: lines)
+    }
+
     /// Triangles with a normal each (flat faces, as STL describes them), both sides
     /// lit: STL files often have some triangles facing the wrong way.
     private static func geometry(_ model: MeshDocument) -> SCNGeometry {
@@ -101,5 +106,24 @@ final class ModelView: NSView {
         material.isDoubleSided = true
         geometry.materials = [material]
         return geometry
+    }
+}
+
+/// SceneKit's view with a mouse wheel that brings the model nearer (SceneKit's own
+/// moves the view sideways, which the trackpad's scrolling still does).
+private final class ModelSceneView: SCNView {
+    override func scrollWheel(with event: NSEvent) {
+        guard !event.hasPreciseScrollingDeltas,
+              event.modifierFlags.isDisjoint(with: [.option, .command, .control, .shift]) else {
+            return super.scrollWheel(with: event)
+        }
+        // The wheel turned away from the user brings the model nearer, whatever the
+        // scrolling direction setting.
+        zoom(lines: event.isDirectionInvertedFromDevice ? -event.scrollingDeltaY : event.scrollingDeltaY)
+    }
+
+    /// Nearer for `lines` > 0.
+    func zoom(lines: CGFloat) {
+        defaultCameraController.dolly(toTarget: -Float(lines) * 0.12)
     }
 }

@@ -150,6 +150,10 @@ enum DebugAutomation {
                             .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                    atomically: true, encoding: .utf8)
                     }
+                } else if token.hasPrefix("wheel:"), let lines = Double(token.dropFirst(6)),
+                          let model = topmost(window).contentView as? ModelView {
+                    // A mouse wheel turned over the Lister's 3D model (lines > 0: up).
+                    model.zoom(lines: lines)
                 } else if token.hasPrefix("colorpreset:"), let index = Int(token.dropFirst(12)),
                           ColorSettings.Preset.allCases.indices.contains(index) {
                     ColorSettings.Preset.allCases[index].apply()
