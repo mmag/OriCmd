@@ -9,7 +9,8 @@ import WebKit
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
-///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
@@ -150,6 +151,15 @@ enum DebugAutomation {
                             .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                    atomically: true, encoding: .utf8)
                     }
+                } else if token.hasPrefix("droptab:"), let main = window.contentViewController as? MainViewController {
+                    // `droptab:left:1:right:0`: the left panel's second tab dropped before the
+                    // right panel's first (as a finished drag).
+                    let parts = token.split(separator: ":").map(String.init)
+                    let panels = ["left": main.panels[0], "right": main.panels[1]]
+                    guard parts.count == 5, let source = panels[parts[1]], let tab = Int(parts[2]),
+                          let target = panels[parts[3]], let position = Int(parts[4]),
+                          source.tabs.indices.contains(tab) else { continue }
+                    _ = target.panelView.tabBar.drop(source.tabs[tab].id, at: position)
                 } else if token.hasPrefix("wheel:"), let lines = Double(token.dropFirst(6)),
                           let model = topmost(window).contentView as? ModelView {
                     // A mouse wheel turned over the Lister's 3D model (lines > 0: up).

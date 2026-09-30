@@ -118,6 +118,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `Alt+F1` / `Alt+F2` | Volume list of the left / right panel |
 | `Ctrl+\` | Root of the volume |
 | `⌘T` / `⌘W` | New tab (or a double click on the empty part of the tab bar) / close tab |
+| Dragging a tab | To another place of its bar, or onto the other panel's tabs: it moves there, with its server and terminal (a panel's only tab is copied) |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` (`⇧⌘]` / `⇧⌘[`) | Next / previous tab |
 | `Ctrl+↑` (`⌥⌘↑`) | Open the folder under the cursor in a new tab |
 | `Ctrl+D` (`⌘D`) | Directory hotlist: go, add or remove the current folder |

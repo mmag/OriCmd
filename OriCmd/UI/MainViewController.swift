@@ -1112,6 +1112,10 @@ extension MainViewController: FilePanelControllerDelegate {
         eject(volume)
     }
 
+    func filePanel(_ panel: FilePanelController, takeTab id: UUID) -> FilePanelController.Tab? {
+        (panel === leftPanel ? rightPanel : leftPanel).giveTab(id)
+    }
+
     func filePanel(_ panel: FilePanelController, openAddress address: String) {
         activate(panel)
         connect(to: address)

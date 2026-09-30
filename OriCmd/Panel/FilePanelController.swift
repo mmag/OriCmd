@@ -16,6 +16,9 @@ protocol FilePanelControllerDelegate: AnyObject {
     func filePanel(_ panel: FilePanelController, openDriveInOtherPanel url: URL)
     /// A drive button's "Eject": the volume is left in both panels first.
     func filePanel(_ panel: FilePanelController, eject volume: URL)
+    /// A tab of the other panel dropped on this one's tab bar: that tab, taken out of
+    /// the other panel (or a copy of it, when it is the other panel's only one).
+    func filePanel(_ panel: FilePanelController, takeTab id: UUID) -> FilePanelController.Tab?
 }
 
 /// Owns one panel: its current directory, listing, sort order and view.
@@ -236,6 +239,7 @@ final class FilePanelController: NSViewController {
         panelView.tabBar.onClose = { [weak self] index in self?.closeTab(index) }
         panelView.tabBar.onContextMenu = { [weak self] index in self?.tabMenu(for: index) }
         panelView.tabBar.onNewTab = { [weak self] in self?.openNewTab(nil) }
+        panelView.tabBar.onDropTab = { [weak self] id, index in self?.dropTab(id, at: index) ?? false }
         panelView.quickSearchField.delegate = self
         panelView.terminalPane.onFocus = { [weak self] in
             guard let self else { return }
@@ -1343,7 +1347,58 @@ final class FilePanelController: NSViewController {
     /// The active tab's title follows the panel (a server folder, too).
     private func updateTabBar() {
         let titles = tabs.indices.map { $0 == activeTabIndex ? currentTab().title : tabs[$0].title }
-        panelView.setTabs(titles, selected: activeTabIndex, visible: tabs.count > 1 || alwaysShowsTabBar)
+        panelView.setTabs(titles, identifiers: tabs.map(\.id), selected: activeTabIndex,
+                          visible: tabs.count > 1 || alwaysShowsTabBar)
+    }
+
+    // MARK: - Dragging tabs
+
+    /// A tab dropped on the tab bar before `index`: one of this panel's moves there,
+    /// the other panel's comes over (its server and terminal too) and is shown.
+    private func dropTab(_ id: UUID, at index: Int) -> Bool {
+        if let from = tabs.firstIndex(where: { $0.id == id }) {
+            moveTab(from: from, to: index)
+            return true
+        }
+        guard let tab = delegate?.filePanel(self, takeTab: id) else {
+            NSSound.beep()
+            return false
+        }
+        tabs[activeTabIndex] = currentTab()
+        tabs.insert(tab, at: min(max(index, 0), tabs.count))
+        activateTab(at: min(max(index, 0), tabs.count - 1))
+        focus()
+        return true
+    }
+
+    private func moveTab(from: Int, to index: Int) {
+        let destination = index > from ? index - 1 : index
+        guard destination != from else { return }
+        tabs[activeTabIndex] = currentTab()
+        let activeID = tabs[activeTabIndex].id
+        tabs.insert(tabs.remove(at: from), at: min(max(destination, 0), tabs.count - 1))
+        activeTabIndex = tabs.firstIndex { $0.id == activeID } ?? 0
+        updateTabBar()
+        delegate?.filePanelDidChangeDirectory(self)
+    }
+
+    /// The tab `id` as it is now, for the other panel: taken out of this one, or,
+    /// when it is the only tab, copied (a server stays: it is never in two tabs).
+    func giveTab(_ id: UUID) -> Tab? {
+        guard let index = tabs.firstIndex(where: { $0.id == id }) else { return nil }
+        let tab = index == activeTabIndex ? currentTab() : tabs[index]
+        guard tabs.count > 1 else {
+            guard tab.remote == nil else { return nil }
+            var copy = Tab(directory: tab.directory, sortOrder: tab.sortOrder)
+            copy.selectedName = tab.selectedName
+            copy.backHistory = tab.backHistory
+            copy.forwardHistory = tab.forwardHistory
+            return copy
+        }
+        if index == activeTabIndex, panelView.terminalPane.hasFocus { focus() }
+        tabs[index] = tab
+        removeTab(index)
+        return tab
     }
 
     func goBack() {

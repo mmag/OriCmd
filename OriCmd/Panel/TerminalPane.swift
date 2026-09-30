@@ -111,6 +111,9 @@ final class TerminalPane: NSView {
         terminalBottom = nil
         keptHeight = nil
         guard let terminal else { return }
+        // A terminal brought over with its tab from the other panel answers to this pane now.
+        terminal.processDelegate = self
+        terminal.onReconnect = { [weak self] in self?.onReconnect?() }
         terminal.translatesAutoresizingMaskIntoConstraints = false
         addSubview(terminal)
         NSLayoutConstraint.activate([

@@ -679,6 +679,16 @@ if hdiutil create -quiet -size 4m -fs HFS+ -volname OriTest build/testdata/ori.d
   hdiutil info | grep -q testdata/ori.dmg && hdiutil detach -quiet -force $M
 fi
 
+# Tabs dragged: to the other panel (moved there and shown, the cursor kept), the only
+# tab of a panel (copied), to another place of the same bar.
+scripts/test/mkdata.sh
+run tabmove "alt+a wait text:lpha escape cmd+t wait droptab:left:1:right:0 wait wait"
+check "a tab dragged to the other panel moves there" "panels tabmove | grep -q '^left: .*tabs: left$' && panels tabmove | grep -q '^right\*: .*/left | cursor: alpha | tabs: left, right$'"
+run tabcopy "droptab:left:0:right:1 wait wait"
+check "a panel's only tab dragged to the other panel is copied" "panels tabcopy | grep -q '^left: .*tabs: left$' && panels tabcopy | grep -q '^right\*: .*tabs: right, left$'"
+run taborder "cmd+t wait alt+a wait text:lpha enter wait droptab:left:1:left:0 wait wait"
+check "a tab dragged along its bar changes places" "panels taborder | grep -q '^left\*: .*/left/alpha |.*tabs: alpha, left$'"
+
 # TypeScript shares .ts with MPEG transport streams: text is shown as code, a stream
 # with Quick Look.
 printf 'interface User {\n  name: string;\n}\nexport const greet = (u: User): string => `Hi ${u.name}`;\n' > $L/app.ts
@@ -809,6 +819,12 @@ run termarchive "$(connect sftp://oritest$PWD/$L) wait drive:$PWD/$L wait wait a
 check "terminal: a server tab after an archive tab downloads with F5" "[ -f $R/readme.txt ]"
 run termiso "$(connect sftp://oritest$PWD/$L) wait ru+ctrl+§ text:touch space text:via-iso-key.txt enter wait wait"
 check "terminal: Ctrl+§ (ё on Russian – PC) works too" "[ -f $L/via-iso-key.txt ]"
+# A server tab dragged to the other panel takes its connection and its running
+# terminal along: the shell started before finishes its command, the panel shows the
+# server, and the terminal answers there (Return after it ends reconnects).
+scripts/test/mkdata.sh
+run tabserver "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:3; space text:touch space text:moved.txt enter ctrl+\` cmd+t wait droptab:left:0:right:1 wait wait wait wait wait wait"
+check "a server tab dragged to the other panel keeps its connection and terminal" "[ -f $L/moved.txt ] && grep -q '^right\*: sftp://' build/shots/reg-tabserver-panels.txt && grep -q '^left: .*/left |.*tabs: left$' build/shots/reg-tabserver-panels.txt"
 run termtabs "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:3; space text:touch space text:late.txt enter ctrl+\` drive:/ wait wait wait wait wait wait wait"
 check "terminal: a drive button opens a new tab, the shell keeps running" "[ -f $L/late.txt ]"
 run termbusy "$(connect sftp://oritest$PWD/$L) wait ctrl+\` text:sleep space text:30 enter wait ctrl+\` cmd:cm_FtpDisconnect wait wait wait"
