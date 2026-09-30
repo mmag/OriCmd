@@ -84,13 +84,13 @@ final class TableGridView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         numbers.title = ""
         numbers.width = CGFloat(String(current.rowCount).count) * 8 + 16
         grid.addTableColumn(numbers)
-        let sample = current.rows.prefix(200)
+        let sampled = 0..<min(current.rowCount, 200)
         for index in 0..<min(current.columnCount, Self.maxShownColumns) {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(String(index)))
             column.title = ViewerTable.columnName(index)
             column.headerCell.alignment = .center
-            // About as wide as the longest of the first texts (character count).
-            let longest = sample.map { $0[index]?.count ?? 0 }.max() ?? 0
+            // About as wide as the longest of the first texts (character count, up to a limit).
+            let longest = sampled.map { current.text(row: $0, column: index)?.prefix(45).count ?? 0 }.max() ?? 0
             column.width = CGFloat(min(max(longest * 7 + 12, 48), 320))
             column.minWidth = 24
             grid.addTableColumn(column)
@@ -122,7 +122,7 @@ final class TableGridView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         if isNumber {
             field.stringValue = String(row + 1)
         } else {
-            let text = Int(tableColumn.identifier.rawValue).flatMap { current.rows[row][$0] } ?? ""
+            let text = Int(tableColumn.identifier.rawValue).flatMap { current.text(row: row, column: $0) } ?? ""
             // One line: line breaks inside a cell shown as spaces.
             field.stringValue = text.contains(where: \.isNewline)
                 ? text.split(whereSeparator: \.isNewline).joined(separator: " ") : text
@@ -143,12 +143,20 @@ final class TableGridView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         return Double(body.replacingOccurrences(of: ",", with: ".")) != nil
     }
 
-    /// The rows' cells, tab-separated, a line each.
+    /// The rows' cells, tab-separated, a line each: at most 100 000 rows and 32 MB
+    /// (columns up to the last one with a text in the row).
     private func text(ofRows rows: IndexSet) -> String {
-        let columns = min(current.columnCount, Self.maxShownColumns)
-        return rows.map { row in
-            (0..<columns).map { current.rows[row][$0] ?? "" }.joined(separator: "\t")
-        }.joined(separator: "\n")
+        var lines: [String] = []
+        var size = 0
+        for row in rows.prefix(100_000) {
+            let cells = current.rows[row] ?? [:]
+            let last = min(cells.keys.max() ?? -1, Self.maxShownColumns - 1)
+            let line = last < 0 ? "" : (0...last).map { cells[$0] ?? "" }.joined(separator: "\t")
+            size += line.utf8.count + 1
+            if size > 32 * 1024 * 1024 { break }
+            lines.append(line)
+        }
+        return lines.joined(separator: "\n")
     }
 }
 

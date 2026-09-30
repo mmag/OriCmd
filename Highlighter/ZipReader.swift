@@ -20,7 +20,12 @@ struct ZipReader {
 
     private let data: Data
     private(set) var entries: [Entry] = []
+    /// Entries by name, and by name in lowercase (looked up once each).
+    private var byName: [String: Int] = [:]
+    private var byLowercasedName: [String: Int] = [:]
     private var unpacked = 0
+    /// Entries that could not be unpacked: not tried again.
+    private var failed: Set<Int> = []
 
     init?(_ data: Data) {
         self.data = data
@@ -51,24 +56,36 @@ struct ZipReader {
             let name = String(data: nameBytes, encoding: .utf8) ?? String(decoding: nameBytes, as: UTF8.self)
             entries.append(Entry(name: name, method: method, compressedSize: Int(compressed), size: Int(size),
                                  localHeader: Int(local)))
+            if byName[name] == nil { byName[name] = entries.count - 1 }
+            if byLowercasedName[name.lowercased()] == nil { byLowercasedName[name.lowercased()] = entries.count - 1 }
             offset += 46 + Int(nameLength) + Int(extraLength) + Int(commentLength)
         }
     }
 
     /// The entry named `name` (letter case ignored, as some books get it wrong).
     func entry(named name: String) -> Entry? {
-        entries.first { $0.name == name } ?? entries.first { $0.name.lowercased() == name.lowercased() }
+        (byName[name] ?? byLowercasedName[name.lowercased()]).map { entries[$0] }
     }
 
     /// The unpacked contents of `entry`; nil when damaged, unsupported or past the limits.
     mutating func contents(of entry: Entry) -> Data? {
-        guard entry.size <= Self.maxEntrySize, unpacked + entry.size <= Self.maxTotalSize,
-              entry.compressedSize <= data.count, entry.size <= max(entry.compressedSize, 1) * 1000 + 4096,
+        let key = entry.localHeader
+        guard !failed.contains(key) else { return nil }
+        // Charged before unpacking: a failure costs its size too.
+        guard entry.size <= Self.maxEntrySize, unpacked + entry.size <= Self.maxTotalSize else { return nil }
+        unpacked += entry.size
+        guard entry.compressedSize <= data.count, entry.size <= max(entry.compressedSize, 1) * 1000 + 4096,
               uint32(at: entry.localHeader) == 0x0403_4B50,
               let nameLength = uint16(at: entry.localHeader + 26), let extraLength = uint16(at: entry.localHeader + 28)
-        else { return nil }
+        else {
+            failed.insert(key)
+            return nil
+        }
         let start = entry.localHeader + 30 + Int(nameLength) + Int(extraLength)
-        guard start >= 0, start + entry.compressedSize <= data.count else { return nil }
+        guard start >= 0, start + entry.compressedSize <= data.count else {
+            failed.insert(key)
+            return nil
+        }
         let packed = data[data.startIndex + start ..< data.startIndex + start + entry.compressedSize]
         let result: Data?
         switch entry.method {
@@ -79,7 +96,7 @@ struct ZipReader {
         default:
             result = nil
         }
-        if let result { unpacked += result.count }
+        if result == nil { failed.insert(key) }
         return result
     }
 

@@ -38,7 +38,7 @@ nonisolated struct BookDocument: Sendable {
 
     private static let maxBlocks = 1_000_000
     private static let maxRuns = 4_000_000
-    private static let maxText = 96 * 1024 * 1024
+    private static let maxText = 24 * 1024 * 1024
     private static let maxPictures = 1000
     private static let maxPictureBytes = 160 * 1024 * 1024
     private static let maxSide = 1400
@@ -213,7 +213,7 @@ nonisolated struct BookDocument: Sendable {
                         : Self.serif(size: size, bold: boldKind || run.bold, italic: italicKind != run.italic)
                     var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.textColor]
                     if run.superscript || run.subscript {
-                        font = NSFontManager.shared.convert(font, toSize: size * 0.7)
+                        font = NSFont(descriptor: font.fontDescriptor, size: size * 0.7) ?? font
                         attributes[.baselineOffset] = run.superscript ? size * 0.35 : -size * 0.15
                     }
                     if run.strikethrough { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
@@ -236,7 +236,10 @@ nonisolated struct BookDocument: Sendable {
         if let descriptor = font.fontDescriptor.withDesign(.serif), let serif = NSFont(descriptor: descriptor, size: size) {
             font = serif
         }
-        if italic { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
+        // Descriptors rather than the font manager: this runs off the main thread.
+        if italic, let slanted = NSFont(descriptor: font.fontDescriptor.withSymbolicTraits(.italic), size: size) {
+            font = slanted
+        }
         return font
     }
 

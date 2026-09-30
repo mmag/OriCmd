@@ -15,6 +15,7 @@ enum TableParser {
 
     static func parse(_ text: String, format: String) -> Data? {
         let builder = TableBuilder()
+        // Stops a reading that would take too long (it is also killed after 20 seconds).
         switch format {
         case "spreadsheetml": SpreadsheetMLReader(builder).read(text)
         case "html": HTMLTableReader(builder).read(text)
@@ -47,13 +48,17 @@ final class TableBuilder {
     /// A limit was reached: nothing more is added.
     private(set) var isFull = false
 
+    func stop() {
+        isFull = true
+    }
+
     func beginSheet(_ name: String) {
         guard !isFull else { return }
         guard sheets.count < TableParser.maxSheets else {
             isFull = true
             return
         }
-        sheets.append(Sheet(name: String(name.prefix(256))))
+        sheets.append(Sheet(name: name.prefix(utf8: 1024)))
     }
 
     /// Adds a cell (0-based row and column); empty ones only widen the sheet.
@@ -65,7 +70,8 @@ final class TableBuilder {
         let last = sheets.count - 1
         sheets[last].rowCount = max(sheets[last].rowCount, row + rowSpan)
         sheets[last].columnCount = max(sheets[last].columnCount, column + columnSpan)
-        let text = text.count > TableParser.maxCellLength ? String(text.prefix(TableParser.maxCellLength)) : text
+        // As many bytes as OriCmd takes, on a character's boundary.
+        let text = text.prefix(utf8: 4 * TableParser.maxCellLength)
         guard !text.isEmpty || rowSpan > 1 || columnSpan > 1 else { return }
         guard cellCount < TableParser.maxCells, textBytes + text.utf8.count <= TableParser.maxTextBytes else {
             isFull = true
@@ -152,8 +158,11 @@ final class SpreadsheetMLReader: NSObject, XMLParserDelegate {
         attributes["ss:" + name] ?? attributes[name]
     }
 
+    /// A number from the file, kept within what a sheet can hold (no arithmetic on
+    /// it can overflow).
     private func number(_ attributes: [String: String], _ name: String) -> Int? {
         attribute(attributes, name).flatMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+            .map { min(max($0, -1), 2_000_000) }
     }
 
     func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?,
@@ -220,8 +229,11 @@ final class HTMLTableReader {
     private var depth = 0
     private var row = -1
     private var column = 0
-    /// Columns still taken by cells of rows above (rowspan): column → last row.
-    private var taken: [Int: Int] = [:]
+    /// Columns still taken by cells of rows above (rowspan): each column's last row.
+    private var taken = [Int](repeating: -1, count: TableParser.maxColumns)
+    /// Columns stepped over and marked: past a limit the reading stops (a crafted
+    /// table of wide cells spanning many rows would take long).
+    private var work = 0
     private var cell: (column: Int, rowSpan: Int, columnSpan: Int)?
     private var value = ""
     private var valueLength = 0
@@ -255,6 +267,8 @@ final class HTMLTableReader {
                 continue
             }
             guard let end = Self.tagEnd(scalars, from: index + 1) else {
+                // A < that opens no tag: text.
+                textStart = index
                 index = scalars.count
                 break
             }
@@ -262,8 +276,8 @@ final class HTMLTableReader {
             index = end + 1
             textStart = index
             let (name, closing, attributes) = Self.parseTag(tag)
-            // Scripts and styles hold no table text.
-            if !closing, name == "script" || name == "style" {
+            // Scripts and styles hold no table text (unless they close themselves: <script/>).
+            if !closing, !tag.hasSuffix("/"), name == "script" || name == "style" {
                 index = Self.find(scalars, "</" + name, from: index, caseInsensitive: true) ?? scalars.count
                 textStart = index
                 continue
@@ -280,7 +294,7 @@ final class HTMLTableReader {
             if depth == 0 {
                 builder.beginSheet("")
                 row = -1
-                taken = [:]
+                for index in taken.indices { taken[index] = -1 }
             } else if cell != nil {
                 value += " "
             }
@@ -298,12 +312,21 @@ final class HTMLTableReader {
                 row = 0
                 column = 0
             }
-            while let last = taken[column], last >= row { column += 1 }
+            while column < taken.count, taken[column] >= row {
+                column += 1
+                work += 1
+            }
+            guard column < taken.count, work < 50_000_000 else {
+                // Past the last column (or too much work): the cell is left out.
+                if work >= 50_000_000 { builder.stop() }
+                return
+            }
             let rowSpan = min(max(Int(attributes["rowspan"] ?? "") ?? 1, 1), 65_534)
-            let columnSpan = min(max(Int(attributes["colspan"] ?? "") ?? 1, 1), 1_000)
+            let columnSpan = min(max(Int(attributes["colspan"] ?? "") ?? 1, 1), 1_000, taken.count - column)
             cell = (column, rowSpan, columnSpan)
             if rowSpan > 1 {
-                for taken in column..<(column + columnSpan) { self.taken[taken] = row + rowSpan - 1 }
+                for spanned in column..<(column + columnSpan) { taken[spanned] = row + rowSpan - 1 }
+                work += columnSpan
             }
             column += columnSpan
             value = ""
@@ -513,5 +536,15 @@ final class CSVReader {
             if score > best.score { best = (candidate, score) }
         }
         return best.delimiter
+    }
+}
+
+extension String {
+    /// At most `limit` bytes of UTF-8, cut on a character's boundary.
+    func prefix(utf8 limit: Int) -> String {
+        guard utf8.count > limit else { return self }
+        var end = utf8.index(utf8.startIndex, offsetBy: max(limit, 0))
+        while end > startIndex, String.Index(end, within: self) == nil { end = utf8.index(before: end) }
+        return String(self[..<end])
     }
 }

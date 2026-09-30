@@ -136,7 +136,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             case "w": toggleWrapping()
             case "n": step(1)
             case "p": step(-1)
-            case "h": toggleHighlighting()
+            // Syntax highlighting is for text; a book or a table keeps its look.
+            case "h" where mode == .text: toggleHighlighting()
             case let key? where TextEncoding.allCases.contains(where: { $0.key == key }):
                 choose(TextEncoding.allCases.first { $0.key == key } ?? .automatic)
             default: return false
@@ -413,8 +414,14 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     @objc private func contentsChosen(_ sender: NSMenuItem) {
         guard bookContents.indices.contains(sender.tag) else { return }
         let location = bookContents[sender.tag].location
-        textView.scrollRangeToVisible(NSRange(location: textView.string.utf16.count, length: 0))
-        textView.scrollRangeToVisible(NSRange(location: location, length: 0))
+        // The heading at the top (only the text up to it is laid out).
+        let range = NSRange(location: location, length: 0)
+        textView.scrollRangeToVisible(range)
+        if let window = textView.window {
+            let onScreen = textView.firstRect(forCharacterRange: range, actualRange: nil)
+            let rect = textView.convert(window.convertFromScreen(onScreen), from: nil)
+            textView.scroll(NSPoint(x: 0, y: max(rect.minY - 24, 0)))
+        }
     }
 
     /// Reads the table in the helper service (the file is a stranger's data) and
@@ -468,6 +475,25 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         return text ? .text : .hex
     }
 
+    /// Excel 2003 XML by its start: the mso-application instruction before the root
+    /// element, or a root Workbook in the spreadsheet namespace (not a mention of it
+    /// somewhere in the text).
+    private static func isSpreadsheetML(_ start: String) -> Bool {
+        var rest = Substring(start)
+        while let open = rest.firstIndex(of: "<") {
+            let tag = rest[open...].prefix { $0 != ">" }
+            if tag.hasPrefix("<?") {
+                if tag.contains("progid=\"excel.sheet\"") { return true }
+            } else if !tag.hasPrefix("<!") {
+                let name = tag.dropFirst().prefix { !$0.isWhitespace && $0 != "/" }
+                return (name == "workbook" || name.hasSuffix(":workbook"))
+                    && tag.contains("urn:schemas-microsoft-com:office:spreadsheet")
+            }
+            rest = rest[tag.endIndex...]
+        }
+        return false
+    }
+
     /// The book format of `url` by its name, if it is one.
     static func bookFormat(for url: URL) -> String? {
         let name = url.lastPathComponent.lowercased()
@@ -495,9 +521,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         if ext == "csv" { return "csv" }
         if ext == "tsv" || ext == "tab" { return "tsv" }
         let start = TextDecoding.string(from: head).lowercased()
-        if start.contains("urn:schemas-microsoft-com:office:spreadsheet") || start.contains("progid=\"excel.sheet\"") {
-            return "spreadsheetml"
-        }
+        if isSpreadsheetML(start) { return "spreadsheetml" }
         if ["xls", "xlsx", "xlsm", "xlsb", "ods"].contains(ext),
            ["<table", "<html", "<!doctype html"].contains(where: start.contains) {
             return "html"

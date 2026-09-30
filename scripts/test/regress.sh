@@ -334,14 +334,14 @@ fb2 = f'''<?xml version="1.0" encoding="windows-1251"?>
 <description><title-info><author><first-name>Лев</first-name><last-name>Толстой</last-name></author><book-title>Война и мир</book-title><coverpage><image l:href="#c.png"/></coverpage></title-info></description>
 <body><section><title><p>Глава первая</p></title><epigraph><p>Эпиграф</p><text-author>Автор</text-author></epigraph>
 <p>Текст с <emphasis>курсивом</emphasis><a l:href="#n1" type="note">1</a>.</p><poem><stanza><v>Строка стиха</v></stanza></poem></section></body>
-<body name="notes"><section id="n1"><p>Текст сноски.</p></section></body><binary id="c.png" content-type="image/png">{cover}</binary></FictionBook>'''
+<body name="notes"><section id="n1"><title><p>1</p></title><p>Текст сноски.</p></section></body><binary id="c.png" content-type="image/png">{cover}</binary></FictionBook>'''
 open(L + '/war.fb2', 'wb').write(fb2.encode('cp1251'))
 with zipfile.ZipFile(L + '/war.fb2.zip', 'w', zipfile.ZIP_DEFLATED) as z: z.writestr('war.fb2', fb2.encode('cp1251'))
 with zipfile.ZipFile(L + '/master.epub', 'w', zipfile.ZIP_DEFLATED) as z:
     z.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
     z.writestr('META-INF/container.xml', '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/book.opf"/></rootfiles></container>')
     z.writestr('OPS/book.opf', '<package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Мастер и Маргарита</dc:title><dc:creator>Булгаков</dc:creator></metadata><manifest><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="text/b.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="b"/><itemref idref="a"/></spine></package>')
-    z.writestr('OPS/a.xhtml', '<html><body><h1>Вторая по порядку</h1><p>Конец.</p></body></html>')
+    z.writestr('OPS/a.xhtml', '<html><head><script src="x.js"/></head><body><h1>Вторая по порядку</h1><p>Конец.</p></body></html>')
     z.writestr('OPS/text/b.xhtml', '<html><head><script>x</script></head><body><h1>Первая по порядку</h1><p>Никогда не <i>разговаривайте</i>.</p><img src="../img/p.png"/></body></html>')
     z.writestr('OPS/img/p.png', png(40, 30))
 # A zip whose entry claims 4 GB unpacked.
@@ -353,13 +353,35 @@ data[at + 24:at + 28] = struct.pack('<I', 0xFFFFFFF0)
 open(L + '/bomb.epub', 'wb').write(bytes(data))
 PY
 run bkfb2 "alt+w wait text:ar.fb2 escape f3 wait wait wait wait textmenu"
-check "Lister shows an FB2 book (Windows-1251): title, author, chapter, notes, cover, contents" "grep -q '^Contents ▸ Глава первая' build/shots/reg-bkfb2-menu.txt && head -1 build/shots/reg-bkfb2-win1.txt | grep -q 'Лев Толстой · Война и мир$' && grep -q 'Глава первая' build/shots/reg-bkfb2-win1.txt && grep -q 'Текст сноски.' build/shots/reg-bkfb2-win1.txt && grep -q \"\$(printf '\\357\\277\\274')\" build/shots/reg-bkfb2-win1.txt"
+check "Lister shows an FB2 book (Windows-1251): title, author, chapter, notes, cover, contents (without the notes' numbers)" "grep -qx 'Contents ▸ Глава первая' build/shots/reg-bkfb2-menu.txt && head -1 build/shots/reg-bkfb2-win1.txt | grep -q 'Лев Толстой · Война и мир$' && grep -q 'Глава первая' build/shots/reg-bkfb2-win1.txt && grep -q 'Текст сноски.' build/shots/reg-bkfb2-win1.txt && grep -q \"\$(printf '\\357\\277\\274')\" build/shots/reg-bkfb2-win1.txt"
 run bkfb2zip "alt+w wait text:ar.fb2.z escape f3 wait wait wait wait"
 check "Lister shows a zipped FB2 book" "grep -q 'Строка стиха' build/shots/reg-bkfb2zip-win1.txt"
 run bkepub "alt+m wait text:aster.e escape f3 wait wait wait wait"
-check "Lister shows an EPUB's chapters in spine order, without scripts" "head -1 build/shots/reg-bkepub-win1.txt | grep -q 'Мастер и Маргарита$' && [ \"\$(grep -n 'по порядку' build/shots/reg-bkepub-win1.txt | head -1 | grep -c Первая)\" = 1 ] && ! grep -qx 'x' build/shots/reg-bkepub-win1.txt"
+check "Lister shows an EPUB's chapters in spine order, without scripts (<script/> too)" "grep -q 'Конец.' build/shots/reg-bkepub-win1.txt && head -1 build/shots/reg-bkepub-win1.txt | grep -q 'Мастер и Маргарита$' && [ \"\$(grep -n 'по порядку' build/shots/reg-bkepub-win1.txt | head -1 | grep -c Первая)\" = 1 ] && ! grep -qx 'x' build/shots/reg-bkepub-win1.txt"
 run bkbomb "alt+b wait text:omb.e escape f3 wait wait wait wait"
 check "an EPUB zip bomb is refused (shown as hex, not read)" "! head -1 build/shots/reg-bkbomb-win1.txt | grep -q '·' && grep -q '^00000000' build/shots/reg-bkbomb-win1.txt"
+# Crafted files the helper must get through quickly, neither crashing nor filling
+# the memory: numbers past any sheet in Excel 2003 XML, cells spanning a thousand
+# columns and many rows, entity expansion ("billion laughs"), and a picture claiming
+# 20000 × 20000 pixels in a book (refused before it is decoded).
+python3 - "$L" <<'PY'
+import sys, zlib, struct, base64
+L = sys.argv[1]
+big = 9223372036854775807
+open(L + '/overflow.xml', 'w').write('<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet><Table>'
+    f'<Row ss:Index="{big}"/><Row/><Row><Cell ss:Index="-{big}" ss:MergeAcross="{big}" ss:MergeDown="{big}"><Data>survived</Data></Cell></Row></Table></Worksheet></Workbook>')
+open(L + '/spans.xls', 'w').write('<table><tr>' + '<td rowspan=60000 colspan=1000>x</td>' * 20 + '</tr>' + '<tr><td>y</td></tr>' * 20000 + '</table>')
+laughs = '<!ENTITY a0 "lol">' + ''.join('<!ENTITY a%d "%s">' % (i, ('&a%d;' % (i - 1)) * 10) for i in range(1, 10))
+open(L + '/laughs.xml', 'w').write(f'<?xml version="1.0"?><!DOCTYPE Workbook [{laughs}]><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet><Table><Row><Cell><Data>&a9;</Data></Cell></Row></Table></Worksheet></Workbook>')
+w = h = 20000
+raw = zlib.compress(b''.join(b'\x00' + b'\x00' * ((w + 7) // 8) for _ in range(h)), 9)
+chunk = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 1, 0, 0, 0, 0)) + chunk(b'IDAT', raw) + chunk(b'IEND', b'')
+open(L + '/huge.fb2', 'w').write('<?xml version="1.0"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink"><body><section><p>Текст рядом с огромной картинкой.</p><image l:href="#p"/></section></body>'
+    f'<binary id="p" content-type="image/png">{base64.b64encode(png).decode()}</binary></FictionBook>')
+PY
+run crafted "alt+o wait text:verflow escape f3 wait wait wait wait escape alt+s wait text:pans escape f3 wait wait wait wait wait wait escape alt+l wait text:aughs escape f3 wait wait wait wait escape alt+h wait text:uge escape f3 wait wait wait wait wait"
+check "crafted tables and books neither crash nor hang the helper; a huge picture is refused" "grep -q 'Текст рядом с огромной картинкой.' build/shots/reg-crafted-win1.txt && ! grep -q \"\$(printf '\\357\\277\\274')\" build/shots/reg-crafted-win1.txt && grep -q '^kills: 0' build/shots/reg-crafted-highlighter.txt && ! ls ~/Library/Logs/DiagnosticReports | grep -q '^OriCmdHighlighter'"
 # Mobipocket and Kindle: MOBI 6 (PalmDOC) and AZW3 (KF8) made by calibre from the EPUB
 # above (scripts/test/samples), a HUFF/CDIC-compressed MOBI (one phrase compressed in
 # turn), and a book protected by DRM, which is said so.

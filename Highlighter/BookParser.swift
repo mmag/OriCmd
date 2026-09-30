@@ -56,7 +56,8 @@ final class BookBuilder {
 
     static let maxBlocks = 1_000_000
     static let maxRuns = 4_000_000
-    static let maxTextBytes = 96 * 1024 * 1024
+    /// Longer text would take the text view long to lay out.
+    static let maxTextBytes = 24 * 1024 * 1024
     static let maxImages = 1000
     static let maxImageBytes = 160 * 1024 * 1024
     static let maxImageSide = 1400
@@ -99,7 +100,7 @@ final class BookBuilder {
     /// white space become one space unless the paragraph keeps them.
     func text(_ text: String, style: Style = [], kind: Kind = .paragraph) {
         if open == nil { begin(kind) }
-        guard var block = open, runCount < Self.maxRuns, textBytes < Self.maxTextBytes else { return }
+        guard open != nil, runCount < Self.maxRuns, textBytes < Self.maxTextBytes else { return }
         var piece = ""
         if keepsSpaces {
             piece = text
@@ -114,15 +115,17 @@ final class BookBuilder {
                 }
             }
         }
+        // Within what is left of the budget (OriCmd takes no more).
+        piece = piece.prefix(utf8: Self.maxTextBytes - textBytes)
         guard !piece.isEmpty else { return }
         textBytes += piece.utf8.count
-        if let last = block.runs.last, last.0 == style {
-            block.runs[block.runs.count - 1].1 += piece
+        // Changed in place: copying the paragraph for every piece would take long.
+        if let last = open?.runs.last, last.0 == style {
+            open!.runs[open!.runs.count - 1].1 += piece
         } else {
-            block.runs.append((style, piece))
+            open?.runs.append((style, piece))
             runCount += 1
         }
-        open = block
     }
 
     /// A line break inside the paragraph.
@@ -160,7 +163,7 @@ final class BookBuilder {
     /// Adds a picture made from `data` (JPEG, PNG, GIF, BMP, TIFF, WebP) and returns
     /// its index, or nil when it cannot be read or the pictures fill their share.
     func addImage(_ data: Data) -> Int? {
-        guard images.count < Self.maxImages, let image = Self.pixels(of: data),
+        guard images.count < Self.maxImages, imageBytes < Self.maxImageBytes, let image = Self.pixels(of: data),
               imageBytes + image.pixels.count <= Self.maxImageBytes else { return nil }
         imageBytes += image.pixels.count
         images.append(image)
@@ -182,6 +185,13 @@ final class BookBuilder {
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, options),
               let type = CGImageSourceGetType(source) as String?, pictureTypes.contains(type) else { return nil }
+        // A picture claiming huge dimensions would be decoded whole before scaled
+        // down (JPEG alone is scaled while decoded): refused.
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let pixelWidth = properties[kCGImagePropertyPixelWidth] as? Int,
+              let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int,
+              pixelWidth > 0, pixelHeight > 0, pixelWidth <= 30_000, pixelHeight <= 30_000,
+              pixelWidth * pixelHeight <= (type == "public.jpeg" ? 200_000_000 : 50_000_000) else { return nil }
         let thumbnail = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
@@ -209,9 +219,9 @@ final class BookBuilder {
             put(text.utf8.count)
             data.append(contentsOf: text.utf8)
         }
-        put(String(title.prefix(1000)))
-        put(String(author.prefix(1000)))
-        put(String(notice.prefix(1000)))
+        put(title.prefix(utf8: 4000))
+        put(author.prefix(utf8: 4000))
+        put(notice.prefix(utf8: 4000))
         put(blocks.count)
         for block in blocks {
             data.append(block.kind.rawValue)
@@ -253,6 +263,8 @@ final class BookBuilder {
 final class FB2Reader: NSObject, XMLParserDelegate {
     private let builder: BookBuilder
     private var path: [String] = []
+    /// How many of each element enclose the reader now (the path's contents).
+    private var enclosing: [String: Int] = [:]
     private var styles: [BookBuilder.Style] = []
     private var sectionDepth = 0
     private var inNotes = false
@@ -291,13 +303,16 @@ final class FB2Reader: NSObject, XMLParserDelegate {
         builder.title = titleWords.joined(separator: " ")
         builder.author = ["first-name", "middle-name", "last-name"].compactMap { authorParts[$0] }
             .filter { !$0.isEmpty }.joined(separator: " ")
-        // The pictures, decoded once each, in the order they are shown.
-        var decoded: [String: Int] = [:]
+        // The pictures, decoded once each (a failure too), in the order they are shown.
+        var decoded: [String: Int?] = [:]
+        func picture(_ id: String) -> Int? {
+            if let known = decoded[id] { return known }
+            let index = binaries[id].flatMap(builder.addImage)
+            decoded[id] = index
+            return index
+        }
         if let cover {
-            if let data = binaries[cover], let index = builder.addImage(data) {
-                decoded[cover] = index
-                builder.image(index)
-            }
+            if let index = picture(cover) { builder.image(index) }
             builder.separator()
         }
         for item in content {
@@ -308,22 +323,27 @@ final class FB2Reader: NSObject, XMLParserDelegate {
             case .end: builder.end()
             case .separator: builder.separator()
             case .picture(let id):
-                if let index = decoded[id] ?? binaries[id].flatMap(builder.addImage) {
-                    decoded[id] = index
-                    builder.image(index)
-                }
+                if let index = picture(id) { builder.image(index) }
             }
         }
         builder.end()
     }
 
-    private var inDescription: Bool { path.contains("description") }
+    private func inside(_ name: String) -> Bool { enclosing[name, default: 0] > 0 }
+    private var inDescription: Bool { inside("description") }
+
+    /// Kept up to a limit (the book past it is left out; a crafted one of empty
+    /// paragraphs would otherwise fill the memory).
+    private func record(_ item: Content) {
+        if content.count < 3 * BookBuilder.maxBlocks { content.append(item) }
+    }
     private var paragraphKind: BookBuilder.Kind {
-        if path.contains("title") { return .heading }
-        if path.contains("subtitle") { return .subtitle }
-        if path.contains("text-author") { return .signature }
-        if path.contains("v") { return .verse }
-        if path.contains("epigraph") || path.contains("cite") || path.contains("annotation") { return .quote }
+        // Notes' titles are their numbers: not headings (nor in the contents).
+        if inside("title") { return inNotes ? .subtitle : .heading }
+        if inside("subtitle") { return .subtitle }
+        if inside("text-author") { return .signature }
+        if inside("v") { return .verse }
+        if inside("epigraph") || inside("cite") || inside("annotation") { return .quote }
         if inNotes { return .note }
         return .paragraph
     }
@@ -335,8 +355,11 @@ final class FB2Reader: NSObject, XMLParserDelegate {
     func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?,
                 attributes: [String: String]) {
         path.append(name)
+        enclosing[name, default: 0] += 1
+        // Deeper than any book (XMLParser would go on): the rest is left out.
+        if path.count > 1000 { return parser.abortParsing() }
         if inDescription {
-            if name == "image", path.contains("coverpage"), cover == nil,
+            if name == "image", inside("coverpage"), cover == nil,
                let href = Self.href(attributes), href.hasPrefix("#") {
                 cover = String(href.dropFirst())
             }
@@ -346,18 +369,18 @@ final class FB2Reader: NSObject, XMLParserDelegate {
         switch name {
         case "body":
             inNotes = attributes["name"] == "notes"
-            if inNotes { content.append(.separator) }
+            if inNotes { record(.separator) }
         case "section":
             sectionDepth += 1
         case "p", "v", "subtitle", "text-author", "td", "th":
-            content.append(.begin(paragraphKind, min(sectionDepth, 6)))
+            record(.begin(paragraphKind, min(sectionDepth, 6)))
         case "empty-line":
-            content.append(.separator)
+            record(.separator)
         case "stanza":
-            content.append(.separator)
+            record(.separator)
         case "image":
             if let href = Self.href(attributes), href.hasPrefix("#") {
-                content.append(.picture(String(href.dropFirst())))
+                record(.picture(String(href.dropFirst())))
             }
         case "emphasis": styles.append(.italic)
         case "strong": styles.append(.bold)
@@ -376,12 +399,14 @@ final class FB2Reader: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
-        defer { path.removeLast() }
+        defer {
+            if let last = path.popLast() { enclosing[last, default: 1] -= 1 }
+        }
         if inDescription {
             let text = fieldText.trimmingCharacters(in: .whitespacesAndNewlines)
-            if path.contains("title-info") {
+            if inside("title-info") {
                 if name == "book-title" { titleWords.append(text) }
-                if path.contains("author"), !authorDone, ["first-name", "middle-name", "last-name"].contains(name) {
+                if inside("author"), !authorDone, ["first-name", "middle-name", "last-name"].contains(name) {
                     authorParts[name] = text
                 }
                 if name == "author", !authorParts.isEmpty { authorDone = true }
@@ -391,11 +416,11 @@ final class FB2Reader: NSObject, XMLParserDelegate {
         }
         switch name {
         case "p", "v", "subtitle", "text-author", "td", "th":
-            content.append(.end)
+            record(.end)
         case "section":
             sectionDepth = max(sectionDepth - 1, 0)
         case "title", "epigraph", "poem", "cite":
-            content.append(.end)
+            record(.end)
         case "emphasis", "strong", "strikethrough", "sub", "sup", "code", "a":
             if !styles.isEmpty { styles.removeLast() }
         case "binary":
@@ -420,9 +445,9 @@ final class FB2Reader: NSObject, XMLParserDelegate {
             return
         }
         // Text only inside paragraphs (not the spaces between elements).
-        guard ["p", "v", "subtitle", "text-author", "td", "th"].contains(where: path.contains) else { return }
+        guard ["p", "v", "subtitle", "text-author", "td", "th"].contains(where: inside) else { return }
         let style = styles.reduce(into: BookBuilder.Style()) { $0.formUnion($1) }
-        content.append(.text(string, style, paragraphKind))
+        record(.text(string, style, paragraphKind))
     }
 }
 
@@ -453,7 +478,7 @@ final class EPUBReader {
                 manifest[id] = (href, item["media-type"] ?? "")
             }
         }
-        var pictures: [String: Int] = [:]
+        var pictures: [String: Int?] = [:]
         for reference in scan.elements(named: "itemref") {
             guard let id = reference["idref"], let item = manifest[id],
                   item.type.contains("html") || item.href.lowercased().hasSuffix("htm") || item.href.lowercased().hasSuffix("html")
@@ -463,9 +488,8 @@ final class EPUBReader {
             let directory = (path as NSString).deletingLastPathComponent
             HTMLBookReader(builder).read(Self.text(of: chapter)) { source in
                 let picturePath = Self.join(directory, source)
-                if let index = pictures[picturePath] { return index }
-                guard let entry = zip.entry(named: picturePath), let data = zip.contents(of: entry),
-                      let index = self.builder.addImage(data) else { return nil }
+                if let known = pictures[picturePath] { return known }
+                let index = zip.entry(named: picturePath).flatMap { zip.contents(of: $0) }.flatMap(self.builder.addImage)
                 pictures[picturePath] = index
                 return index
             }
@@ -474,9 +498,14 @@ final class EPUBReader {
     }
 
     /// A path inside the zip: `href` (percent-encoded, maybe with ../) from `directory`.
+    /// A path inside the zip: `href` (percent-encoded, maybe with ../, a query or a
+    /// fragment; from the zip's root when it starts with /) from `directory`.
     static func join(_ directory: String, _ href: String) -> String {
-        let clean = (href.split(separator: "#").first.map(String.init) ?? href).removingPercentEncoding ?? href
-        var parts = directory.isEmpty ? [] : directory.split(separator: "/").map(String.init)
+        let bare = href.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first
+            .flatMap { $0.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first }
+            .map(String.init) ?? href
+        let clean = bare.removingPercentEncoding ?? bare
+        var parts = directory.isEmpty || clean.hasPrefix("/") ? [] : directory.split(separator: "/").map(String.init)
         for part in clean.split(separator: "/").map(String.init) {
             switch part {
             case ".": continue
@@ -492,6 +521,16 @@ final class EPUBReader {
         if let text = String(data: data, encoding: .utf8) { return text }
         if data.starts(with: [0xFF, 0xFE]) || data.starts(with: [0xFE, 0xFF]),
            let text = String(data: data, encoding: .utf16) { return text }
+        // The encoding the chapter names (<?xml encoding=…?> or <meta charset=…>).
+        let start = String(decoding: data.prefix(1024), as: UTF8.self)
+        if let range = start.range(of: #"(encoding|charset)\s*=\s*["']?([A-Za-z0-9_.:-]+)"#, options: .regularExpression) {
+            let name = start[range].split(whereSeparator: { "=\"' ".contains($0) }).last.map(String.init) ?? ""
+            let encoding = CFStringConvertIANACharSetNameToEncoding(name as CFString)
+            if encoding != kCFStringEncodingInvalidId,
+               let text = String(data: data, encoding: String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(encoding))) {
+                return text
+            }
+        }
         return String(data: data, encoding: .windowsCP1251) ?? String(decoding: data, as: UTF8.self)
     }
 }
@@ -588,13 +627,18 @@ final class HTMLBookReader {
                 textStart = index
                 continue
             }
-            guard let end = Self.tagEnd(scalars, from: index + 1) else { break }
+            guard let end = Self.tagEnd(scalars, from: index + 1) else {
+                // A < that opens no tag: text.
+                textStart = index
+                break
+            }
             var tag = String.UnicodeScalarView()
             tag.append(contentsOf: scalars[(index + 1)..<end])
             index = end + 1
             textStart = index
             let (name, closing, attributes) = Self.parseTag(String(tag))
-            if !closing, ["script", "style", "head", "title"].contains(name) {
+            // What these hold is no text (unless they close themselves: <script/>).
+            if !closing, !String(tag).hasSuffix("/"), ["script", "style", "head", "title"].contains(name) {
                 index = Self.find(scalars, "</" + name, from: index) ?? scalars.count
                 textStart = index
                 continue

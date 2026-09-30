@@ -10,8 +10,13 @@ nonisolated struct ViewerTable: Sendable {
         var name: String
         var rowCount: Int
         var columnCount: Int
-        /// Row by row, the texts by column (merged cells keep theirs in the first).
-        var rows: [[Int: String]]
+        /// The texts by row, then by column (merged cells keep theirs in the first);
+        /// rows without any are left out, so a sheet claiming a million rows costs nothing.
+        var rows: [Int: [Int: String]]
+
+        func text(row: Int, column: Int) -> String? {
+            rows[row]?[column]
+        }
     }
 
     var sheets: [Sheet]
@@ -35,13 +40,13 @@ nonisolated struct ViewerTable: Sendable {
                   let columnCount = reader.count(max: Self.maxColumns),
                   let cellCount = reader.count(max: cellsLeft) else { return nil }
             cellsLeft -= cellCount
-            var rows = [[Int: String]](repeating: [:], count: rowCount)
+            var rows: [Int: [Int: String]] = [:]
             for _ in 0..<cellCount {
                 guard let row = reader.count(max: rowCount - 1), let column = reader.count(max: columnCount - 1),
                       let rowSpan = reader.count(max: rowCount - row), rowSpan > 0,
                       let columnSpan = reader.count(max: columnCount - column), columnSpan > 0,
                       let text = reader.text(maxBytes: Self.maxCellBytes) else { return nil }
-                rows[row][column] = text
+                rows[row, default: [:]][column] = text
             }
             sheets.append(Sheet(name: name, rowCount: rowCount, columnCount: columnCount, rows: rows))
         }
