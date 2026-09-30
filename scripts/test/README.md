@@ -2,8 +2,9 @@
 
 Debug builds of OriCmd can play keystrokes and save window snapshots (see
 `OriCmd/App/DebugAutomation.swift`). These scripts drive that on throw-away
-folders in `build/testdata` only — never on real files. A test run ignores the real
-keyboard and mouse, so typing elsewhere while its window is in front changes nothing.
+folders in `build/testdata` only — never on real files. A test run starts in the
+background and never takes the focus (`open -g`, no activation), and it ignores the
+real keyboard and mouse, so working elsewhere meanwhile changes nothing.
 
 - `mkdata.sh` — recreates `build/testdata/{left,right}` with sample files and archives.
 - `run.sh <name> "<keys>"` — launches the Debug app on the test folders, plays the
