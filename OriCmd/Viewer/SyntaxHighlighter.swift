@@ -2,10 +2,11 @@ import AppKit
 
 /// What the OriCmdHighlighter service offers. The same protocol is declared in
 /// Highlighter/Highlighting.swift: keep both alike.
-@objc(ORCHighlighting) protocol Highlighting {
+@objc(ORCHighlighting) nonisolated protocol Highlighting {
     func highlight(_ text: String, languages: [String], reply: @escaping @Sendable (Data?, Data?) -> Void)
     func processIdentifier(reply: @escaping @Sendable (Int32) -> Void)
     func languageNames(reply: @escaping @Sendable (Data?) -> Void)
+    func table(_ text: String, format: String, reply: @escaping @Sendable (Data?) -> Void)
 }
 
 /// Syntax highlighting for the Lister. highlight.js runs in the OriCmdHighlighter
@@ -17,6 +18,8 @@ enum SyntaxHighlighter {
     static let sizeLimit = 512 * 1024
     /// For highlight.js's own work: longer, and the service is killed.
     private static let timeLimit: Duration = .seconds(5)
+    /// For reading a table (up to 32 MB of text).
+    private static let tableTimeLimit: Duration = .seconds(20)
     /// For the service to start; launchd starts it again only some seconds after
     /// it was killed.
     private static let startLimit: Duration = .seconds(15)
@@ -50,13 +53,33 @@ enum SyntaxHighlighter {
             return knownLanguages?.contains(language.lowercased()) == true
         }
         guard !languages.isEmpty, !Task.isCancelled else { return nil }
-        var outcome = await request(text, languages: languages)
-        // Once more on a new connection when the service went away, not after a hang.
-        if case .broken = outcome, !Task.isCancelled {
-            outcome = await request(text, languages: languages)
+        let outcome = await requestTwice(timeLimit: timeLimit) { proxy, answer in
+            proxy.highlight(text, languages: languages) { @Sendable ranges, scopes in answer.give(.done(ranges, scopes)) }
         }
         guard case .done(let data?, let scopeData?) = outcome, let scopes = names(in: scopeData) else { return nil }
         return checkedRanges(data, scopes: scopes, length: text.utf16.count)
+    }
+
+    /// The tables of `text` in `format` ("spreadsheetml", "html", "csv", "tsv"), read
+    /// in the service; nil when there are none, or the service fails, hangs or
+    /// replies nonsense (the reply is checked as a stranger's, see ViewerTable).
+    static func tables(_ text: String, format: String) async -> ViewerTable? {
+        await takeTurn()
+        defer { endTurn() }
+        guard !Task.isCancelled else { return nil }
+        let outcome = await requestTwice(timeLimit: tableTimeLimit) { proxy, answer in
+            proxy.table(text, format: format) { @Sendable data in answer.give(.done(data, nil)) }
+        }
+        guard case .done(let data?, _) = outcome else { return nil }
+        return await Task.detached { ViewerTable(data) }.value
+    }
+
+    /// A request, once more on a new connection when the service went away (not
+    /// after a hang).
+    private static func requestTwice(timeLimit: Duration, _ send: @escaping Send) async -> Outcome {
+        let outcome = await request(timeLimit: timeLimit, send)
+        guard case .broken = outcome, !Task.isCancelled else { return outcome }
+        return await request(timeLimit: timeLimit, send)
     }
 
     /// Names one a line, as the service sends scopes and languages; nil unless every
@@ -131,10 +154,13 @@ enum SyntaxHighlighter {
         case timedOut
     }
 
-    /// Sends `text` once the service runs and has told its process identifier (asked
-    /// every time: a service that died is started again under another one); the time
-    /// limit starts then.
-    private static func request(_ text: String, languages: [String]) async -> Outcome {
+    /// Sends a request to the service's proxy; the reply goes to the `Once`.
+    private typealias Send = @Sendable (Highlighting, Once<Outcome>) -> Void
+
+    /// Sends a request once the service runs and has told its process identifier
+    /// (asked every time: a service that died is started again under another one);
+    /// the time limit starts then.
+    private static func request(timeLimit: Duration, _ send: @escaping Send) async -> Outcome {
         let connection = currentConnection()
         guard let pid = await processIdentifier(of: connection) else {
             drop(connection)
@@ -149,10 +175,7 @@ enum SyntaxHighlighter {
             let proxy = connection.remoteObjectProxyWithErrorHandler { @Sendable _ in
                 answer.give(.broken)
             } as? Highlighting
-            proxy?.highlight(text, languages: languages) { @Sendable ranges, scopes in
-                answer.give(.done(ranges, scopes))
-            }
-            if proxy == nil { answer.give(.broken) }
+            if let proxy { send(proxy, answer) } else { answer.give(.broken) }
             Task {
                 try? await Task.sleep(for: timeLimit)
                 if answer.give(.timedOut) { stop(connection, pid: pid) }

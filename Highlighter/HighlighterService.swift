@@ -1,11 +1,11 @@
 import Foundation
 import JavaScriptCore
 
-/// Runs highlight.js for the Lister. When OriCmd connects, highlight.js is loaded
-/// and this process forbids itself everything (see `lockDown`) before it reads any
-/// message: code run through a flaw in the JavaScript engine can only answer
-/// OriCmd, which checks the answer and kills this process when a highlighting takes
-/// too long.
+/// Runs highlight.js and reads tables (TableParser) for the Lister. When OriCmd
+/// connects, highlight.js is loaded and this process forbids itself everything (see
+/// `lockDown`) before it reads any message: code run through a flaw in the
+/// JavaScript engine or the XML parser can only answer OriCmd, which checks the
+/// answer and kills this process when its work takes too long.
 final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @unchecked Sendable {
     /// highlight.js is used from one queue at a time.
     private let queue = DispatchQueue(label: "ru.themmag.OriCmd.Highlighter")
@@ -46,6 +46,13 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         }
     }
 
+    func table(_ text: String, format: String, reply: @escaping @Sendable (Data?) -> Void) {
+        queue.async { [self] in
+            guard isLockedDown else { return reply(nil) }
+            reply(TableParser.parse(text, format: format))
+        }
+    }
+
     private func highlighted(_ text: String, languages: [String]) -> (Data?, Data?) {
         guard isLockedDown, let context else { return (nil, nil) }
         #if DEBUG
@@ -80,6 +87,10 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
             oricmdHighlight("func f() -> String { \\"Привет\\" }", ["swift"]);
             oricmdLanguageNames();
             """)
+        // The table readers too: the XML parser (libxml2) and regular expressions.
+        _ = TableParser.parse(#"<?xml version="1.0" encoding="windows-1251"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Лист"><Table><Row><Cell ss:Index="2" ss:MergeAcross="1"><Data ss:Type="String">Ячейка</Data></Cell></Row></Table></Worksheet></Workbook>"#, format: "spreadsheetml")
+        _ = TableParser.parse("<table><tr><td colspan=2 rowspan='2'>Ячейка &amp; &#171;x&#xBB;</td></tr></table>", format: "html")
+        _ = TableParser.parse("a;\"b\"\"c\";Ж\n1;2;3\n", format: "csv")
         typealias SandboxInit = @convention(c) (
             UnsafePointer<CChar>, UInt64, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
         ) -> Int32

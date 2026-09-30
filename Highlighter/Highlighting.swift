@@ -17,6 +17,10 @@ import Foundation
     /// Every language name and alias highlight.js knows, one a line: texts in no
     /// such language are not sent at all.
     func languageNames(reply: @escaping @Sendable (Data?) -> Void)
+
+    /// The tables of `text` in `format` ("spreadsheetml", "html", "csv", "tsv") for
+    /// the Lister's table view, as plain data (see TableBuilder); nil when there are none.
+    func table(_ text: String, format: String, reply: @escaping @Sendable (Data?) -> Void)
 }
 
 extension NSXPCInterface {

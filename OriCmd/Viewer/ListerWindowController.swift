@@ -9,10 +9,11 @@ import UniformTypeIdentifiers
 /// F7 or ⌘F find, F3 / ⇧F3 find next / previous, Esc closes. Encodings: 8 UTF-8,
 /// U UTF-16, A Windows-1251, S DOS (866), K KOI8-R; all of them in the text's
 /// context menu, with Automatically. H turns syntax highlighting on and off (the
-/// language follows the file's extension, see SyntaxHighlighter).
+/// language follows the file's extension, see SyntaxHighlighter). Excel 2003 XML,
+/// HTML pages named as Excel files, CSV and TSV show as tables (7; 1 shows the text).
 final class ListerWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, HandlesEscapeKey {
     enum Mode {
-        case text, hex, preview
+        case text, hex, preview, table
     }
 
     private nonisolated static let textLimit = 32 * 1024 * 1024
@@ -31,6 +32,9 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     /// The window title's name of the file (a server or archive path instead of the local one).
     private var shownPath: String
     private var mode = Mode.text
+    /// Excel 2003 XML, an HTML page named as an Excel file, CSV or TSV: shown as a
+    /// table (7), by default too.
+    private var tableFormat: String?
     /// Chosen by the user; kept for the next and previous files.
     private var encoding = TextEncoding.automatic
     /// The encoding the text is shown in (the one told, when automatic).
@@ -60,6 +64,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         self.url = url
         self.siblings = siblings
         shownPath = url.path
+        tableFormat = Self.tableFormat(for: url)
         let window = ListerWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 650),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -82,7 +87,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
 
     /// The path, and in text mode the encoding.
     private func updateTitle() {
-        let encoding = mode == .text ? encodingName.map { " \u{2014} \($0)" } ?? "" : ""
+        let encoding = mode == .text || mode == .table ? encodingName.map { " \u{2014} \($0)" } ?? "" : ""
         window?.title = "Lister - [\(shownPath)]" + encoding
     }
 
@@ -115,7 +120,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             case "\u{1b}": window?.close()
             case "1": show(.text)
             case "3": show(.hex)
-            case "7": show(.preview)
+            case "7": show(tableFormat != nil ? .table : .preview)
             case "w": toggleWrapping()
             case "n": step(1)
             case "p": step(-1)
@@ -130,6 +135,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
 
     private func find(_ action: NSTextFinder.Action) {
         guard mode != .preview else { return }
+        // Tables are searched as text.
+        if mode == .table { show(.text) }
         window?.makeFirstResponder(textView)
         let item = NSMenuItem()
         item.tag = action.rawValue
@@ -150,6 +157,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         }
         url = siblings[index + offset]
         shownPath = url.path
+        tableFormat = Self.tableFormat(for: url)
         encodingName = nil
         show(Self.defaultMode(for: url))
     }
@@ -158,7 +166,11 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     /// the place in the text.
     private func choose(_ encoding: TextEncoding) {
         self.encoding = encoding
-        show(.text, keepingPlace: mode == .text)
+        if mode == .table {
+            show(.table)
+        } else {
+            show(.text, keepingPlace: mode == .text)
+        }
     }
 
     private func toggleHighlighting() {
@@ -302,8 +314,35 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             guard let preview else { return }
             preview.previewItem = url as NSURL
             window.contentView = preview
+        case .table:
+            showTable()
         }
         window.makeFirstResponder(window.contentView)
+    }
+
+    /// Reads the table in the helper service (the file is a stranger's data) and
+    /// shows it; the text instead when the file is too big or holds no table.
+    private func showTable() {
+        textView.string = ""
+        window?.contentView = scrollView
+        loadToken += 1
+        let token = loadToken
+        let url = self.url
+        let encoding = self.encoding
+        guard let format = tableFormat else { return show(.text) }
+        Task {
+            let loaded = await Self.tableText(of: url, encoding: encoding)
+            guard token == loadToken else { return }
+            guard let loaded else { return show(.text) }
+            encodingName = loaded.encoding
+            updateTitle()
+            let table = await SyntaxHighlighter.tables(loaded.text, format: format)
+            guard token == loadToken, mode == .table, let window else { return }
+            guard let table else { return show(.text) }
+            let grid = TableGridView(table: table)
+            window.contentView = grid
+            window.makeFirstResponder(grid.firstResponderView)
+        }
     }
 
     private func setWrapping(_ wraps: Bool) {
@@ -325,7 +364,30 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             || officePrefixes.contains(where: type.identifier.hasPrefix) {
             return .preview
         }
+        if text, tableFormat(for: url) != nil {
+            return .table
+        }
         return text ? .text : .hex
+    }
+
+    /// The table format of `url`, if it has one: CSV and TSV by the extension, Excel
+    /// 2003 XML by its text whatever the name, an HTML page named as an Excel file
+    /// (what many programs export).
+    static func tableFormat(for url: URL) -> String? {
+        let head = head(of: url, limit: 8192).data
+        guard TextDecoding.looksLikeText(head) else { return nil }
+        let ext = url.pathExtension.lowercased()
+        if ext == "csv" { return "csv" }
+        if ext == "tsv" || ext == "tab" { return "tsv" }
+        let start = TextDecoding.string(from: head).lowercased()
+        if start.contains("urn:schemas-microsoft-com:office:spreadsheet") || start.contains("progid=\"excel.sheet\"") {
+            return "spreadsheetml"
+        }
+        if ["xls", "xlsx", "xlsm", "xlsb", "ods"].contains(ext),
+           ["<table", "<html", "<!doctype html"].contains(where: start.contains) {
+            return "html"
+        }
+        return nil
     }
 
     /// Office documents (Word, Excel, PowerPoint in all their variants, Pages, Numbers,
@@ -352,6 +414,16 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         let size = (try? handle.seekToEnd()).map(Int.init) ?? 0
         try? handle.seek(toOffset: 0)
         return ((try? handle.read(upToCount: limit)) ?? Data(), size)
+    }
+
+    /// The whole file as text for the table view (none past the text limit).
+    @concurrent
+    private nonisolated static func tableText(of url: URL, encoding: TextEncoding) async
+        -> (text: String, encoding: String)? {
+        let (data, size) = head(of: url, limit: textLimit)
+        guard size <= data.count else { return nil }
+        let (text, name) = TextDecoding.decode(data, as: encoding)
+        return (text, name)
     }
 
     private static func looksLikeText(_ url: URL) -> Bool {

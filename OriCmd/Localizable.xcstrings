@@ -4771,6 +4771,16 @@
         }
       }
     },
+    "Table %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Таблица %lld"
+          }
+        }
+      }
+    },
     "Tags": {
       "localizations": {
         "ru": {

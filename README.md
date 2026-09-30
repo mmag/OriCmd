@@ -23,8 +23,9 @@ keep working as always.
   recent connections; smb, afp, NFS and WebDAV as volumes.
 - **Tools:** viewer (`F3`) for text (UTF-8, UTF-16, Windows-1251, DOS, KOI8-R
   and other encodings) with syntax highlighting of code in about 190 languages,
-  hex and Quick Look (office documents too), compare files by content, synchronize directories, multi-rename, find files, checksums,
-  attributes, the Finder's Get Info.
+  tables (Excel 2003 XML, HTML exports, CSV), hex and Quick Look (office documents
+  too), compare files by content, synchronize directories, multi-rename, find
+  files, checksums, attributes, the Finder's Get Info.
 - **Make it yours:** your own keyboard shortcuts (including import from
   `wincmd.ini`), a Start menu, programs for `Enter`/`F3`/`F4` by file mask, a
   customizable button bar, the right mouse button marking files.
@@ -161,7 +162,7 @@ shortcuts in parentheses.
 
 | Key | Action |
 |---|---|
-| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once), `W` word wrap; encodings: `8` UTF-8, `U` UTF-16, `A` Windows-1251, `S` DOS (866), `K` KOI8-R, all of them (and Automatically) in the text's context menu — the one used is in the title, kept for `N`/`P`; `H` syntax highlighting on/off (see below); `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
+| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once) or a table (see below), `W` word wrap; encodings: `8` UTF-8, `U` UTF-16, `A` Windows-1251, `S` DOS (866), `K` KOI8-R, all of them (and Automatically) in the text's context menu — the one used is in the title, kept for `N`/`P`; `H` syntax highlighting on/off (see below); `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
 | `F4` | Open in the default text editor (or the program from the associations) |
 | `Shift+F4` | Create a new file and open it in the editor |
 | `F5` | Copy (to the other panel by default) |
@@ -192,6 +193,18 @@ shortcuts in parentheses.
 
 Long operations (copy, move, archives) show their progress; the "Background"
 button moves it to a separate window so you can keep working with the panels.
+
+#### Tables in the viewer
+
+What Quick Look can't show as a table, the viewer can: Excel 2003 XML files (by
+their contents, whatever the name: `.xlsx`, `.xls`, `.xml` — many programs export
+them), HTML pages named `.xls`/`.xlsx` (another common export) and CSV/TSV (the
+delimiter — `,` `;` tab — is found by itself). They open as a grid with column
+letters and row numbers, the sheets to choose from above it; merged cells show
+their value in the first one, dates as dates, numbers to the right. `⌘C` copies the
+selected rows (tab-separated, as Excel and Numbers paste them), the encodings work
+as for text, `1` shows the text and `7` the table again. The files are read by the
+same locked-down helper as syntax highlighting, and what it returns is checked.
 
 #### Syntax highlighting in the viewer
 

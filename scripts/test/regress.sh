@@ -280,13 +280,43 @@ printf '// arm64\n_main:\n    adrp x0, msg@PAGE\n    mov  x16, #4\n    svc  #0x8
 run hlasm "alt+b wait text:oot.a escape f3 wait wait wait"
 run hlarm "alt+a wait text:rm.s escape f3 wait wait wait"
 check "Lister highlights assembly (x86 .asm, ARM .s)" "[ \"\$(colors hlasm)\" -ge 4 ] && [ \"\$(colors hlarm)\" -ge 4 ]"
-# A real .xlsx (a zip) shows as Quick Look does; an Excel 2003 XML file named .xlsx
-# is text, colored as XML (not as highlight.js's "xlsx", Excel formulae).
+# A real .xlsx (a zip) shows as Quick Look does; other XML named .xlsx (not Excel
+# 2003 XML, which is a table) is text, colored as XML (not as highlight.js's "xlsx",
+# Excel formulae).
 python3 -c 'import zipfile, sys; z = zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED); z.writestr("[Content_Types].xml", "<Types/>"); z.writestr("xl/workbook.xml", "<workbook/>"); z.close()' $L/book.xlsx
-printf '<?xml version="1.0"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet><Table><Row><Cell><Data>1</Data></Cell></Row></Table></Worksheet></Workbook>\n' > $L/xmlbook.xlsx
+printf '<?xml version="1.0"?>\n<export><Workbook name="data"><row id="1">value</row></Workbook></export>\n' > $L/xmlbook.xlsx
 run hlxlsx "alt+b wait text:ook.x escape f3 wait wait wait"
 run hlxmlxlsx "alt+x wait text:mlbook escape f3 wait wait wait"
 check "a real .xlsx previews, an XML one named .xlsx is colored as XML" "[ \"\$(wc -l < build/shots/reg-hlxlsx-win1.txt | tr -d ' ')\" = 0 ] && grep -q '<Workbook' build/shots/reg-hlxmlxlsx-win1.txt && [ \"\$(colors hlxmlxlsx)\" -ge 4 ]"
+
+# Tables (read in the locked helper, shown as a grid): Excel 2003 XML whatever its
+# name (two sheets, merged cells, a date), CSV in Windows-1251 with ; and quotes, an
+# HTML page named .xls; 1 shows the text, 7 the table again; an external entity reads
+# nothing and entity expansion is refused.
+cat > $L/report.xlsx <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="Sales"><Table>
+  <Row><Cell ss:MergeAcross="2"><Data ss:Type="String">Sales report</Data></Cell></Row>
+  <Row ss:Index="3"><Cell ss:Index="2"><Data ss:Type="Number">12</Data></Cell><Cell><Data ss:Type="DateTime">2026-09-30T00:00:00.000</Data><Comment><Data>not a value</Data></Comment></Cell></Row>
+ </Table></Worksheet>
+ <Worksheet ss:Name="Totals"><Table><Row><Cell><Data ss:Type="String">Total</Data></Cell></Row></Table></Worksheet>
+</Workbook>
+XML
+printf 'Имя;Сумма;Комментарий\n"Иванов, И.";100,50;"есть ""кавычки"""\n' | iconv -f UTF-8 -t CP1251 > $L/pay.csv
+printf '<html><head><meta charset="windows-1251"></head><body><table><tr><th colspan=2>Выписка</th></tr><tr><td>Остаток</td><td>1&nbsp;000</td></tr></table></body></html>\n' | iconv -f UTF-8 -t CP1251 > $L/bank.xls
+printf '<?xml version="1.0"?>\n<!DOCTYPE Workbook [<!ENTITY xxe SYSTEM "file:///etc/hosts">]>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet><Table><Row><Cell><Data>before&xxe;after</Data></Cell></Row></Table></Worksheet></Workbook>\n' > $L/xxe.xlsx
+run tbreport "alt+r wait text:eport.x escape f3 wait wait wait wait"
+check "Lister shows Excel 2003 XML as a table (merged cells, skipped cells, a date, no comment)" "grep -qx 'Sales report' build/shots/reg-tbreport-win1.txt && grep -qx '2026-09-30' build/shots/reg-tbreport-win1.txt && grep -qx '12' build/shots/reg-tbreport-win1.txt && ! grep -q 'not a value' build/shots/reg-tbreport-win1.txt"
+run tbcsv "alt+p wait text:ay.c escape f3 wait wait wait wait"
+check "Lister shows a CSV in Windows-1251 with ; and quotes as a table" "head -1 build/shots/reg-tbcsv-win1.txt | grep -q 'Windows-1251$' && grep -qx 'Иванов, И.' build/shots/reg-tbcsv-win1.txt && grep -qx 'есть \"кавычки\"' build/shots/reg-tbcsv-win1.txt"
+run tbhtml "alt+b wait text:ank.x escape f3 wait wait wait wait"
+check "Lister shows an HTML page named .xls as a table" "grep -qx 'Выписка' build/shots/reg-tbhtml-win1.txt && grep -qx 'Остаток' build/shots/reg-tbhtml-win1.txt"
+run tbkeys "alt+r wait text:eport.x escape f3 wait wait wait 1 wait wait 7 wait wait wait"
+check "Lister: 1 shows a table's text, 7 the table again" "grep -qx 'Sales report' build/shots/reg-tbkeys-win1.txt && ! grep -q '<Workbook' build/shots/reg-tbkeys-win1.txt"
+run tbxxe "alt+x wait text:xe.x escape f3 wait wait wait wait"
+check "a table's external entity reads nothing" "! grep -qi 'localhost' build/shots/reg-tbxxe-win1.txt"
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
 # The service locks itself down: no file (the user's or the system's), no other
