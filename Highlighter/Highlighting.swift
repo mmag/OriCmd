@@ -25,6 +25,14 @@ import Foundation
     /// The book in `data` ("fb2", "fb2.zip", "epub", "mobi") for the Lister's book view, as
     /// plain data (see BookBuilder); nil when it cannot be read.
     func book(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void)
+
+    /// `text` (Markdown) as the body of an HTML page, UTF-8 (markdown-it); nil when it
+    /// cannot be made.
+    func markdown(_ text: String, reply: @escaping @Sendable (Data?) -> Void)
+
+    /// `text` laid out for reading, UTF-8: "json", "xml" (CodeFormatter), "js", "css",
+    /// "html" (js-beautify), "ts", "tsx" (prettier); nil when it cannot be.
+    func format(_ text: String, language: String, reply: @escaping @Sendable (Data?) -> Void)
 }
 
 extension NSXPCInterface {

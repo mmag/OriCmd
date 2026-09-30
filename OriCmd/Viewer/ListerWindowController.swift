@@ -9,8 +9,10 @@ import UniformTypeIdentifiers
 /// F7 or ⌘F find, F3 / ⇧F3 find next / previous, Esc closes. Encodings: 8 UTF-8,
 /// U UTF-16, A Windows-1251, S DOS (866), K KOI8-R; all of them in the text's
 /// context menu, with Automatically. H turns syntax highlighting on and off (the
-/// language follows the file's extension, see SyntaxHighlighter). Excel 2003 XML,
-/// HTML pages named as Excel files, CSV and TSV show as tables (7; 1 shows the text).
+/// language follows the file's extension, see SyntaxHighlighter), F formatting of
+/// JSON, XML, JavaScript, TypeScript, CSS and HTML. Excel 2003 XML, HTML pages
+/// named as Excel files, CSV and TSV show as tables (7; 1 shows the text); HTML
+/// and Markdown as pages (7; 1 shows the source).
 final class ListerWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, HandlesEscapeKey {
     enum Mode {
         case text, hex, preview, table, book
@@ -18,11 +20,17 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
 
     private nonisolated static let textLimit = 32 * 1024 * 1024
     private static let highlightingKey = "ListerSyntaxHighlighting"
+    private static let formattingKey = "ListerFormatting"
 
     /// Syntax highlighting of program code (on unless turned off with H).
     private static var highlights: Bool {
         get { AppDefaults.store.object(forKey: highlightingKey) as? Bool ?? true }
         set { AppDefaults.store.set(newValue, forKey: highlightingKey) }
+    }
+    /// JSON, XML, program code shown laid out (off unless turned on with F).
+    private static var formats: Bool {
+        get { AppDefaults.store.bool(forKey: formattingKey) }
+        set { AppDefaults.store.set(newValue, forKey: formattingKey) }
     }
     private nonisolated static let hexLimit = 256 * 1024
     private static var openControllers: [ListerWindowController] = []
@@ -55,6 +63,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     private var loadToken = 0
     /// The highlighting of the text shown, cancelled when another text comes.
     private var highlighting: Task<Void, Never>?
+    /// The text shown is laid out by the formatting (F), not as in the file.
+    private var isFormatted = false
 
     /// Shows `url`; N / P step through `siblings` (the other files of its folder).
     /// `title` replaces the path in the window title (for files from servers and archives).
@@ -94,10 +104,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         window.keyHandler = { [weak self] event in self?.handleKey(event) ?? false }
     }
 
-    /// The path, and in text mode the encoding.
+    /// The path, and in text mode the encoding (and whether the text is formatted).
     private func updateTitle() {
+        let formatted = mode == .text && isFormatted ? String(localized: "formatted") : nil
         let detail = mode == .book ? (bookTitle.isEmpty ? nil : bookTitle)
-            : mode == .text || mode == .table ? encodingName : nil
+            : mode == .text ? [encodingName, formatted].compactMap { $0 }.joined(separator: ", ")
+            : mode == .table ? encodingName : nil
         window?.title = "Lister - [\(shownPath)]" + (detail.map { " \u{2014} \($0)" } ?? "")
     }
 
@@ -138,6 +150,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             case "p": step(-1)
             // Syntax highlighting is for text; a book or a table keeps its look.
             case "h" where mode == .text: toggleHighlighting()
+            case "f" where mode == .text: toggleFormatting()
             case let key? where TextEncoding.allCases.contains(where: { $0.key == key }):
                 choose(TextEncoding.allCases.first { $0.key == key } ?? .automatic)
             default: return false
@@ -199,6 +212,46 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         } else {
             highlighting?.cancel()
             makePlain()
+        }
+    }
+
+    /// F: JSON, XML and program code laid out for reading, or as in the file again.
+    private func toggleFormatting() {
+        guard Self.formatLanguage(for: url) != nil else {
+            NSSound.beep()
+            return
+        }
+        Self.formats.toggle()
+        show(.text)
+    }
+
+    @objc private func formattingChosen(_ sender: NSMenuItem) {
+        toggleFormatting()
+    }
+
+    /// What the formatting takes a file for, by its extension: "json", "xml", "js",
+    /// "ts", "tsx", "css", "html"; nil for files it leaves as they are.
+    nonisolated static func formatLanguage(for url: URL) -> String? {
+        switch url.pathExtension.lowercased() {
+        case "json", "jsonc", "json5", "geojson", "webmanifest", "ipynb", "har", "jsonl", "ndjson":
+            // One object a line (JSON Lines) laid out would be one long document.
+            return ["jsonl", "ndjson"].contains(url.pathExtension.lowercased()) ? nil : "json"
+        case "xml", "plist", "svg", "xsd", "xsl", "xslt", "rss", "atom", "xaml", "csproj", "vcxproj", "props",
+             "targets", "resx", "wsdl", "kml", "gpx", "xib", "storyboard", "entitlements", "nuspec", "wxs", "fb2",
+             "opf", "ncx", "dae", "config", "manifest", "xlf", "xliff", "tmx", "sitemap":
+            return "xml"
+        case "js", "mjs", "cjs", "jsx":
+            return "js"
+        case "ts", "mts", "cts":
+            return "ts"
+        case "tsx":
+            return "tsx"
+        case "css", "scss", "less":
+            return "css"
+        case "html", "htm", "xhtml", "shtml", "vue", "svelte":
+            return "html"
+        default:
+            return nil
         }
     }
 
@@ -294,7 +347,17 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         highlighting.target = self
         highlighting.state = Self.highlights ? .on : .off
         menu.insertItem(highlighting, at: 1)
-        menu.insertItem(.separator(), at: 2)
+        var next = 2
+        if Self.formatLanguage(for: url) != nil {
+            let formatting = NSMenuItem(title: String(localized: "Format"), action: #selector(formattingChosen(_:)),
+                                        keyEquivalent: "f")
+            formatting.keyEquivalentModifierMask = []
+            formatting.target = self
+            formatting.state = Self.formats ? .on : .off
+            menu.insertItem(formatting, at: next)
+            next += 1
+        }
+        menu.insertItem(.separator(), at: next)
         return menu
     }
 
@@ -321,15 +384,24 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             let token = loadToken
             let url = self.url
             let encoding = self.encoding
+            isFormatted = false
             Task {
                 let content = await Self.content(of: url, hex: mode == .hex, encoding: encoding)
                 guard token == loadToken else { return }
-                textView.string = content.text
+                var text = content.text
+                // Laid out in the helper service (F); as in the file when it cannot be.
+                if mode == .text, Self.formats, let language = Self.formatLanguage(for: url),
+                   let formatted = await SyntaxHighlighter.format(text, language: language) {
+                    guard token == loadToken else { return }
+                    text = formatted
+                    isFormatted = true
+                }
+                textView.string = text
                 makePlain()
                 if let name = content.encoding {
                     encodingName = name
-                    updateTitle()
                 }
+                updateTitle()
                 highlight()
                 if let place {
                     // The same place at the top of the view again.
@@ -343,6 +415,10 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
                 }
             }
         case .preview:
+            if let format = Self.pageFormat(for: url) {
+                showPage(format)
+                return
+            }
             if preview == nil {
                 preview = QLPreviewView(frame: .zero, style: .normal)
             }
@@ -355,6 +431,28 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             showBook()
         }
         window.makeFirstResponder(window.contentView)
+    }
+
+    /// An HTML file or Markdown made into a page, shown locked (see WebPreview);
+    /// the text when it cannot be.
+    private func showPage(_ format: String) {
+        loadToken += 1
+        let token = loadToken
+        let url = self.url, encoding = self.encoding
+        Task {
+            var page: String?
+            if format == "markdown" {
+                let content = await Self.content(of: url, hex: false, encoding: encoding)
+                guard token == loadToken else { return }
+                guard let body = await SyntaxHighlighter.markdown(content.text) else { return show(.text) }
+                page = MarkdownPage.html(body: body, title: url.deletingPathExtension().lastPathComponent)
+            }
+            guard token == loadToken, mode == .preview else { return }
+            guard let view = await WebPreview.make(showing: url, page: page, encoding: encoding) else { return show(.text) }
+            guard token == loadToken, mode == .preview, let window else { return }
+            window.contentView = view
+            window.makeFirstResponder(view.firstResponderView)
+        }
     }
 
     /// Reads the book in the helper service (the file is a stranger's data) and
@@ -477,7 +575,19 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         if text, tableFormat(for: url) != nil {
             return .table
         }
+        if text, pageFormat(for: url) != nil {
+            return .preview
+        }
         return text ? .text : .hex
+    }
+
+    /// HTML and Markdown files are shown as pages (7, and at first): "html" or "markdown".
+    static func pageFormat(for url: URL) -> String? {
+        switch url.pathExtension.lowercased() {
+        case "html", "htm", "xhtml", "shtml": "html"
+        case "md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "mdtext": "markdown"
+        default: nil
+        }
     }
 
     /// Excel 2003 XML by its start: the mso-application instruction before the root

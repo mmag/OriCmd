@@ -3,11 +3,12 @@ import Foundation
 import ImageIO
 import JavaScriptCore
 
-/// Runs highlight.js and reads tables (TableParser) for the Lister. When OriCmd
-/// connects, highlight.js is loaded and this process forbids itself everything (see
-/// `lockDown`) before it reads any message: code run through a flaw in the
-/// JavaScript engine or the XML parser can only answer OriCmd, which checks the
-/// answer and kills this process when its work takes too long.
+/// Runs highlight.js, markdown-it, js-beautify and prettier, formats JSON and XML
+/// (CodeFormatter), reads tables (TableParser) and books (BookParser) for the
+/// Lister. When OriCmd connects, the scripts are loaded and this process forbids
+/// itself everything (see `lockDown`) before it reads any message: code run through
+/// a flaw in the JavaScript engine or a parser can only answer OriCmd, which checks
+/// the answer and kills this process when its work takes too long.
 final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @unchecked Sendable {
     /// highlight.js is used from one queue at a time.
     private let queue = DispatchQueue(label: "ru.themmag.OriCmd.Highlighter")
@@ -62,6 +63,39 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         }
     }
 
+    func markdown(_ text: String, reply: @escaping @Sendable (Data?) -> Void) {
+        queue.async { [self] in
+            guard isLockedDown, let result = context?.objectForKeyedSubscript("oricmdMarkdown")?.call(withArguments: [text]),
+                  result.isString, let html = result.toString() else { return reply(nil) }
+            reply(Data(html.utf8))
+        }
+    }
+
+    func format(_ text: String, language: String, reply: @escaping @Sendable (Data?) -> Void) {
+        queue.async { [self] in
+            guard isLockedDown else { return reply(nil) }
+            switch language {
+            case "json":
+                reply(CodeFormatter.json(text).map { Data($0.utf8) })
+            case "xml":
+                reply(CodeFormatter.xml(text).map { Data($0.utf8) })
+            case "js", "css", "html", "ts", "tsx":
+                guard var result = context?.objectForKeyedSubscript("oricmdFormat")?.call(withArguments: [text, language])
+                else { return reply(nil) }
+                if language.hasPrefix("ts") {
+                    // prettier's promise, settled now that the call has returned.
+                    guard let pending = context?.objectForKeyedSubscript("oricmdPendingResult")?.call(withArguments: [])
+                    else { return reply(nil) }
+                    result = pending
+                }
+                guard result.isString, let formatted = result.toString() else { return reply(nil) }
+                reply(Data(formatted.utf8))
+            default:
+                reply(nil)
+            }
+        }
+    }
+
     private func highlighted(_ text: String, languages: [String]) -> (Data?, Data?) {
         guard isLockedDown, let context else { return (nil, nil) }
         #if DEBUG
@@ -95,7 +129,21 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
             oricmdHighlight("<p class='x'>Текст</p><script>let a = `b${1}`</script>", ["xml"]);
             oricmdHighlight("func f() -> String { \\"Привет\\" }", ["swift"]);
             oricmdLanguageNames();
+            oricmdMarkdown("---\ntitle: Т\n---\n# Заголовок\n\n| a | b |\n|:--|--:|\n| *к* | `к` |\n\n" +
+                "```swift\nlet a = \"б\"\n```\n\n- [x] готово\n- [ ] нет\n\n> <b>HTML</b> &amp; https://пример.рф " +
+                "www.example.com ~~x~~ [с](http://a.b \"t\") ![к](a.png)\n\n1. один\n\n    отступ\n");
+            oricmdFormat("function f(a){return {b:[1,2],c:'д',d:`${a}`}} class X extends Y{#p=1}", "js");
+            oricmdFormat("@media (x){a>b:hover{color:red;content:'ж'}}", "css");
+            oricmdFormat("<!DOCTYPE html><div><p>Т<br></p><script>let a=1</script><style>a{b:c}</style></div>", "html");
+            oricmdFormat("interface U<T>{n:string;a?:number}export default class C implements U<'ж'>{#p=1;" +
+                "constructor(private readonly x:number){} get y():`t${string}`{return `t${this.x}` as const}}" +
+                "enum E{A=1} declare module 'm'{} type F=(a:number)=>void;", "ts");
+            oricmdPendingResult();
+            oricmdFormat("const e=<div className='a'>{b ? <B/> : null}</div>", "tsx");
+            oricmdPendingResult();
             """)
+        _ = CodeFormatter.json(#"{"a": [1, 2.5e3, "ж\"", {}], // c\n "b": {"c": null}}"#)
+        _ = CodeFormatter.xml(#"<?xml version="1.0"?><!DOCTYPE a [<!ENTITY b "c">]><a x="1>"><!-- к --><b>т</b><c/><![CDATA[<>]]></a>"#)
         // The table readers too: the XML parser (libxml2) and regular expressions.
         _ = TableParser.parse(#"<?xml version="1.0" encoding="windows-1251"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Лист"><Table><Row><Cell ss:Index="2" ss:MergeAcross="1"><Data ss:Type="String">Ячейка</Data></Cell></Row></Table></Worksheet></Workbook>"#, format: "spreadsheetml")
         _ = TableParser.parse("<table><tr><td colspan=2 rowspan='2'>Ячейка &amp; &#171;x&#xBB;</td></tr></table>", format: "html")
@@ -145,7 +193,7 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         }
         guard let context = JSContext() else { return nil }
         context.isInspectable = false
-        for name in ["highlight.min", "bridge"] {
+        for name in ["prelude", "highlight.min", "markdown-it.min", "beautifier.min", "prettier.min", "bridge"] {
             guard let url = Bundle.main.url(forResource: name, withExtension: "js"),
                   let script = try? String(contentsOf: url, encoding: .utf8) else { return nil }
             context.evaluateScript(script, withSourceURL: url)

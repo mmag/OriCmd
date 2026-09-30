@@ -162,7 +162,7 @@ shortcuts in parentheses.
 
 | Key | Action |
 |---|---|
-| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once) or a table or an e-book (see below), `W` word wrap; encodings: `8` UTF-8, `U` UTF-16, `A` Windows-1251, `S` DOS (866), `K` KOI8-R, all of them (and Automatically) in the text's context menu — the one used is in the title, kept for `N`/`P`; `H` syntax highlighting on/off (see below); `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
+| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once) or a table, an e-book, a web page or Markdown (see below), `W` word wrap; encodings: `8` UTF-8, `U` UTF-16, `A` Windows-1251, `S` DOS (866), `K` KOI8-R, all of them (and Automatically) in the text's context menu — the one used is in the title, kept for `N`/`P`; `H` syntax highlighting on/off, `F` formatting of JSON, XML and code (see below); `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
 | `F4` | Open in the default text editor (or the program from the associations) |
 | `Shift+F4` | Create a new file and open it in the editor |
 | `F5` | Copy (to the other panel by default) |
@@ -218,6 +218,23 @@ their value in the first one, dates as dates, numbers to the right. `⌘C` copie
 selected rows (tab-separated, as Excel and Numbers paste them), the encodings work
 as for text, `1` shows the text and `7` the table again. The files are read by the
 same locked-down helper as syntax highlighting, and what it returns is checked.
+
+#### Web pages, Markdown and formatting in the viewer
+
+HTML files open as pages and Markdown files as documents (tables, colored code,
+task lists, pictures lying next to the file); `1` shows the source, `7` the page
+again. Pages are shown locked: JavaScript is off, nothing is loaded from the
+network (not even a picture, so a page can't tell anyone it was opened), only
+files of the page's folder and its subfolders show in it, and a link opens in the
+browser only when clicked. Markdown is made into a page by
+[markdown-it](https://github.com/markdown-it/markdown-it) in the same locked-down
+helper as syntax highlighting.
+
+`F` (or Format in the context menu) lays out JSON, XML, JavaScript, TypeScript, CSS
+and HTML for reading, and stays on for the next files: JSON and XML by OriCmd
+itself (comments, the order of keys and broken files kept),
+JavaScript, CSS and HTML by [js-beautify](https://github.com/beautifier/js-beautify),
+TypeScript by [Prettier](https://prettier.io), in the locked-down helper too.
 
 #### Syntax highlighting in the viewer
 

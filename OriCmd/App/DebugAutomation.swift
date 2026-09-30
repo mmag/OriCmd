@@ -1,6 +1,7 @@
 #if DEBUG
 import AppKit
 import ApplicationServices
+import WebKit
 
 /// Development aids driven by environment variables (Debug builds only):
 ///
@@ -279,6 +280,9 @@ enum DebugAutomation {
                 for (index, other) in others.enumerated() {
                     save(other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).png"))
                     saveTexts(of: other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).txt"))
+                    if let web = webView(in: other.contentView) {
+                        await savePage(web, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1)-page"))
+                    }
                 }
             }
             if environment["ORICMD_QUIT"] != nil {
@@ -391,8 +395,11 @@ enum DebugAutomation {
                 }
                 // Return reaches the focused view first unless a text field is being
                 // edited, in which case the default button takes it (as in AppKit).
+                // A web view takes every key as an equivalent; AppKit asks it only
+                // for Command and Control ones.
                 let isReturn = stroke.characters == "\r"
-                if !isReturn || target.firstResponder is NSTextView,
+                let toWebView = target.firstResponder is WKWebView && stroke.modifiers.isDisjoint(with: [.command, .control])
+                if !isReturn || target.firstResponder is NSTextView, !toWebView,
                    target.performKeyEquivalent(with: event) { break }
                 if target.attachedSheet == nil, target.sheetParent == nil,
                    performMenuShortcut(event, in: target) || event.latinized.map({ performMenuShortcut($0, in: target) }) == true {
@@ -533,6 +540,26 @@ enum DebugAutomation {
         FileManager.default.createFile(atPath: placeholder.path, contents: Data(count: size))
         PasteboardPutItemFlavor(board, item, "public.file-url" as CFString,
                                 Data(placeholder.absoluteString.utf8) as CFData, [])
+    }
+
+    private static func webView(in view: NSView?) -> WKWebView? {
+        guard let view else { return nil }
+        return view as? WKWebView ?? view.subviews.lazy.compactMap(webView(in:)).first
+    }
+
+    /// A web page's title, text and its frames' texts (`<path>.txt`: read by OriCmd's
+    /// own script, which runs while the page's are off) and its picture (`<path>.png`).
+    private static func savePage(_ web: WKWebView, to path: String) async {
+        let text = try? await web.callAsyncJavaScript(
+            "return [document.title, document.body ? document.body.innerText : ''].concat(" +
+            "[...document.querySelectorAll('iframe')].map(f => 'iframe: ' + (f.contentDocument && " +
+            "f.contentDocument.body ? f.contentDocument.body.innerText : ''))).join('\\n')",
+            contentWorld: .defaultClient)
+        try? ((text as? String) ?? "").write(toFile: path + ".txt", atomically: true, encoding: .utf8)
+        if let image = try? await web.takeSnapshot(configuration: nil),
+           let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(filePath: path + ".png"))
+        }
     }
 
     private static func save(_ window: NSWindow, to path: String) {

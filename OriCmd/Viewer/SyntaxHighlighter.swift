@@ -8,6 +8,8 @@ import AppKit
     func languageNames(reply: @escaping @Sendable (Data?) -> Void)
     func table(_ text: String, format: String, reply: @escaping @Sendable (Data?) -> Void)
     func book(_ data: Data, format: String, reply: @escaping @Sendable (Data?) -> Void)
+    func markdown(_ text: String, reply: @escaping @Sendable (Data?) -> Void)
+    func format(_ text: String, language: String, reply: @escaping @Sendable (Data?) -> Void)
 }
 
 /// Syntax highlighting for the Lister. highlight.js runs in the OriCmdHighlighter
@@ -25,6 +27,11 @@ enum SyntaxHighlighter {
     private static let bookTimeLimit: Duration = .seconds(60)
     /// Larger books are not sent.
     static let bookSizeLimit = 100 * 1024 * 1024
+    /// For formatting a text or making a page of Markdown (js-beautify takes some
+    /// seconds for megabytes).
+    private static let formatTimeLimit: Duration = .seconds(20)
+    /// Longer texts are neither formatted nor made into pages.
+    static let formatSizeLimit = 8 * 1024 * 1024
     /// For the service to start; launchd starts it again only some seconds after
     /// it was killed.
     private static let startLimit: Duration = .seconds(15)
@@ -92,6 +99,36 @@ enum SyntaxHighlighter {
         }
         guard case .done(let reply?, _) = outcome else { return nil }
         return await Task.detached { BookDocument(reply) }.value
+    }
+
+    /// `text` (Markdown) as the body of an HTML page, made in the service; nil when
+    /// it is too long, or the service fails, hangs or replies nonsense. The page is
+    /// shown locked (see WebPreview), whatever it holds.
+    static func markdown(_ text: String) async -> String? {
+        guard text.utf8.count <= formatSizeLimit else { return nil }
+        await takeTurn()
+        defer { endTurn() }
+        guard !Task.isCancelled else { return nil }
+        let outcome = await requestTwice(timeLimit: formatTimeLimit) { proxy, answer in
+            proxy.markdown(text) { @Sendable data in answer.give(.done(data, nil)) }
+        }
+        guard case .done(let data?, _) = outcome, data.count <= text.utf8.count * 4 + 1_000_000 else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// `text` laid out for reading in `language` ("json", "xml", "js", "ts", "tsx", "css", "html"),
+    /// done in the service; nil when it is too long, or the service fails, hangs or
+    /// replies nonsense (more than some times the text).
+    static func format(_ text: String, language: String) async -> String? {
+        guard text.utf8.count <= formatSizeLimit else { return nil }
+        await takeTurn()
+        defer { endTurn() }
+        guard !Task.isCancelled else { return nil }
+        let outcome = await requestTwice(timeLimit: formatTimeLimit) { proxy, answer in
+            proxy.format(text, language: language) { @Sendable data in answer.give(.done(data, nil)) }
+        }
+        guard case .done(let data?, _) = outcome, data.count <= text.utf8.count * 8 + 1_000_000 else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     /// A request, once more on a new connection when the service went away (not

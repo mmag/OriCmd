@@ -2291,6 +2291,16 @@
         }
       }
     },
+    "Format": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Форматировать"
+          }
+        }
+      }
+    },
     "Forward": {
       "localizations": {
         "ru": {
@@ -5847,6 +5857,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "папка"
+          }
+        }
+      }
+    },
+    "formatted": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отформатировано"
           }
         }
       }

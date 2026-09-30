@@ -578,6 +578,63 @@ check "Lister: TypeScript .ts is colored text" "grep -q 'interface User' build/s
 run tsvideo "alt+c wait text:lip.ts escape f3 wait wait wait"
 check "Lister: an MPEG transport stream .ts is not text" "[ \"\$(wc -l < build/shots/reg-tsvideo-win1.txt)\" -le 1 ]"
 
+# HTML and Markdown as pages, locked: JavaScript off, nothing from the network (a
+# server on localhost logs whatever reaches it: nothing may), only files of the page's
+# folder (a symlink out of it is refused); 1 shows the source, colored.
+scripts/test/mkdata.sh
+mkdir -p $L/site/img && cp $L/picture.png $L/site/img/pic.png
+echo "SECRET-OUTSIDE" > $L/outside.txt; echo "INSIDE-TEXT" > $L/site/inside.txt; ln -s ../outside.txt $L/site/link.txt
+cat > $L/site/page.html <<'EOF'
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Страница</title>
+<link rel="preconnect" href="http://127.0.0.1:8765/preconnect"><link rel="stylesheet" href="http://127.0.0.1:8765/leak.css">
+<meta http-equiv="refresh" content="1;url=http://127.0.0.1:8765/refresh">
+<style>@import url("http://127.0.0.1:8765/import.css"); body { background: url("http://127.0.0.1:8765/bg.png"); }</style>
+<script>document.title = "SCRIPT-RAN";</script></head><body onload="document.title='ONLOAD-RAN'">
+<h1>Заголовок страницы</h1><img src="img/pic.png"><img src="http://127.0.0.1:8765/leak.png">
+<iframe src="http://127.0.0.1:8765/frame"></iframe><iframe src="inside.txt"></iframe><iframe src="link.txt"></iframe>
+<iframe src="../outside.txt"></iframe><video src="http://127.0.0.1:8765/video.mp4" autoplay></video></body></html>
+EOF
+printf -- '---\ntitle: Проба\n---\n# Заголовок Markdown\n\n| Колонка | Число |\n|:--|--:|\n| один | 1 |\n\n```swift\nlet a = "б"\n```\n\n- [x] сделано\n- [ ] нет\n\n![](img/pic.png) ![](http://127.0.0.1:8765/md.png)\n<script>document.title="MD-SCRIPT"</script>\n' > $L/site/README.md
+python3 -u -c "
+import http.server
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        print('GET', self.path, flush=True); self.send_response(200); self.end_headers(); self.wfile.write(b'x')
+    def log_message(self, *a): pass
+http.server.HTTPServer(('127.0.0.1', 8765), H).serve_forever()
+" > build/leak.log 2>&1 &
+leakpid=$!
+sleep 1
+page() { cat build/shots/reg-$1-win1-page.txt 2>/dev/null; }
+run webhtml "alt+s wait text:ite enter wait alt+p wait text:age escape f3 wait wait wait wait wait wait"
+run webmd "alt+s wait text:ite enter wait alt+r wait text:EADME escape f3 wait wait wait wait"
+kill $leakpid 2>/dev/null
+check "Lister: HTML shows as a page, its scripts do not run" "page webhtml | head -1 | grep -qx 'Страница' && page webhtml | grep -q 'Заголовок страницы'"
+check "Lister: a page shows files of its folder, not one a symlink leads out to" "page webhtml | grep -q 'iframe: INSIDE-TEXT' && ! page webhtml | grep -q SECRET-OUTSIDE"
+check "Lister: Markdown shows as a page (tables, code, task lists), its scripts do not run" "page webmd | head -1 | grep -qx README && page webmd | grep -q 'Заголовок Markdown' && page webmd | grep -q '☑ сделано' && page webmd | grep -q 'один'"
+check "Lister: pages load nothing from the network" "[ -f build/leak.log ] && [ ! -s build/leak.log ]"
+rm -f build/leak.log
+run websource "alt+s wait text:ite enter wait alt+r wait text:EADME escape f3 wait wait wait 1 wait wait"
+check "Lister: 1 shows the Markdown source, colored" "grep -q '^# Заголовок Markdown' build/shots/reg-websource-win1.txt && grep -q 'text colors: [2-9]' build/shots/reg-websource-win1.txt"
+
+# F lays out JSON, XML, JavaScript, TypeScript (prettier) and HTML in the helper service.
+printf '{"name":"OriCmd","list":[1,{"a":null,"b":[]}],"empty":{}, // note\n"n":-1.5e3}' > $L/data.json
+printf '<?xml version="1.0"?><root a="1>"><item id="x">Текст</item><empty/><group><sub>1</sub></group></root>' > $L/data.xml
+printf 'function f(a,b){if(a){return b.map(x=>x*2)}return null}' > $L/code.js
+printf 'interface U{name:string;age?:number}export function g(u:U):string{return u.name}' > $L/types.ts
+run fmtjson "alt+d wait text:ata.j escape f3 wait wait f wait wait"
+check "Lister: F formats JSON (comments and key order kept)" "grep -q 'formatted' build/shots/reg-fmtjson-win1.txt && grep -qx '    {' build/shots/reg-fmtjson-win1.txt && grep -qx '  \"empty\": {},' build/shots/reg-fmtjson-win1.txt && grep -qx '  // note' build/shots/reg-fmtjson-win1.txt"
+run fmtxml "alt+d wait text:ata.x escape f3 wait wait f wait wait"
+check "Lister: F formats XML" "grep -qx '  <item id=\"x\">Текст</item>' build/shots/reg-fmtxml-win1.txt && grep -qx '    <sub>1</sub>' build/shots/reg-fmtxml-win1.txt"
+run fmtjs "alt+c wait text:ode.j escape f3 wait wait f wait wait"
+check "Lister: F formats JavaScript" "grep -qx '        return b.map(x => x \\* 2)' build/shots/reg-fmtjs-win1.txt"
+run fmtts "alt+t wait text:ypes escape f3 wait wait f wait wait"
+check "Lister: F formats TypeScript" "grep -qx '    age?: number;' build/shots/reg-fmtts-win1.txt"
+run fmthtml "alt+s wait text:ite enter wait alt+p wait text:age escape f3 wait wait wait 1 wait f wait wait"
+check "Lister: F formats the HTML source" "grep -q 'formatted' build/shots/reg-fmthtml-win1.txt && grep -qx '  <meta charset=\"utf-8\">' build/shots/reg-fmthtml-win1.txt"
+run fmtoff "alt+d wait text:ata.j escape f3 wait wait f wait f wait wait"
+check "Lister: F again shows the file as it is" "! grep -q formatted build/shots/reg-fmtoff-win1.txt && grep -q '^{\"name\"' build/shots/reg-fmtoff-win1.txt"
+
 scripts/test/servers.sh start
 connect() { echo "cmd:connectToServer wait cmd+a text:$1 enter wait $2 wait wait"; }
 
