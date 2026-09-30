@@ -280,6 +280,13 @@ printf '// arm64\n_main:\n    adrp x0, msg@PAGE\n    mov  x16, #4\n    svc  #0x8
 run hlasm "alt+b wait text:oot.a escape f3 wait wait wait"
 run hlarm "alt+a wait text:rm.s escape f3 wait wait wait"
 check "Lister highlights assembly (x86 .asm, ARM .s)" "[ \"\$(colors hlasm)\" -ge 4 ] && [ \"\$(colors hlarm)\" -ge 4 ]"
+# A real .xlsx (a zip) shows as Quick Look does; an Excel 2003 XML file named .xlsx
+# is text, colored as XML (not as highlight.js's "xlsx", Excel formulae).
+python3 -c 'import zipfile, sys; z = zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED); z.writestr("[Content_Types].xml", "<Types/>"); z.writestr("xl/workbook.xml", "<workbook/>"); z.close()' $L/book.xlsx
+printf '<?xml version="1.0"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet><Table><Row><Cell><Data>1</Data></Cell></Row></Table></Worksheet></Workbook>\n' > $L/xmlbook.xlsx
+run hlxlsx "alt+b wait text:ook.x escape f3 wait wait wait"
+run hlxmlxlsx "alt+x wait text:mlbook escape f3 wait wait wait"
+check "a real .xlsx previews, an XML one named .xlsx is colored as XML" "[ \"\$(wc -l < build/shots/reg-hlxlsx-win1.txt | tr -d ' ')\" = 0 ] && grep -q '<Workbook' build/shots/reg-hlxmlxlsx-win1.txt && [ \"\$(colors hlxmlxlsx)\" -ge 4 ]"
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
 # The service locks itself down: no file (the user's or the system's), no other

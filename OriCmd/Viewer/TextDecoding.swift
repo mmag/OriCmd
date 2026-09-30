@@ -99,9 +99,13 @@ nonisolated enum TextDecoding {
         }
     }
 
-    /// Text files have no NUL bytes near the start, unless they are UTF-16.
+    /// Text files have no NUL bytes near the start, unless they are UTF-16; zip
+    /// files (Office documents) and OLE ones (old Office documents) never are.
     static func looksLikeText(_ data: Data) -> Bool {
-        !data.prefix(8192).contains(0) || utf16ByteOrder(of: data) != nil
+        if data.starts(with: [0x50, 0x4B, 0x03, 0x04]) || data.starts(with: [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]) {
+            return false
+        }
+        return !data.prefix(8192).contains(0) || utf16ByteOrder(of: data) != nil
     }
 
     /// Valid UTF-8 without its byte order mark; a character cut by the end of

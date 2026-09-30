@@ -305,12 +305,29 @@ enum SyntaxHighlighter {
         if ext == "oricmdprefs" { return ["oricmd-test-prefs"] }
         #endif
         guard !plainExtensions.contains(ext) else { return [] }
+        let markup = start.drop { $0.isWhitespace || $0 == "\u{FEFF}" }
+        // Documents are zip files; one that is text after all is XML (Excel 2003 XML,
+        // an export with the wrong name), never the language named like it (highlight.js
+        // takes xlsx for Excel formulae).
+        if documentExtensions.contains(ext) { return markup.hasPrefix("<") ? ["xml"] : [] }
         if ["asm", "s", "nasm"].contains(ext) { return [assemblyLanguage(start)] }
         var languages = byExtension[ext].map { [$0] } ?? []
         if !ext.isEmpty { languages.append(ext) }
         if languages.isEmpty, let language = interpreterLanguage(firstLine) { languages.append(language) }
+        // Unknown names that turn out to be XML or HTML.
+        let lowercased = markup.prefix(15).lowercased()
+        if lowercased.hasPrefix("<?xml") || lowercased.hasPrefix("<!doctype html") || lowercased.hasPrefix("<html") {
+            languages.append("xml")
+        }
         return languages
     }
+
+    /// Office and similar documents (zip files, or XML at most).
+    private static let documentExtensions: Set<String> = [
+        "xlsx", "xlsm", "xlsb", "xls", "xlt", "xltx", "xltm", "docx", "docm", "doc", "dot", "dotx", "dotm",
+        "pptx", "pptm", "ppt", "pps", "ppsx", "pot", "potx", "odt", "ods", "odp", "odg", "ott", "ots", "otp",
+        "pages", "numbers", "epub",
+    ]
 
     /// Plain text, and files that usually hold keys, certificates or signatures:
     /// never sent to the service, whatever highlight.js would make of them.
