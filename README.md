@@ -23,8 +23,8 @@ keep working as always.
   recent connections; smb, afp, NFS and WebDAV as volumes.
 - **Tools:** viewer (`F3`) for text (UTF-8, UTF-16, Windows-1251, DOS, KOI8-R
   and other encodings) with syntax highlighting of code in about 190 languages,
-  tables (Excel 2003 XML, HTML exports, CSV), hex and Quick Look (office documents
-  too), compare files by content, synchronize directories, multi-rename, find
+  tables (Excel 2003 XML, HTML exports, CSV), e-books (FB2, EPUB, MOBI/AZW3,
+  DjVu), hex and Quick Look (office documents too), compare files by content, synchronize directories, multi-rename, find
   files, checksums, attributes, the Finder's Get Info.
 - **Make it yours:** your own keyboard shortcuts (including import from
   `wincmd.ini`), a Start menu, programs for `Enter`/`F3`/`F4` by file mask, a
@@ -162,7 +162,7 @@ shortcuts in parentheses.
 
 | Key | Action |
 |---|---|
-| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once) or a table (see below), `W` word wrap; encodings: `8` UTF-8, `U` UTF-16, `A` Windows-1251, `S` DOS (866), `K` KOI8-R, all of them (and Automatically) in the text's context menu — the one used is in the title, kept for `N`/`P`; `H` syntax highlighting on/off (see below); `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
+| `F3` | View (Lister): `1` text, `3` hex, `7` Quick Look (images, PDF, media and office documents — Word, Excel, PowerPoint, Pages, Numbers, Keynote, OpenDocument — open in it at once) or a table or an e-book (see below), `W` word wrap; encodings: `8` UTF-8, `U` UTF-16, `A` Windows-1251, `S` DOS (866), `K` KOI8-R, all of them (and Automatically) in the text's context menu — the one used is in the title, kept for `N`/`P`; `H` syntax highlighting on/off (see below); `N`/`P` next/previous file, `F7`/`⌘F` find, `F3`/`⇧F3` find next/previous, `Esc` close |
 | `F4` | Open in the default text editor (or the program from the associations) |
 | `Shift+F4` | Create a new file and open it in the editor |
 | `F5` | Copy (to the other panel by default) |
@@ -193,6 +193,19 @@ shortcuts in parentheses.
 
 Long operations (copy, move, archives) show their progress; the "Background"
 button moves it to a separate window so you can keep working with the panels.
+
+#### E-books in the viewer
+
+FB2 (also `.fb2.zip`), EPUB, MOBI, AZW, AZW3 and PRC books open to read: title and
+author in the window title, chapters, epigraphs, verses, quotes, notes, lists,
+emphasis, pictures and the cover, in a serif column in the middle of the window;
+Contents in the context menu jumps to a chapter, `F7`/`⌘F` finds text, `1` shows
+the file's text. Books protected by DRM are said so. DjVu documents show their
+pages when DjVuLibre is installed (`brew install djvulibre`; its `ddjvu` draws
+them in a sandbox that can read nothing but that file), and their hidden text
+layer otherwise and with `F7`/`⌘F` (`7` shows the pages again). The books are read
+by the same locked-down helper as syntax highlighting, pictures included, and what
+it returns is checked.
 
 #### Tables in the viewer
 
@@ -420,8 +433,9 @@ image and updates the Homebrew cask in `mmag/homebrew-tap` (needs `gh auth login
 
 GPL-3.0 — see [LICENSE](LICENSE). The terminal uses
 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (MIT License), syntax
-highlighting [highlight.js](https://highlightjs.org) (BSD 3-Clause License);
-their notices are in About OriCmd.
+highlighting [highlight.js](https://highlightjs.org) (BSD 3-Clause License); DjVu
+text layers are decompressed as [DjVuLibre](https://djvu.sourceforge.net) does
+(GPL-2.0-or-later, used under version 3); their notices are in About OriCmd.
 
 OriCmd is not affiliated with Ghisler Software GmbH. Total Commander is a
 trademark of its owner.
