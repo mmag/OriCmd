@@ -110,7 +110,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `↑` `↓` `PgUp` `PgDn` `Home` `End` | Move the cursor |
 | `Enter`, double-click (`⌘↓`) | Open a folder / open a file |
 | `Backspace`, `Ctrl+PgUp` (`⌘↑`) | Parent folder |
-| `Ctrl+PgDn` | Go inside a package (`.app` etc.); on a file, open it as an archive whatever its name (`.docx`, `.jar`, a zip named otherwise) — it is never started |
+| `Ctrl+PgDn` | Go inside a package (`.app` etc.); on a file, open it as an archive whatever its name (`.docx`, `.jar`, a zip named otherwise); a file that is no archive stays as it is, it is never started |
 | `Tab` | Switch panels |
 | `Alt+←` / `Alt+→` (`⌘[` / `⌘]`) | Back / forward in the folder history |
 | `Alt+↓` | Recent folders |

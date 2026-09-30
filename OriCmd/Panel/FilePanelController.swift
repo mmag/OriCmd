@@ -945,7 +945,10 @@ final class FilePanelController: NSViewController {
     /// Shows the contents of an archive as a folder (Enter / Ctrl+PgDn on it).
     /// Shows an archive as a folder. It is read in the background (a big tar.gz is
     /// decompressed as a whole), and a folder load still under way is dropped.
-    func openArchive(_ url: URL, inside outer: OuterArchive? = nil, folder: String = "", selecting name: String? = nil) {
+    /// `quietly`: a file tried as an archive whatever its name (Ctrl+PgDn); if it is
+    /// none, nothing happens.
+    func openArchive(_ url: URL, inside outer: OuterArchive? = nil, folder: String = "", selecting name: String? = nil,
+                     quietly: Bool = false) {
         loadGeneration += 1
         let generation = loadGeneration
         // A folder still loading is dropped, with its indicator; Esc stops this one.
@@ -965,9 +968,7 @@ final class FilePanelController: NSViewController {
             do {
                 let (entries, stamp) = try await Self.readArchive(url)
                 // An empty file passes for an empty archive: not unless named as one.
-                guard !entries.isEmpty || ArchiveReader.isArchive(url.lastPathComponent) else {
-                    throw ArchiveError(message: String(localized: "It is not an archive."))
-                }
+                guard !entries.isEmpty || !quietly else { throw CancellationError() }
                 guard generation == loadGeneration else { return }
                 listView.setMarked([])
                 // A folder asked for that the archive does not have: its root.
@@ -977,7 +978,7 @@ final class FilePanelController: NSViewController {
             } catch {
                 // An archive in an archive was a temporary copy.
                 if outer != nil { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-                guard generation == loadGeneration else { return }
+                guard generation == loadGeneration, !quietly else { return }
                 Prompt.error(String(localized: "Cannot open archive \u{201C}\(url.lastPathComponent)\u{201D}"), error,
                              in: view.window)
             }
@@ -1126,7 +1127,8 @@ final class FilePanelController: NSViewController {
                     try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
                     return
                 }
-                openArchive(url, inside: OuterArchive(location: archive, name: item.name))
+                openArchive(url, inside: OuterArchive(location: archive, name: item.name),
+                            quietly: !ArchiveReader.isArchive(item.name))
             }
         } else {
             Task {
@@ -1629,8 +1631,8 @@ final class FilePanelController: NSViewController {
             goToParent()
         } else if !item.isDirectory && (ArchiveReader.isArchive(item.name) || enteringPackages) {
             // Ctrl+PgDn tries any file as an archive (a .docx, a .jar, a zip named
-            // otherwise) and never starts it.
-            openArchive(item.url)
+            // otherwise) and never starts it; a file that is none stays as it is.
+            openArchive(item.url, quietly: !ArchiveReader.isArchive(item.name))
         } else if item.isFolder || (enteringPackages && item.isDirectory) {
             load(item.url)
         } else {

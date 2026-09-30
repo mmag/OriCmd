@@ -714,7 +714,8 @@ run taborder "cmd+t wait alt+a wait text:lpha enter wait droptab:left:1:left:0 w
 check "a tab dragged along its bar changes places" "panels taborder | grep -q '^left\*: .*/left/alpha |.*tabs: alpha, left$'"
 
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
-# named .bin or .docx, an archive inside an archive named .dat), or says it is none.
+# named .bin or .docx, an archive inside an archive named .dat); a file that is none
+# stays as it is, without a word.
 scripts/test/mkdata.sh
 cp $L/archive-test.zip $L/packed.bin; cp $L/archive-test.zip $L/report.docx
 printf 'hello world\n' > $L/hello.txt; : > $L/empty.dat
@@ -725,7 +726,7 @@ run cpnested "alt+o wait text:uter escape enter wait wait alt+i wait text:nner e
 check "Ctrl+PgDn opens any archive as one, whatever its name" "panels cpbin | grep -q '^left\\*: .*/packed.bin |' && panels cpdocx | grep -q '^left\\*: .*/report.docx |' && panels cpnested | grep -q '^left\\*: .*/outer.zip/inner.dat |'"
 run cptext "alt+h wait text:ello escape ctrl+pagedown wait wait"
 run cpempty "alt+e wait text:mpty escape ctrl+pagedown wait wait"
-check "Ctrl+PgDn on a file that is no archive says so, starts nothing" "grep -q 'Cannot open archive' build/shots/reg-cptext-sheet.txt && grep -q 'not an archive' build/shots/reg-cpempty-sheet.txt && panels cptext | grep -q 'cursor: hello.txt'"
+check "Ctrl+PgDn on a file that is no archive does nothing (no message, nothing started)" "[ ! -f build/shots/reg-cptext-sheet.png ] && [ ! -f build/shots/reg-cpempty-sheet.png ] && panels cptext | grep -q '^left\\*: .*/left | cursor: hello.txt' && panels cpempty | grep -q '^left\\*: .*/left | cursor: empty.dat'"
 
 # TypeScript shares .ts with MPEG transport streams: text is shown as code, a stream
 # with Quick Look.
