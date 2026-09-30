@@ -87,6 +87,8 @@ final class BookBuilder {
     private var keepsSpaces = false
 
     var isEmpty: Bool { blocks.isEmpty && open == nil && notice.isEmpty && pages.isEmpty }
+    /// No more text or paragraphs are taken: readers can stop.
+    var isFull: Bool { textBytes >= Self.maxTextBytes || blocks.count >= Self.maxBlocks || runCount >= Self.maxRuns }
 
     /// Starts a paragraph of `kind` (ending one still open).
     func begin(_ kind: Kind, level: Int = 0) {

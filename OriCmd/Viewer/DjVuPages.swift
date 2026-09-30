@@ -3,8 +3,10 @@ import AppKit
 /// DjVu pages as pictures, drawn by DjVuLibre's ddjvu when it is installed
 /// (`brew install djvulibre`). ddjvu is a stranger's decoder working on a
 /// stranger's file, so it runs in a sandbox that allows nothing but reading its
-/// own libraries, the system's and that one file (no network, no other files, no
-/// other programs), writes the picture to a pipe, and is stopped after 20 seconds.
+/// own libraries and the system's (no network, no files, no other programs); the
+/// document comes on its standard input, opened by OriCmd, the picture goes to a
+/// pipe and is taken only up to the size asked for, and ddjvu is killed after 20
+/// seconds.
 nonisolated enum DjVuPages {
     /// ddjvu, where Homebrew, MacPorts or a manual install put it.
     static let program: URL? = {
@@ -19,52 +21,131 @@ nonisolated enum DjVuPages {
     }()
 
     private static let timeLimit: Duration = .seconds(20)
+    /// The largest picture asked for; taller pages are drawn smaller.
+    static let maxWidth = 4096, maxHeight = 8192
 
     /// Page `page` (from 0) of `file`, fitted into `width`×`height` pixels (off the
     /// main thread: it waits for ddjvu).
     @concurrent
     static func render(_ file: URL, page: Int, width: Int, height: Int) async -> CGImage? {
-        guard let program, width > 0, height > 0, width <= 4096, height <= 8192 else { return nil }
+        guard let program, width > 0, height > 0, width <= maxWidth, height <= maxHeight,
+              let document = try? FileHandle(forReadingFrom: file) else { return nil }
+        defer { try? document.close() }
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/sandbox-exec")
-        process.arguments = ["-p", profile(program: program, file: file), program.path, "-format=ppm",
-                             "-page=\(page + 1)", "-size=\(width)x\(height)", file.path, "-"]
+        process.arguments = ["-p", profile(program: program), program.path, "-format=ppm",
+                             "-page=\(page + 1)", "-size=\(width)x\(height)", "-", "-"]
         // DjVuLibre reads the current folder when it starts: the root, which is allowed.
         process.currentDirectoryURL = URL(filePath: "/")
         let output = Pipe()
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
-        process.standardInput = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-        let reading = Task.detached { output.fileHandleForReading.readDataToEndOfFile() }
+        process.standardInput = document
+        // The header and the pixels of the largest picture that would be taken.
+        let reading = Reading(limit: 64 + (width + 2) * (height + 2) * 3)
+        output.fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                handle.readabilityHandler = nil
+                reading.finish(.output)
+            } else if !reading.append(chunk), process.isRunning {
+                // More than a picture that size: no picture at all.
+                kill(process.processIdentifier, SIGKILL)
+            }
+        }
+        process.terminationHandler = { _ in reading.finish(.process) }
+        do {
+            try process.run()
+        } catch {
+            output.fileHandleForReading.readabilityHandler = nil
+            return nil
+        }
+        // Asked to stop after the time limit, then made to.
         let watchdog = Task.detached {
             try? await Task.sleep(for: timeLimit)
-            if process.isRunning { process.terminate() }
+            guard !Task.isCancelled, process.isRunning else { return }
+            process.terminate()
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled, process.isRunning else { return }
+            kill(process.processIdentifier, SIGKILL)
         }
-        let data = await reading.value
-        process.waitUntilExit()
+        await reading.wait()
         watchdog.cancel()
-        guard process.terminationStatus == 0 else { return nil }
+        guard process.terminationReason == .exit, process.terminationStatus == 0, let data = reading.data else { return nil }
         return image(fromPPM: data, maxWidth: width, maxHeight: height)
     }
 
-    /// Allows nothing but running ddjvu from its folder with its libraries (Homebrew,
-    /// /usr/local or MacPorts keep them near), reading the system's files and `file`.
-    private static func profile(program: URL, file: URL) -> String {
+    /// ddjvu's output, taken up to a limit, and the ends waited for (the output
+    /// closed, the process gone), without holding a thread.
+    private final class Reading: @unchecked Sendable {
+        enum End { case output, process }
+        private let lock = NSLock()
+        private let limit: Int
+        private var buffer = Data()
+        private var overflowed = false
+        private var ended: Set<End> = []
+        private var waiting: CheckedContinuation<Void, Never>?
+
+        init(limit: Int) {
+            self.limit = limit
+        }
+
+        /// Whether the chunk was taken (false once past the limit).
+        func append(_ chunk: Data) -> Bool {
+            lock.withLock {
+                guard !overflowed, buffer.count + chunk.count <= limit else {
+                    overflowed = true
+                    buffer = Data()
+                    return false
+                }
+                buffer.append(chunk)
+                return true
+            }
+        }
+
+        var data: Data? { lock.withLock { overflowed ? nil : buffer } }
+
+        func finish(_ end: End) {
+            let continuation: CheckedContinuation<Void, Never>? = lock.withLock {
+                ended.insert(end)
+                guard ended.count == 2 else { return nil }
+                defer { waiting = nil }
+                return waiting
+            }
+            continuation?.resume()
+        }
+
+        func wait() async {
+            await withCheckedContinuation { continuation in
+                let done = lock.withLock {
+                    if ended.count == 2 { return true }
+                    waiting = continuation
+                    return false
+                }
+                if done { continuation.resume() }
+            }
+        }
+    }
+
+    /// Allows nothing but running ddjvu with its libraries (in its own folder's
+    /// lib/, or Homebrew's, /usr/local's or MacPorts' installed packages) and
+    /// reading the system's files; no file literal is needed: the document comes
+    /// on the standard input.
+    private static func profile(program: URL) -> String {
         func quoted(_ path: String) -> String {
             "\"" + path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
         }
-        let prefix = program.deletingLastPathComponent().deletingLastPathComponent().path
-        var readable = ["(literal \"/\")", "(literal \(quoted(file.resolvingSymlinksInPath().path)))",
-                        "(literal \(quoted(file.path)))", "(subpath \"/usr/lib\")", "(subpath \"/usr/share\")",
-                        "(subpath \"/System\")", "(subpath \"/private/var/db/dyld\")", "(literal \"/dev/urandom\")",
-                        "(subpath \(quoted(prefix)))"]
+        let prefix = program.deletingLastPathComponent().deletingLastPathComponent()
+        var readable = ["(literal \"/\")", "(literal \(quoted(program.path)))", "(subpath \"/usr/lib\")",
+                        "(subpath \"/usr/share\")", "(subpath \"/System\")", "(subpath \"/private/var/db/dyld\")",
+                        "(literal \"/dev/urandom\")", "(subpath \(quoted(prefix.appending(path: "lib").path)))"]
         for root in ["/opt/homebrew", "/usr/local", "/opt/local"] where program.path.hasPrefix(root + "/") {
-            readable.append("(subpath \(quoted(root)))")
+            for folder in ["Cellar", "opt", "lib"] {
+                readable.append("(subpath \(quoted(root + "/" + folder)))")
+            }
         }
         return "(version 1)(deny default)(allow process-exec (literal \(quoted(program.path))))"
             + "(allow file-read* " + readable.joined(separator: " ") + ")"
-            + "(allow file-read-metadata)(allow sysctl-read)"
     }
 
     /// A binary PPM (P6, 8 bits) no larger than asked, as a picture; nil otherwise.
@@ -108,6 +189,12 @@ final class DjVuPagesView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private var order: [Int] = []
     private var drawing: Set<Int> = []
     private var queue: [Int] = []
+    /// Whether a page was drawn yet; if the first one tried fails, `onFailure` says so.
+    private var drewPage = false
+    private var reportedFailure = false
+    var onFailure: (() -> Void)?
+    /// Pages drawn so far (for the regression checks).
+    private(set) var drawnCount = 0
     private static let kept = 24
     private static let gap: CGFloat = 12
 
@@ -163,7 +250,8 @@ final class DjVuPagesView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         let page = pages[row]
         guard page.width > 0, page.height > 0 else { return pageWidth * 1.4 }
-        return pageWidth * CGFloat(page.height) / CGFloat(page.width)
+        // A crafted size (1 × 65535) would make a row millions of points tall.
+        return pageWidth * min(max(CGFloat(page.height) / CGFloat(page.width), 0.05), 20)
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
@@ -188,15 +276,29 @@ final class DjVuPagesView: NSView, NSTableViewDataSource, NSTableViewDelegate {
             guard table.rows(in: table.visibleRect).contains(row) || table.visibleRect.isEmpty else { continue }
             drawing.insert(row)
             let scale = window?.backingScaleFactor ?? 2
-            let width = Int(pageWidth * scale)
-            let height = Int(self.tableView(table, heightOfRow: row) * scale)
+            var width = Int(pageWidth * scale)
+            var height = Int(self.tableView(table, heightOfRow: row) * scale)
+            // Tall pages are drawn smaller (and shown enlarged).
+            if height > DjVuPages.maxHeight {
+                width = max(width * DjVuPages.maxHeight / height, 1)
+                height = DjVuPages.maxHeight
+            }
+            width = min(width, DjVuPages.maxWidth)
             let file = self.file
             Task {
                 let image = await DjVuPages.render(file, page: row, width: width, height: height)
                 drawing.remove(row)
+                if image == nil, !drewPage, !reportedFailure {
+                    // ddjvu cannot draw this document: its text instead.
+                    reportedFailure = true
+                    onFailure?()
+                    return
+                }
                 if let image {
-                    images[row] = NSImage(cgImage: image, size: NSSize(width: CGFloat(image.width) / scale,
-                                                                       height: CGFloat(image.height) / scale))
+                    drewPage = true
+                    drawnCount += 1
+                    images[row] = NSImage(cgImage: image, size: NSSize(width: pageWidth,
+                                                                       height: self.tableView(table, heightOfRow: row)))
                     order.append(row)
                     if order.count > Self.kept { images[order.removeFirst()] = nil }
                     table.reloadData(forRowIndexes: IndexSet(integer: row), columnIndexes: IndexSet(integer: 0))

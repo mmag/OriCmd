@@ -25,8 +25,11 @@ enum SyntaxHighlighter {
     private static let tableTimeLimit: Duration = .seconds(20)
     /// For reading a book (with its pictures).
     private static let bookTimeLimit: Duration = .seconds(60)
-    /// Larger books are not sent.
-    static let bookSizeLimit = 100 * 1024 * 1024
+    /// Larger books are not sent; scanned DjVu books are often larger (the service
+    /// only reads their page sizes and text layers).
+    static func bookSizeLimit(for format: String) -> Int {
+        format == "djvu" ? 400 * 1024 * 1024 : 100 * 1024 * 1024
+    }
     /// For formatting a text or making a page of Markdown (js-beautify takes some
     /// seconds for megabytes).
     private static let formatTimeLimit: Duration = .seconds(20)
@@ -90,7 +93,7 @@ enum SyntaxHighlighter {
     /// it cannot be read, or the service fails, hangs or replies nonsense (the reply
     /// is checked as a stranger's, see BookDocument).
     static func book(_ data: Data, format: String) async -> BookDocument? {
-        guard data.count <= bookSizeLimit else { return nil }
+        guard data.count <= bookSizeLimit(for: format) else { return nil }
         await takeTurn()
         defer { endTurn() }
         guard !Task.isCancelled else { return nil }

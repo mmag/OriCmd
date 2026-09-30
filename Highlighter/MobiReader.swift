@@ -6,11 +6,12 @@ import Foundation
 /// HUFF/CDIC compressed, then read as HTML (`HTMLBookReader`) with its pictures from
 /// the image records. KF8 (AZW3) text is its first flow. Books protected by DRM
 /// can't be read: the notice says so. Every read is bounds-checked; the text is
-/// at most 64 MB.
+/// at most 64 MB of HTML, or 24 MB of plain text.
 final class MobiReader {
     private let builder: BookBuilder
     private let data: Data
     private var records: [Range<Int>] = []
+    /// HTML: markup takes its share; the text itself stops at BookBuilder's limit.
     private static let maxText = 64 * 1024 * 1024
     private static let noIndex = 0xFFFF_FFFF
 
@@ -42,12 +43,13 @@ final class MobiReader {
         let decoded = book.encoding == 65001
             ? String(decoding: text, as: UTF8.self)
             : String(data: Data(text), encoding: .windowsCP1252) ?? String(decoding: text, as: UTF8.self)
-        var pictures: [Int: Int] = [:]
+        // Pictures read, and those that could not be (not tried again for every mention).
+        var pictures: [Int: Int?] = [:]
         func picture(_ number: Int) -> Int? {
-            guard number >= 0, book.firstImage != Self.noIndex else { return nil }
+            guard (0..<65_536).contains(number), book.firstImage != Self.noIndex else { return nil }
             let recordIndex = book.firstImage + number
             if let index = pictures[recordIndex] { return index }
-            guard let range = record(recordIndex), let index = builder.addImage(data[range]) else { return nil }
+            let index = record(recordIndex).flatMap { builder.addImage(data[$0]) }
             pictures[recordIndex] = index
             return index
         }
@@ -57,12 +59,13 @@ final class MobiReader {
         }
         HTMLBookReader(builder).read(decoded) { source in
             // MOBI 6: recindex (from 1); KF8: kindle:embed:XXXX (base 32, from 1).
-            if source.hasPrefix("recindex:"), let number = Int(source.dropFirst(9)) {
+            // Numbers checked before any arithmetic (a huge one would trap).
+            if source.hasPrefix("recindex:"), let number = Int(source.dropFirst(9)), (1...65_536).contains(number) {
                 return picture(number - 1)
             }
             if let range = source.range(of: "kindle:embed:") {
                 let digits = source[range.upperBound...].prefix { $0.isLetter || $0.isNumber }
-                guard let number = Int(digits, radix: 32) else { return nil }
+                guard digits.count <= 4, let number = Int(digits, radix: 32), (1...65_536).contains(number) else { return nil }
                 return picture(number - 1)
             }
             return nil
@@ -247,12 +250,17 @@ final class MobiReader {
             let bytes = [UInt8](data[range])
             guard let piece = compression == 2 ? Self.palmDOC(bytes) : bytes else { return }
             text += piece
-            if text.count > Self.maxText { break }
+            if text.count > BookBuilder.maxTextBytes { break }
         }
         builder.title = string(at: 0, length: 32)?.trimmingCharacters(in: CharacterSet(charactersIn: "\0 ")) ?? ""
         let decoded = String(data: Data(text), encoding: .utf8)
             ?? String(data: Data(text), encoding: .windowsCP1252) ?? ""
-        for line in decoded.split(whereSeparator: \.isNewline) {
+        // A line at a time, up to what the book takes.
+        var rest = Substring(decoded)
+        while !rest.isEmpty, !builder.isFull {
+            let line = rest.prefix { !$0.isNewline }
+            rest = rest[line.endIndex...].drop { $0.isNewline }
+            guard !line.isEmpty else { continue }
             builder.begin(.paragraph)
             builder.text(String(line))
         }
@@ -291,9 +299,17 @@ struct HuffCdic {
     private var table: [(length: Int, terminal: Bool, maxCode: UInt64)] = []
     private var minCodes: [UInt64] = [0]
     private var maxCodes: [UInt64] = [0]
-    private var phrases: [(bytes: [UInt8], done: Bool)] = []
+    /// The CDIC records, and each phrase as where it lies in one of them (many phrases
+    /// may point at the same bytes: copies could take any amount of memory); a
+    /// phrase that is itself compressed is kept unpacked once needed.
+    private var dictionaries: [[UInt8]] = []
+    private var phrases: [(record: Int, range: Range<Int>, done: Bool)] = []
+    private var unpacked: [Int: [UInt8]] = [:]
+    private var unpackedBytes = 0
     private var unpacking: Set<Int> = []
     private var produced = 0
+    private static let maxPhrases = 2_000_000
+    private static let maxUnpackedBytes = 64 * 1024 * 1024
 
     init?(_ records: [Data]) {
         guard let huff = records.first.map({ [UInt8]($0) }), huff.count >= 24,
@@ -321,6 +337,7 @@ struct HuffCdic {
             guard cdic.count >= 16, Array(cdic[0..<8]) == Array("CDIC".utf8) + [0, 0, 0, 0x10],
                   let count = be32(cdic, 8), let bits = be32(cdic, 12), bits < 32 else { return nil }
             let entries = min(1 << Int(bits), max(Int(count) - phrases.count, 0))
+            guard phrases.count + entries <= Self.maxPhrases else { return nil }
             for entry in 0..<entries {
                 guard entry * 2 + 18 <= cdic.count else { return nil }
                 let offset = Int(cdic[16 + entry * 2]) << 8 | Int(cdic[17 + entry * 2])
@@ -328,8 +345,9 @@ struct HuffCdic {
                 let header = Int(cdic[16 + offset]) << 8 | Int(cdic[17 + offset])
                 let length = header & 0x7FFF
                 guard 18 + offset + length <= cdic.count else { return nil }
-                phrases.append((Array(cdic[(18 + offset)..<(18 + offset + length)]), header & 0x8000 != 0))
+                phrases.append((dictionaries.count, (18 + offset)..<(18 + offset + length), header & 0x8000 != 0))
             }
+            dictionaries.append(cdic)
         }
     }
 
@@ -362,16 +380,28 @@ struct HuffCdic {
             if bitsLeft < 0 { break }
             let index = Int(truncatingIfNeeded: (maxCode &- code) >> UInt64(32 - length))
             guard phrases.indices.contains(index) else { return nil }
-            if !phrases[index].done {
-                // A phrase compressed itself: unpacked once, kept.
-                guard !unpacking.contains(index) else { return nil }
-                unpacking.insert(index)
-                guard let phrase = unpack(phrases[index].bytes, depth: depth + 1) else { return nil }
-                unpacking.remove(index)
-                phrases[index] = (phrase, true)
+            let phrase = phrases[index]
+            let count: Int
+            if phrase.done {
+                output += dictionaries[phrase.record][phrase.range]
+                count = phrase.range.count
+            } else {
+                // A phrase compressed itself: unpacked once, kept (within a budget).
+                if unpacked[index] == nil {
+                    guard !unpacking.contains(index) else { return nil }
+                    unpacking.insert(index)
+                    guard let bytes = unpack(Array(dictionaries[phrase.record][phrase.range]), depth: depth + 1)
+                    else { return nil }
+                    unpacking.remove(index)
+                    unpackedBytes += bytes.count
+                    guard unpackedBytes <= Self.maxUnpackedBytes else { return nil }
+                    unpacked[index] = bytes
+                }
+                let bytes = unpacked[index] ?? []
+                output += bytes
+                count = bytes.count
             }
-            output += phrases[index].bytes
-            produced += phrases[index].bytes.count
+            produced += count
             if output.count > 1 << 20 || produced > 256 * 1024 * 1024 { return nil }
         }
         return output

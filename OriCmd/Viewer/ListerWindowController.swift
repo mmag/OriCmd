@@ -468,13 +468,18 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         let url = self.url
         guard let format = bookFormat else { return show(.text) }
         Task {
-            let data = await Self.wholeFile(url, limit: SyntaxHighlighter.bookSizeLimit)
+            let data = await Self.wholeFile(url, limit: SyntaxHighlighter.bookSizeLimit(for: format))
             let book = await data.asyncMap { await SyntaxHighlighter.book($0, format: format) } ?? nil
             guard token == loadToken, mode == .book else { return }
             guard let book else { return show(Self.looksLikeText(url) ? .text : .hex) }
             // DjVu: its pages as pictures when DjVuLibre draws them.
             if format == "djvu", !djvuShowsText, !book.pages.isEmpty, DjVuPages.program != nil, let window {
                 let pages = DjVuPagesView(file: url, pages: book.pages)
+                pages.onFailure = { [weak self] in
+                    guard let self, token == loadToken, mode == .book else { return }
+                    djvuShowsText = true
+                    show(.book)
+                }
                 window.contentView = pages
                 window.makeFirstResponder(pages.firstResponderView)
                 bookTitle = String(localized: "\(book.pages.count) pages")

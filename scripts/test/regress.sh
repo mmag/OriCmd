@@ -448,6 +448,79 @@ if [ -x build/djvulibre/bin/ddjvu ]; then
 else
   echo "skip DjVu pages: no build/djvulibre/bin/ddjvu"
 fi
+# Crafted books (security review): a CDIC whose thousands of entries all name one
+# 32 KB phrase (copies would take gigabytes), picture numbers far out of range (the
+# arithmetic would trap), a DjVu page with 64 text layers of 16 MB each once
+# decompressed (only the last counts, within a budget): each opens at once, the
+# helper neither crashes nor is killed.
+python3 - "$L" <<'PY'
+import struct, sys
+L = sys.argv[1]
+def palmdb(records):
+    table, offset = b'', 78 + len(records) * 8 + 2
+    for r in records:
+        table += struct.pack('>I', offset) + b'\0' * 4
+        offset += len(r)
+    return b'bomb'.ljust(32, b'\0') + b'\0' * 28 + b'BOOKMOBI' + struct.pack('>IIH', 0, 0, len(records)) + table + b'\0\0' + b''.join(records)
+def header(compression, length, huffman=0xFFFFFFFF, count=0, first_image=0xFFFFFFFF):
+    mobi = bytearray(0xE8)
+    mobi[0:4] = b'MOBI'
+    for offset, value in ((4, 0xE8), (0x1C - 16, 65001), (0x24 - 16, 6), (0x6C - 16, first_image),
+                          (0x70 - 16, huffman), (0x74 - 16, count)):
+        struct.pack_into('>I', mobi, offset, value)
+    return struct.pack('>HHIHHHH', compression, 0, length, 1, 4096, 0, 0) + bytes(mobi)
+# 16000 entries, all pointing at one phrase of 32000 bytes of "A".
+huff = b'HUFF' + struct.pack('>III', 0x18, 24, 24 + 1024) + b'\0' * 8 + struct.pack('>I', (255 << 8) | 0x88) * 256 + b'\0' * 256
+entries = 16000
+phrase_at = entries * 2
+cdic = b'CDIC' + struct.pack('>III', 0x10, entries, 14) + struct.pack('>H', phrase_at) * entries \
+    + struct.pack('>H', 0x8000 | 32000) + b'A' * 32000
+text = bytes([255, 254])
+open(L + '/phrases.mobi', 'wb').write(palmdb([header(17480, 2, 2, 2), text, huff, cdic]))
+body = ('<p>Картинки вне всяких номеров.</p><img recindex="-9223372036854775808"><img recindex="9223372036854775807">'
+        '<img src="kindle:embed:7VVVVVVVVVVVV"><img recindex="00000">').encode()
+open(L + '/numbers.mobi', 'wb').write(palmdb([header(1, len(body), first_image=2), body, b'not a picture']))
+PY
+if [ -x build/djvulibre/bin/bzz ]; then
+  python3 -c "import sys; sys.stdout.buffer.write(bytes([0,0,0]) + b'a\x1f' * (8 * 1024 * 1024 - 2))" > build/testdata/layer.txt
+  printf '\x00\x00\x0bБомба.' > build/testdata/last.txt
+  build/djvulibre/bin/bzz -e build/testdata/layer.txt build/testdata/layer.bzz
+  build/djvulibre/bin/bzz -e build/testdata/last.txt build/testdata/last.bzz
+  python3 - "$L" <<'PY'
+import struct, sys
+L = sys.argv[1]
+def chunk(tag, body):
+    return tag + struct.pack('>I', len(body)) + body + (b'\0' if len(body) % 2 else b'')
+big, last = open('build/testdata/layer.bzz', 'rb').read(), open('build/testdata/last.bzz', 'rb').read()
+page = b'DJVU' + chunk(b'INFO', struct.pack('>HHBBHBB', 100, 100, 24, 0, 300, 22, 1)) \
+    + b''.join(chunk(b'TXTz', big) for _ in range(63)) + chunk(b'TXTz', last)
+open(L + '/layers.djvu', 'wb').write(b'AT&T' + chunk(b'FORM', page))
+PY
+fi
+run bkphrases "alt+p wait text:hrases escape f3 wait wait wait"
+run bknumbers "alt+n wait text:umbers.m escape f3 wait wait wait"
+check "a CDIC naming one phrase thousands of times, and picture numbers out of range, are read" "grep -q 'AAAAAAAA' build/shots/reg-bkphrases-win1.txt && grep -q 'Картинки вне всяких номеров.' build/shots/reg-bknumbers-win1.txt && grep -q '^kills: 0' build/shots/reg-bknumbers-highlighter.txt && ! ls ~/Library/Logs/DiagnosticReports | grep -q '^OriCmdHighlighter'"
+if [ -f $L/layers.djvu ]; then
+  run djlayers "alt+l wait text:ayers escape f3 wait wait wait"
+  check "a DjVu page with 64 huge text layers shows its last one at once" "grep -q 'Бомба.' build/shots/reg-djlayers-win1.txt && grep -q '^kills: 0' build/shots/reg-djlayers-highlighter.txt"
+fi
+
+# ddjvu gets the document on its standard input: a DjVu from an archive (a temporary
+# copy under /private/var) is drawn too. A ddjvu that pours out more than a picture,
+# or ignores being asked to stop, is killed; the text layer is shown instead.
+if [ -x build/djvulibre/bin/ddjvu ]; then
+  (cd $L && zip -q djvu.zip scan.djvu)
+  ORICMD_DDJVU=$PWD/build/djvulibre/bin/ddjvu run djarchive "alt+d wait text:jvu.z enter wait wait alt+s wait text:can escape f3 wait wait wait wait wait"
+  check "a DjVu from an archive is drawn by ddjvu" "grep -q 'pages drawn: [1-9]' build/shots/reg-djarchive-win1.txt"
+fi
+mkdir -p build/fakeddjvu/flood/bin build/fakeddjvu/stubborn/bin
+printf '#include <unistd.h>\n#include <string.h>\nint main(void) { static char b[1 << 20]; memset(b, 7, sizeof b); for (;;) if (write(1, b, sizeof b) < 0) return 1; }\n' | clang -x c -o build/fakeddjvu/flood/bin/ddjvu -
+printf '#include <signal.h>\n#include <unistd.h>\nint main(void) { signal(SIGTERM, SIG_IGN); for (;;) pause(); }\n' | clang -x c -o build/fakeddjvu/stubborn/bin/ddjvu -
+ORICMD_DDJVU=$PWD/build/fakeddjvu/flood/bin/ddjvu run djflood "alt+s wait text:can.d escape f3 wait wait wait wait wait"
+check "a ddjvu pouring out data is cut off; the text layer is shown" "grep -q 'Привет, мир!' build/shots/reg-djflood-win1.txt && ! pgrep -f build/fakeddjvu/flood >/dev/null"
+ORICMD_DDJVU=$PWD/build/fakeddjvu/stubborn/bin/ddjvu run djstubborn "alt+s wait text:can.d escape f3 $(printf 'wait %.0s' {1..34})"
+check "a ddjvu ignoring SIGTERM is killed after the time limit; the text layer is shown" "grep -q 'Привет, мир!' build/shots/reg-djstubborn-win1.txt && ! pgrep -f build/fakeddjvu/stubborn >/dev/null"
+pkill -KILL -f "$PWD/build/fakeddjvu/" 2>/dev/null
 run hlhang "alt+s wait text:pin. escape f3 wait wait n wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait wait"
 check "a highlighting that never ends is killed, the next file is highlighted" "head -1 build/shots/reg-hlhang-win1.txt | grep -q 'spin2.swift\\]' && [ \"\$(colors hlhang)\" -ge 5 ]"
 # The service locks itself down: no file (the user's or the system's), no other

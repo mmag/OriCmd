@@ -326,6 +326,7 @@ enum DebugAutomation {
         func texts(in view: NSView) -> [String] {
             var result: [String] = []
             if let field = view as? NSTextField, !field.stringValue.isEmpty { result.append(field.stringValue) }
+            if let pages = view as? DjVuPagesView { result.append("[pages drawn: \(pages.drawnCount)]") }
             if let text = view as? NSTextView, !text.string.isEmpty {
                 result.append(text.string)
                 // How many text colors it shows (syntax highlighting).

@@ -7,18 +7,22 @@ import Foundation
 /// in other files) are said so. Every read is bounds-checked.
 final class DjVuReader {
     private let builder: BookBuilder
-    private let data: [UInt8]
-    private static let maxText = 64 * 1024 * 1024
+    /// The document as it came (big scanned books are not copied).
+    private let data: Data
+    /// Text layers decompressed, all pages together (BZZ expands small chunks a lot).
+    private static let maxDecoded = 64 * 1024 * 1024
     private static let maxPages = 100_000
 
     init(_ builder: BookBuilder, _ data: Data) {
         self.builder = builder
-        self.data = [UInt8](data)
+        self.data = data.startIndex == 0 ? data : Data(data)
     }
 
+    /// A page: its size and where its text layer is (decompressed only when its
+    /// turn comes, while the budget lasts).
     private struct Page {
         var width = 0, height = 0, dpi = 300
-        var text: [UInt8]?
+        var text: (range: Range<Int>, compressed: Bool)?
     }
 
     func read() {
@@ -46,27 +50,41 @@ final class DjVuReader {
         default:
             return
         }
-        var textLeft = Self.maxText
+        builder.pages = pages.map { ($0.width, $0.height, $0.dpi) }
+        var decodedLeft = Self.maxDecoded
         var hasText = false
         for (index, page) in pages.enumerated() {
-            builder.pages.append((page.width, page.height, page.dpi))
-            guard let text = page.text, !text.isEmpty, textLeft > 0 else { continue }
+            guard decodedLeft > 0, !builder.isFull else { break }
+            guard let chunk = page.text, let text = layer(chunk, budget: &decodedLeft), !text.isEmpty else { continue }
             hasText = true
-            textLeft -= text.count
             if pages.count > 1 {
                 builder.begin(.subtitle)
                 builder.text("— \(index + 1) —")
                 builder.end()
             }
-            // Regions, paragraphs and columns end paragraphs; lines flow on.
-            let string = String(decoding: text, as: UTF8.self)
-            for paragraph in string.split(whereSeparator: { "\u{1D}\u{1F}\u{0B}\u{0C}".contains($0) }) {
+            // Regions, paragraphs and columns end paragraphs; lines flow on. A
+            // paragraph at a time, up to what the book takes.
+            var rest = Substring(String(decoding: text, as: UTF8.self))
+            let separators: Set<Character> = ["\u{1D}", "\u{1F}", "\u{0B}", "\u{0C}"]
+            while !rest.isEmpty, !builder.isFull {
+                let paragraph = rest.prefix { !separators.contains($0) }
+                rest = rest[paragraph.endIndex...].drop { separators.contains($0) }
+                guard !paragraph.isEmpty else { continue }
                 builder.begin(.paragraph)
                 builder.text(String(paragraph))
                 builder.end()
             }
         }
         if !hasText { builder.notice = "djvu-no-text" }
+    }
+
+    /// A page's text, decompressed (TXTz) or as it is (TXTa), charged to `budget`.
+    private func layer(_ chunk: (range: Range<Int>, compressed: Bool), budget: inout Int) -> [UInt8]? {
+        let bytes = [UInt8](data[chunk.range])
+        guard chunk.compressed else { return Self.layerText(bytes) }
+        guard let decoded = BZZ.decode(bytes) else { return nil }
+        budget -= decoded.count
+        return Self.layerText(decoded)
     }
 
     /// A page's INFO and text chunks, between `start` and `end`.
@@ -83,10 +101,11 @@ final class DjVuReader {
                 page.height = Int(uint16(at: body + 2) ?? 0)
                 let dpi = Int(data[body + 6]) | Int(data[body + 7]) << 8
                 if (25...6000).contains(dpi) { page.dpi = dpi }
-            case "TXTz":
-                page.text = BZZ.decode(Array(data[body..<(body + Int(length))])).flatMap(Self.layerText)
-            case "TXTa":
-                page.text = Self.layerText(Array(data[body..<(body + Int(length))]))
+                // Turned a quarter (orientation 5 or 6): shown the other way round.
+                if [5, 6].contains(data[body + 9] & 7) { swap(&page.width, &page.height) }
+            case "TXTz", "TXTa":
+                // The last text layer of the page counts.
+                page.text = (body..<(body + Int(length)), id == "TXTz")
             default:
                 break
             }
