@@ -197,9 +197,14 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             guard let ranges = await SyntaxHighlighter.highlight(text, languages: languages),
                   token == loadToken, mode == .text, Self.highlights, let storage = textView.textStorage,
                   storage.length == text.utf16.count else { return }
+            // Each scope's attributes once (there are few scopes and many ranges).
+            var attributesByScope: [String: [NSAttributedString.Key: Any]?] = [:]
             storage.beginEditing()
             for (range, scope) in ranges {
-                if let attributes = SyntaxTheme.attributes(for: scope, font: textFont) {
+                if attributesByScope[scope] == nil {
+                    attributesByScope[scope] = SyntaxTheme.attributes(for: scope, font: textFont)
+                }
+                if let attributes = attributesByScope[scope] ?? nil {
                     storage.addAttributes(attributes, range: range)
                 }
             }

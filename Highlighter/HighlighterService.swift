@@ -1,24 +1,32 @@
 import Foundation
 import JavaScriptCore
 
-/// Runs highlight.js for the Lister. Once highlight.js is loaded, and before any
-/// text comes in, this process forbids itself everything (see `lockDown`): code run
-/// through a flaw in the JavaScript engine can only answer OriCmd, which checks the
-/// answer and kills this process when a highlighting takes too long.
+/// Runs highlight.js for the Lister. When OriCmd connects, highlight.js is loaded
+/// and this process forbids itself everything (see `lockDown`) before it reads any
+/// message: code run through a flaw in the JavaScript engine can only answer
+/// OriCmd, which checks the answer and kills this process when a highlighting takes
+/// too long.
 final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @unchecked Sendable {
     /// highlight.js is used from one queue at a time.
     private let queue = DispatchQueue(label: "ru.themmag.OriCmd.Highlighter")
     private var context: JSContext?
+    /// Set only once `lockDown` succeeded; nothing is highlighted before.
     private var isLockedDown = false
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
+        // Locked down before the connection's first message is even decoded.
+        queue.sync {
+            if !isLockedDown, let context = loadedContext() {
+                isLockedDown = lockDown(context)
+            }
+        }
         connection.exportedInterface = .highlighting
         connection.exportedObject = self
         connection.resume()
         return true
     }
 
-    func highlight(_ text: String, languages: [String], reply: @escaping @Sendable (Data?, [String]?) -> Void) {
+    func highlight(_ text: String, languages: [String], reply: @escaping @Sendable (Data?, Data?) -> Void) {
         queue.async { [self] in
             let (ranges, scopes) = highlighted(text, languages: languages)
             reply(ranges, scopes)
@@ -29,47 +37,19 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         reply(getpid())
     }
 
-    private func highlighted(_ text: String, languages: [String]) -> (Data?, [String]?) {
-        // Nothing is highlighted unless the process could lock itself down.
-        guard let context = loadedContext(), isLockedDown || lockDown(context) else { return (nil, nil) }
+    func languageNames(reply: @escaping @Sendable (Data?) -> Void) {
+        queue.async { [self] in
+            guard isLockedDown, let names = context?.evaluateScript("oricmdLanguageNames()")?.toString() else {
+                return reply(nil)
+            }
+            reply(Data(names.utf8))
+        }
+    }
+
+    private func highlighted(_ text: String, languages: [String]) -> (Data?, Data?) {
+        guard isLockedDown, let context else { return (nil, nil) }
         #if DEBUG
-        // For the regression check that a highlighting which never ends is killed.
-        if languages == ["oricmd-test-hang"] {
-            context.evaluateScript("for (;;) {}")
-        }
-        // For the regression check that this process cannot read files: the text is a
-        // path; one character colored if the file could be read, two if it could not.
-        if languages == ["oricmd-test-files"] {
-            let path = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let ranges: [UInt32] = FileManager.default.contents(atPath: path) != nil ? [0, 1, 0] : [0, 1, 0, 1, 1, 1]
-            return (ranges.withUnsafeBytes { Data($0) }, ["string", "number"])
-        }
-        // For the regression check that this process cannot reach other services (the
-        // pasteboard, LaunchServices…): the text is a service name, colored as above.
-        if languages == ["oricmd-test-lookup"] {
-            typealias LookUp = @convention(c) (mach_port_t, UnsafePointer<CChar>, UnsafeMutablePointer<mach_port_t>)
-                -> kern_return_t
-            var bootstrap: mach_port_t = 0
-            var port: mach_port_t = 0
-            let name = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let reached = task_get_special_port(mach_task_self_, TASK_BOOTSTRAP_PORT, &bootstrap) == KERN_SUCCESS
-                && dlsym(UnsafeMutableRawPointer(bitPattern: -2), "bootstrap_look_up").map {
-                    unsafeBitCast($0, to: LookUp.self)(bootstrap, name, &port) == KERN_SUCCESS
-                } == true
-            let ranges: [UInt32] = reached ? [0, 1, 0] : [0, 1, 0, 1, 1, 1]
-            return (ranges.withUnsafeBytes { Data($0) }, ["string", "number"])
-        }
-        // For the regression check that OriCmd refuses ranges that overlap: the first
-        // two characters, then the second and third.
-        if languages == ["oricmd-test-overlap"] {
-            let ranges: [UInt32] = [0, 2, 0, 1, 2, 1]
-            return (ranges.withUnsafeBytes { Data($0) }, ["string", "number"])
-        }
-        // For the regression check that a service which died and was started again is
-        // still killed when it hangs.
-        if languages == ["oricmd-test-exit"] {
-            exit(0)
-        }
+        if let test = testReply(text, languages: languages, context: context) { return test }
         #endif
         guard let function = context.objectForKeyedSubscript("oricmdHighlight"),
               let result = function.call(withArguments: [text, languages]), result.isObject,
@@ -81,11 +61,12 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         guard let object = JSValueToObject(contextRef, ranges.jsValueRef, &exception),
               let bytes = JSObjectGetTypedArrayBytesPtr(contextRef, object, &exception) else { return (nil, nil) }
         let count = JSObjectGetTypedArrayByteLength(contextRef, object, &exception)
-        return (Data(bytes: bytes, count: count), scopes)
+        // Scope names one a line (they never hold a line break).
+        return (Data(bytes: bytes, count: count), Data(scopes.joined(separator: "\n").utf8))
     }
 
     /// Forbids this process everything — files (system ones too), the network, the
-    /// pasteboard, opening URLs, reaching any other service — once highlight.js is
+    /// pasteboard, opening URLs, looking up any other service — once highlight.js is
     /// loaded; stricter than App Sandbox, which leaves the pasteboard and
     /// LaunchServices open (and cannot be combined with this). First everything the
     /// JavaScript engine loads only when needed (ICU data for case, normalization,
@@ -96,24 +77,30 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
             /\\p{L}+/u.test("Ωμέγα"); /[а-я]+/iu.test("ПРИВЕТ"); "б".localeCompare("а");
             oricmdHighlight("SELECT Имя FROM Таблица -- Коммент", ["sql"]);
             oricmdHighlight("<p class='x'>Текст</p><script>let a = `b${1}`</script>", ["xml"]);
-            oricmdHighlight("func f() -> String { \"Привет\" }", ["swift"]);
+            oricmdHighlight("func f() -> String { \\"Привет\\" }", ["swift"]);
+            oricmdLanguageNames();
             """)
         typealias SandboxInit = @convention(c) (
             UnsafePointer<CChar>, UInt64, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
         ) -> Int32
         // sandbox_init is deprecated but kept: browsers lock their helpers down with it.
         guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "sandbox_init") else { return false }
-        let sandboxInit = unsafeBitCast(symbol, to: SandboxInit.self)
         var error: UnsafeMutablePointer<CChar>?
-        let status = sandboxInit("(version 1) (deny default) (allow sysctl-read)", 0, &error)
+        let status = unsafeBitCast(symbol, to: SandboxInit.self)("(version 1) (deny default)", 0, &error)
         if let error { free(error) }
-        isLockedDown = status == 0
-        return isLockedDown
+        return status == 0
     }
 
     private func loadedContext() -> JSContext? {
         if let context { return context }
+        // JavaScriptCore would otherwise connect to the Web Inspector daemon, and that
+        // connection would outlive the lockdown.
+        typealias DisableAutoStart = @convention(c) () -> Void
+        if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "JSRemoteInspectorDisableAutoStart") {
+            unsafeBitCast(symbol, to: DisableAutoStart.self)()
+        }
         guard let context = JSContext() else { return nil }
+        context.isInspectable = false
         for name in ["highlight.min", "bridge"] {
             guard let url = Bundle.main.url(forResource: name, withExtension: "js"),
                   let script = try? String(contentsOf: url, encoding: .utf8) else { return nil }
@@ -122,4 +109,53 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
         self.context = context
         return context
     }
+
+    #if DEBUG
+    /// Debug-only test languages for the regression checks; nil for the others.
+    private func testReply(_ text: String, languages: [String], context: JSContext) -> (Data?, Data?)? {
+        func reply(_ ranges: [UInt32], _ scopes: String = "string\nnumber") -> (Data?, Data?) {
+            (ranges.withUnsafeBytes { Data($0) }, Data(scopes.utf8))
+        }
+        // One character colored if the probe got through, two if it was refused.
+        let through: [UInt32] = [0, 1, 0], refused: [UInt32] = [0, 1, 0, 1, 1, 1]
+        let argument = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch languages {
+        case ["oricmd-test-hang"]:
+            // A highlighting that never ends: OriCmd must kill this process.
+            context.evaluateScript("for (;;) {}")
+            return (nil, nil)
+        case ["oricmd-test-exit"]:
+            // A service that dies: started again, it must still be killed when it hangs.
+            exit(0)
+        case ["oricmd-test-files"]:
+            // The text is a path: no file may be read.
+            return reply(FileManager.default.contents(atPath: argument) != nil ? through : refused)
+        case ["oricmd-test-lookup"]:
+            // The text is a service name: no service may be looked up.
+            typealias LookUp = @convention(c) (mach_port_t, UnsafePointer<CChar>, UnsafeMutablePointer<mach_port_t>)
+                -> kern_return_t
+            var bootstrap: mach_port_t = 0
+            var port: mach_port_t = 0
+            let reached = task_get_special_port(mach_task_self_, TASK_BOOTSTRAP_PORT, &bootstrap) == KERN_SUCCESS
+                && dlsym(UnsafeMutableRawPointer(bitPattern: -2), "bootstrap_look_up").map {
+                    unsafeBitCast($0, to: LookUp.self)(bootstrap, argument, &port) == KERN_SUCCESS
+                } == true
+            return reply(reached ? through : refused)
+        case ["oricmd-test-prefs"]:
+            // The text is a preferences domain: nothing may be written there (a service
+            // taken over must not change what other programs, OriCmd too, will run).
+            CFPreferencesSetAppValue("probe" as CFString, "written" as CFString, argument as CFString)
+            let written = CFPreferencesAppSynchronize(argument as CFString)
+            return reply(written ? through : refused)
+        case ["oricmd-test-overlap"]:
+            // Ranges that overlap (the first two characters, then the second and third).
+            return reply([0, 2, 0, 1, 2, 1])
+        case ["oricmd-test-longscope"]:
+            // A scope name far too long (hashed once a range, it could stall OriCmd).
+            return reply([0, 1, 0, 1, 1, 1], "string\n" + String(repeating: "x", count: 100_000))
+        default:
+            return nil
+        }
+    }
+    #endif
 }

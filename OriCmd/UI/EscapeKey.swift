@@ -13,6 +13,9 @@ enum EscapeKey {
 
     static func install() {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            #if DEBUG
+            if DebugAutomation.ignoresRealInput { return event }
+            #endif
             guard let window = NSApp.keyWindow, handle(event, in: window) else { return event }
             return nil
         }

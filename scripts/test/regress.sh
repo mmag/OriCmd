@@ -292,12 +292,25 @@ probe oricmdlookup com.apple.pasteboard.1 pasteboard
 probe oricmdlookup com.apple.coreservices.launchservicesd launchservices
 check "the highlighting service reads no files, not even system ones" "[ \"\$(colors probe-oricmdfiles-user)\" = 3 ] && [ \"\$(colors probe-oricmdfiles-system)\" = 3 ]"
 check "the highlighting service reaches neither the pasteboard nor LaunchServices" "[ \"\$(colors probe-oricmdlookup-pasteboard)\" = 3 ] && [ \"\$(colors probe-oricmdlookup-launchservices)\" = 3 ]"
+# Its connection to the preferences daemon (opened while starting) writes nothing:
+# a service taken over must not change what other programs, OriCmd too, will run.
+defaults delete ru.themmag.OriCmd.probe 2>/dev/null
+probe oricmdprefs ru.themmag.OriCmd.probe prefs
+check "the highlighting service cannot write preferences" "[ \"\$(colors probe-oricmdprefs-prefs)\" = 3 ] && ! defaults read ru.themmag.OriCmd.probe >/dev/null 2>&1"
+defaults delete ru.themmag.OriCmd.probe 2>/dev/null
 # A reply with overlapping ranges (which could keep the main thread coloring for
 # minutes) is refused whole; a service that died and was started again is still
 # killed when it hangs (the next text asks its new process identifier).
 printf 'abcdef\n' > $L/probe.oricmdoverlap
 run hloverlap "alt+p wait text:robe.oricmdo escape f3 wait wait wait wait"
 check "Lister refuses a highlighting reply whose ranges overlap" "[ \"\$(colors hloverlap)\" = 1 ]"
+printf 'ab\n' > $L/probe.oricmdlongscope
+run hllongscope "alt+p wait text:robe.oricmdl escape f3 wait wait wait wait"
+check "Lister refuses a highlighting reply with a scope name far too long" "[ \"\$(colors hllongscope)\" = 1 ]"
+# A text in no language highlight.js knows (a key) never goes to the service.
+printf -- '-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----\n' > $L/secret.pem
+run hlpem "alt+s wait text:ecret escape f3 wait wait wait"
+check "a text in no known language is not sent to the highlighting service" "grep -q '^texts: 0' build/shots/reg-hlpem-highlighter.txt && grep -q 'BEGIN PRIVATE KEY' build/shots/reg-hlpem-win1.txt"
 printf 'x\n' > $L/r1.oricmdexit
 printf 'let x = 1\n' > $L/r2.oricmdhang
 run hlrestart "alt+r wait text:1.o escape f3 wait wait wait wait wait wait wait wait wait wait n $(printf 'wait %.0s' {1..40})"

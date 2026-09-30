@@ -26,3 +26,12 @@ function oricmdHighlight(code, languages) {
   walk(result._emitter.rootNode);
   return { language: language, scopes: scopes, ranges: Uint32Array.from(ranges) };
 }
+
+// Every language name and alias highlight.js knows, one a line.
+function oricmdLanguageNames() {
+  const names = [];
+  for (const name of hljs.listLanguages()) {
+    names.push(name, ...(hljs.getLanguage(name).aliases || []));
+  }
+  return names.join("\n");
+}

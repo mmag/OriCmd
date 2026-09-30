@@ -240,7 +240,7 @@ enum DebugAutomation {
                     sheet = current.attachedSheet
                     suffix += "2"
                 }
-                try? "kills: \(SyntaxHighlighter.kills)\n"
+                try? "kills: \(SyntaxHighlighter.kills)\ntexts: \(SyntaxHighlighter.textsSent)\n"
                     .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-highlighter.txt"),
                            atomically: true, encoding: .utf8)
                 let others = NSApp.windows.filter { $0 !== window && $0.isVisible && $0.sheetParent == nil }
@@ -261,6 +261,10 @@ enum DebugAutomation {
         return view.subviews.lazy.compactMap(textView(in:)).first
     }
 
+    /// Set in a test run: other event monitors (Esc) leave real input alone too; the
+    /// harness hands them its own keys itself.
+    private(set) static var ignoresRealInput = false
+
     /// Mouse events the harness makes carry this number (real ones count from 0).
     private static let harnessEventNumber = 0x0C1D_0000
 
@@ -269,9 +273,11 @@ enum DebugAutomation {
     /// it out of the test folders. The harness's keys go to the windows directly, its
     /// mouse events carry `harnessEventNumber`.
     private static func ignoreRealInput() {
+        ignoresRealInput = true
         let input: NSEvent.EventTypeMask = [
             .keyDown, .keyUp, .flagsChanged, .leftMouseDown, .leftMouseUp, .leftMouseDragged, .rightMouseDown,
             .rightMouseUp, .rightMouseDragged, .otherMouseDown, .otherMouseUp, .otherMouseDragged, .scrollWheel,
+            .magnify, .swipe, .rotate, .smartMagnify, .beginGesture, .endGesture, .pressure,
         ]
         _ = NSEvent.addLocalMonitorForEvents(matching: input) { event in
             let isMouse = event.type != .keyDown && event.type != .keyUp && event.type != .flagsChanged

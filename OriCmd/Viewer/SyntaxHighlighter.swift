@@ -3,8 +3,9 @@ import AppKit
 /// What the OriCmdHighlighter service offers. The same protocol is declared in
 /// Highlighter/Highlighting.swift: keep both alike.
 @objc(ORCHighlighting) protocol Highlighting {
-    func highlight(_ text: String, languages: [String], reply: @escaping @Sendable (Data?, [String]?) -> Void)
+    func highlight(_ text: String, languages: [String], reply: @escaping @Sendable (Data?, Data?) -> Void)
     func processIdentifier(reply: @escaping @Sendable (Int32) -> Void)
+    func languageNames(reply: @escaping @Sendable (Data?) -> Void)
 }
 
 /// Syntax highlighting for the Lister. highlight.js runs in the OriCmdHighlighter
@@ -21,9 +22,13 @@ enum SyntaxHighlighter {
     private static let startLimit: Duration = .seconds(15)
     private static let serviceName = "ru.themmag.OriCmd.Highlighter"
     private static var connection: NSXPCConnection?
+    /// highlight.js's language names and aliases, asked once: a text in none of
+    /// them is not sent to the service at all.
+    private static var knownLanguages: Set<String>?
     #if DEBUG
-    /// Services killed for hanging (for the regression checks).
+    /// Services killed for hanging and texts sent (for the regression checks).
     static var kills = 0
+    static var textsSent = 0
     #endif
 
     /// The colored ranges of `text` in the first of `languages` highlight.js knows;
@@ -35,13 +40,56 @@ enum SyntaxHighlighter {
         await takeTurn()
         defer { endTurn() }
         guard !Task.isCancelled else { return nil }
+        if knownLanguages == nil {
+            knownLanguages = await askLanguageNames()
+        }
+        let languages = languages.filter { language in
+            #if DEBUG
+            if language.hasPrefix("oricmd-test-") { return true }
+            #endif
+            return knownLanguages?.contains(language.lowercased()) == true
+        }
+        guard !languages.isEmpty, !Task.isCancelled else { return nil }
         var outcome = await request(text, languages: languages)
         // Once more on a new connection when the service went away, not after a hang.
         if case .broken = outcome, !Task.isCancelled {
             outcome = await request(text, languages: languages)
         }
-        guard case .done(let data?, let scopes?) = outcome else { return nil }
+        guard case .done(let data?, let scopeData?) = outcome, let scopes = names(in: scopeData) else { return nil }
         return checkedRanges(data, scopes: scopes, length: text.utf16.count)
+    }
+
+    /// Names one a line, as the service sends scopes and languages; nil unless every
+    /// name is short and made of letters, digits and `_ . : + # -` (a taken-over
+    /// service could send huge or odd names to slow OriCmd down).
+    private static func names(in data: Data, limit: Int = 1000) -> [String]? {
+        guard data.count <= 64 * 1024, let text = String(data: data, encoding: .utf8) else { return nil }
+        let names = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:+#-")
+        guard names.count <= limit, names.allSatisfy({ (1...64).contains($0.count) && $0.allSatisfy(allowed.contains) })
+        else { return nil }
+        return names
+    }
+
+    /// The service's language names and aliases; nil (nothing highlighted) when it
+    /// does not answer.
+    private static func askLanguageNames() async -> Set<String>? {
+        let connection = currentConnection()
+        guard await processIdentifier(of: connection) != nil else {
+            drop(connection)
+            return nil
+        }
+        let data: Data? = await withCheckedContinuation { continuation in
+            let answer = Once<Data?>(continuation)
+            let proxy = connection.remoteObjectProxyWithErrorHandler { @Sendable _ in answer.give(nil) } as? Highlighting
+            proxy?.languageNames { @Sendable data in answer.give(data) }
+            if proxy == nil { answer.give(nil) }
+            Task {
+                try? await Task.sleep(for: timeLimit)
+                answer.give(nil)
+            }
+        }
+        return data.flatMap { names(in: $0, limit: 2000) }.map { Set($0.map { $0.lowercased() }) }
     }
 
     /// The ranges of a reply, all or none. The reply is checked as coming from a
@@ -51,7 +99,7 @@ enum SyntaxHighlighter {
     /// times the text.
     private static func checkedRanges(_ data: Data, scopes: [String], length: Int)
         -> [(range: NSRange, scope: String)]? {
-        guard data.count % 12 == 0, data.count / 12 <= 2 * length + 64, scopes.count <= 1000 else { return nil }
+        guard data.count % 12 == 0, data.count / 12 <= 2 * length + 64 else { return nil }
         var ranges: [(range: NSRange, scope: String)] = []
         ranges.reserveCapacity(data.count / 12)
         let valid = data.withUnsafeBytes { bytes -> Bool in
@@ -78,7 +126,7 @@ enum SyntaxHighlighter {
     }
 
     private enum Outcome: Sendable {
-        case done(Data?, [String]?)
+        case done(Data?, Data?)
         case broken
         case timedOut
     }
@@ -92,14 +140,17 @@ enum SyntaxHighlighter {
             drop(connection)
             return .broken
         }
+        #if DEBUG
+        textsSent += 1
+        #endif
         return await withCheckedContinuation { continuation in
             let answer = Once(continuation)
             // XPC calls these on its own queues.
             let proxy = connection.remoteObjectProxyWithErrorHandler { @Sendable _ in
                 answer.give(.broken)
             } as? Highlighting
-            proxy?.highlight(text, languages: languages) { @Sendable data, scopes in
-                answer.give(.done(data, scopes))
+            proxy?.highlight(text, languages: languages) { @Sendable ranges, scopes in
+                answer.give(.done(ranges, scopes))
             }
             if proxy == nil { answer.give(.broken) }
             Task {
@@ -109,10 +160,11 @@ enum SyntaxHighlighter {
         }
     }
 
-    /// The service's process (an XPC service connection has no process identifier
-    /// of its own); nil when it does not start or answer in time.
+    /// The service's process: as the kernel tells once the service answered (a
+    /// taken-over service could tell another one), else as the service tells; nil
+    /// when it does not start or answer in time.
     private static func processIdentifier(of connection: NSXPCConnection) async -> pid_t? {
-        await withCheckedContinuation { continuation in
+        let told: pid_t? = await withCheckedContinuation { continuation in
             let answer = Once<pid_t?>(continuation)
             let proxy = connection.remoteObjectProxyWithErrorHandler { @Sendable _ in answer.give(nil) } as? Highlighting
             proxy?.processIdentifier { @Sendable pid in answer.give(pid) }
@@ -122,6 +174,8 @@ enum SyntaxHighlighter {
                 answer.give(nil)
             }
         }
+        guard let told else { return nil }
+        return connection.processIdentifier > 0 ? connection.processIdentifier : told
     }
 
     private static var isBusy = false
@@ -182,14 +236,19 @@ enum SyntaxHighlighter {
         if self.connection === connection { self.connection = nil }
     }
 
+    /// Whether `pid` runs our service's program, found next to OriCmd's own program
+    /// where it is now (the app may have been moved since it started).
     private static func isService(_ pid: pid_t) -> Bool {
-        var path = [UInt8](repeating: 0, count: 4 * Int(MAXPATHLEN))
-        let length = Int(proc_pidpath(pid, &path, UInt32(path.count)))
-        guard length > 0 else { return false }
-        let program = Bundle.main.bundleURL
-            .appending(path: "Contents/XPCServices/OriCmdHighlighter.xpc/Contents/MacOS/OriCmdHighlighter")
-        return URL(filePath: String(decoding: path.prefix(length), as: UTF8.self)).resolvingSymlinksInPath().path
-            == program.resolvingSymlinksInPath().path
+        func program(of pid: pid_t) -> URL? {
+            var path = [UInt8](repeating: 0, count: 4 * Int(MAXPATHLEN))
+            let length = Int(proc_pidpath(pid, &path, UInt32(path.count)))
+            guard length > 0 else { return nil }
+            return URL(filePath: String(decoding: path.prefix(length), as: UTF8.self)).resolvingSymlinksInPath()
+        }
+        guard let own = program(of: getpid()), let target = program(of: pid) else { return false }
+        let service = own.deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "XPCServices/OriCmdHighlighter.xpc/Contents/MacOS/OriCmdHighlighter")
+        return target.path == service.resolvingSymlinksInPath().path
     }
 
     /// Resumes a waiting task once: with the reply, a failure or the timeout.
@@ -229,6 +288,8 @@ enum SyntaxHighlighter {
         if ext == "oricmdoverlap" { return ["oricmd-test-overlap"] }
         if ext == "oricmdexit" { return ["oricmd-test-exit"] }
         if ext == "oricmdlookup" { return ["oricmd-test-lookup"] }
+        if ext == "oricmdlongscope" { return ["oricmd-test-longscope"] }
+        if ext == "oricmdprefs" { return ["oricmd-test-prefs"] }
         #endif
         guard !plainExtensions.contains(ext) else { return [] }
         if ["asm", "s", "nasm"].contains(ext) { return [assemblyLanguage(start)] }
@@ -306,7 +367,6 @@ extension NSXPCInterface {
         let strings = NSSet(array: [NSArray.self, NSString.self]) as! Set<AnyHashable>
         let selector = #selector(Highlighting.highlight(_:languages:reply:))
         interface.setClasses(strings, for: selector, argumentIndex: 1, ofReply: false)
-        interface.setClasses(strings, for: selector, argumentIndex: 1, ofReply: true)
         return interface
     }
 }

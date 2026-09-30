@@ -13,9 +13,10 @@ keyboard and mouse, so typing elsewhere while its window is in front changes not
   `textmenu` write a context menu to `<name>-menu.txt`). In the Lister of a Debug
   build, test extensions drive the highlighting service: `*.oricmdhang` makes it hang
   (it must be killed), `*.oricmdexit` makes it quit, `*.oricmdoverlap` makes it reply
-  overlapping ranges (OriCmd must refuse them), `*.oricmdfiles` / `*.oricmdlookup`
-  ask it to read the file / reach the service named inside (it must be refused);
-  `<name>-highlighter.txt` counts the services killed. `rightmouse:click:N`, `hold:N`, `drag:N-M` and `ctrlclick:N`
+  overlapping ranges or `*.oricmdlongscope` a huge scope name (OriCmd must refuse
+  both), `*.oricmdfiles` / `*.oricmdlookup` / `*.oricmdprefs` ask it to read the
+  file / reach the service / write the preferences domain named inside (it must be
+  refused); `<name>-highlighter.txt` counts the services killed and the texts sent. `rightmouse:click:N`, `hold:N`, `drag:N-M` and `ctrlclick:N`
   play the right button on panel rows.
   Modifiers: `cmd+`, `shift+`, `alt+`, `ctrl+`, `num+`; `ru+` types the key as the
   Russian layout would (`ru+ctrl+d` sends "в" with the D key code).
