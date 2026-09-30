@@ -713,6 +713,20 @@ check "a panel's only tab dragged to the other panel is copied" "panels tabcopy 
 run taborder "cmd+t wait alt+a wait text:lpha enter wait droptab:left:1:left:0 wait wait"
 check "a tab dragged along its bar changes places" "panels taborder | grep -q '^left\*: .*/left/alpha |.*tabs: alpha, left$'"
 
+# Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
+# named .bin or .docx, an archive inside an archive named .dat), or says it is none.
+scripts/test/mkdata.sh
+cp $L/archive-test.zip $L/packed.bin; cp $L/archive-test.zip $L/report.docx
+printf 'hello world\n' > $L/hello.txt; : > $L/empty.dat
+(cd $L && cp archive-test.zip inner.dat && zip -q outer.zip inner.dat && rm inner.dat)
+run cpbin "alt+p wait text:acked escape ctrl+pagedown wait wait"
+run cpdocx "alt+r wait text:eport escape ctrl+pagedown wait wait"
+run cpnested "alt+o wait text:uter escape enter wait wait alt+i wait text:nner escape ctrl+pagedown wait wait wait"
+check "Ctrl+PgDn opens any archive as one, whatever its name" "panels cpbin | grep -q '^left\\*: .*/packed.bin |' && panels cpdocx | grep -q '^left\\*: .*/report.docx |' && panels cpnested | grep -q '^left\\*: .*/outer.zip/inner.dat |'"
+run cptext "alt+h wait text:ello escape ctrl+pagedown wait wait"
+run cpempty "alt+e wait text:mpty escape ctrl+pagedown wait wait"
+check "Ctrl+PgDn on a file that is no archive says so, starts nothing" "grep -q 'Cannot open archive' build/shots/reg-cptext-sheet.txt && grep -q 'not an archive' build/shots/reg-cpempty-sheet.txt && panels cptext | grep -q 'cursor: hello.txt'"
+
 # TypeScript shares .ts with MPEG transport streams: text is shown as code, a stream
 # with Quick Look.
 printf 'interface User {\n  name: string;\n}\nexport const greet = (u: User): string => `Hi ${u.name}`;\n' > $L/app.ts

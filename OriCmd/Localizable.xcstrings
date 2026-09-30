@@ -2581,6 +2581,16 @@
         }
       }
     },
+    "It is not an archive.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не архив."
+          }
+        }
+      }
+    },
     "Keep options open": {
       "localizations": {
         "ru": {

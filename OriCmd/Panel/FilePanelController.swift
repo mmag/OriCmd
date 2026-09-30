@@ -964,6 +964,10 @@ final class FilePanelController: NSViewController {
             }
             do {
                 let (entries, stamp) = try await Self.readArchive(url)
+                // An empty file passes for an empty archive: not unless named as one.
+                guard !entries.isEmpty || ArchiveReader.isArchive(url.lastPathComponent) else {
+                    throw ArchiveError(message: String(localized: "It is not an archive."))
+                }
                 guard generation == loadGeneration else { return }
                 listView.setMarked([])
                 // A folder asked for that the archive does not have: its root.
@@ -971,6 +975,8 @@ final class FilePanelController: NSViewController {
                 archive = ArchiveLocation(url: url, folder: known ? folder : "", entries: entries, stamp: stamp, outer: outer)
                 showArchiveFolder(selecting: known ? name : nil)
             } catch {
+                // An archive in an archive was a temporary copy.
+                if outer != nil { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
                 guard generation == loadGeneration else { return }
                 Prompt.error(String(localized: "Cannot open archive \u{201C}\(url.lastPathComponent)\u{201D}"), error,
                              in: view.window)
@@ -1101,14 +1107,15 @@ final class FilePanelController: NSViewController {
         delegate?.filePanelDidChangeDirectory(self)
     }
 
-    private func openInArchive(_ item: FileItem) {
+    /// `asArchive`: Ctrl+PgDn, the file is tried as an archive whatever its name.
+    private func openInArchive(_ item: FileItem, asArchive: Bool = false) {
         guard let archive else { return }
         if item.isParent {
             archiveGoUp()
         } else if item.isDirectory {
             self.archive?.folder = archive.path(of: item.name)
             showArchiveFolder(selecting: nil)
-        } else if ArchiveReader.isArchive(item.name) {
+        } else if ArchiveReader.isArchive(item.name) || asArchive {
             // An archive in the archive opens as a folder too, from a temporary copy —
             // unless the panel went elsewhere while it was being extracted.
             let generation = loadGeneration
@@ -1606,6 +1613,9 @@ final class FilePanelController: NSViewController {
                 goToParent()
             } else if item.isDirectory || item.isSymlink {
                 loadRemote(remote.path(of: item.name), selecting: nil)
+            } else if enteringPackages {
+                // Ctrl+PgDn never starts a file; a server's archives are not browsed.
+                NSSound.beep()
             } else {
                 Task {
                     if let url = await downloadToTemporaryFolder(item) {
@@ -1614,10 +1624,12 @@ final class FilePanelController: NSViewController {
                 }
             }
         } else if archive != nil {
-            openInArchive(item)
+            openInArchive(item, asArchive: enteringPackages)
         } else if item.isParent {
             goToParent()
-        } else if !item.isDirectory && ArchiveReader.isArchive(item.name) {
+        } else if !item.isDirectory && (ArchiveReader.isArchive(item.name) || enteringPackages) {
+            // Ctrl+PgDn tries any file as an archive (a .docx, a .jar, a zip named
+            // otherwise) and never starts it.
             openArchive(item.url)
         } else if item.isFolder || (enteringPackages && item.isDirectory) {
             load(item.url)
