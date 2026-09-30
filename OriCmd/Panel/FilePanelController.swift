@@ -1395,6 +1395,8 @@ final class FilePanelController: NSViewController {
             copy.forwardHistory = tab.forwardHistory
             return copy
         }
+        // A terminal still starting would be left behind: the tab waits for it.
+        guard index != activeTabIndex || terminalStart == nil else { return nil }
         if index == activeTabIndex, panelView.terminalPane.hasFocus { focus() }
         tabs[index] = tab
         removeTab(index)

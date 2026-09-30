@@ -248,6 +248,16 @@ final class HighlighterService: NSObject, NSXPCListenerDelegate, Highlighting, @
             CFPreferencesSetAppValue("probe" as CFString, "written" as CFString, argument as CFString)
             let written = CFPreferencesAppSynchronize(argument as CFString)
             return reply(written ? through : refused)
+        case ["oricmd-test-memory"]:
+            // Memory taken without end (64 MB at a time, slowly enough for the watch
+            // to see it): the service must end itself near its limit.
+            var blocks: [UnsafeMutableRawPointer] = []
+            while let block = malloc(64 << 20) {
+                memset(block, 1, 64 << 20)
+                blocks.append(block)
+                usleep(40_000)
+            }
+            return reply([0, 1, 0])
         case ["oricmd-test-overlap"]:
             // Ranges that overlap (the first two characters, then the second and third).
             return reply([0, 2, 0, 1, 2, 1])

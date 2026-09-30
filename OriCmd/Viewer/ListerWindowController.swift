@@ -531,9 +531,12 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             let view = ModelView(model: model)
             window.contentView = view
             window.makeFirstResponder(view.firstResponderView)
-            let size = model.maximum - model.minimum
-            let dimensions = [size.x, size.y, size.z]
-                .map { Double($0).formatted(.number.precision(.significantDigits(1...4))) }.joined(separator: " × ")
+            // 12.5 × 40 × 3, or 6E38 for sizes no one would read in digits.
+            let dimensions = [model.size.x, model.size.y, model.size.z].map { value in
+                value >= 1e7 || (value > 0 && value < 1e-3)
+                    ? value.formatted(.number.notation(.scientific).precision(.significantDigits(1...3)))
+                    : value.formatted(.number.precision(.significantDigits(1...4)))
+            }.joined(separator: " × ")
             modelTitle = dimensions + ", " + String(localized: "triangles: \(model.triangleCount)")
             updateTitle()
         }

@@ -36,8 +36,12 @@ enum SyntaxHighlighter {
     private static let formatTimeLimit: Duration = .seconds(20)
     /// Larger 3D models are not sent (4 million triangles take 200 MB as binary STL).
     static let meshSizeLimit = 256 * 1024 * 1024
-    /// Longer texts are neither formatted nor made into pages.
-    static let formatSizeLimit = 8 * 1024 * 1024
+    /// Longer texts are neither formatted nor made into pages: JSON and XML are laid
+    /// out by OriCmd's own code, in time and memory in proportion to the text; the
+    /// JavaScript libraries can take a gigabyte for a few megabytes made for it.
+    static func formatSizeLimit(for language: String) -> Int {
+        ["json", "xml"].contains(language) ? 8 * 1024 * 1024 : 2 * 1024 * 1024
+    }
     /// For the service to start; launchd starts it again only some seconds after
     /// it was killed.
     private static let startLimit: Duration = .seconds(15)
@@ -111,14 +115,16 @@ enum SyntaxHighlighter {
     /// it is too long, or the service fails, hangs or replies nonsense. The page is
     /// shown locked (see WebPreview), whatever it holds.
     static func markdown(_ text: String) async -> String? {
-        guard text.utf8.count <= formatSizeLimit else { return nil }
+        guard text.utf8.count <= formatSizeLimit(for: "markdown") else { return nil }
         await takeTurn()
         defer { endTurn() }
         guard !Task.isCancelled else { return nil }
         let outcome = await requestTwice(timeLimit: formatTimeLimit) { proxy, answer in
             proxy.markdown(text) { @Sendable data in answer.give(.done(data, nil)) }
         }
-        guard case .done(let data?, _) = outcome, data.count <= text.utf8.count * 4 + 1_000_000 else { return nil }
+        // Colored code is much longer than the code itself (a tag around every token).
+        guard case .done(let data?, _) = outcome, data.count <= min(text.utf8.count * 64 + 1_000_000, 64 * 1024 * 1024)
+        else { return nil }
         return String(data: data, encoding: .utf8)
     }
 
@@ -126,7 +132,7 @@ enum SyntaxHighlighter {
     /// done in the service; nil when it is too long, or the service fails, hangs or
     /// replies nonsense (more than some times the text).
     static func format(_ text: String, language: String) async -> String? {
-        guard text.utf8.count <= formatSizeLimit else { return nil }
+        guard text.utf8.count <= formatSizeLimit(for: language) else { return nil }
         await takeTurn()
         defer { endTurn() }
         guard !Task.isCancelled else { return nil }
@@ -404,6 +410,7 @@ enum SyntaxHighlighter {
         if ext == "oricmdlookup" { return ["oricmd-test-lookup"] }
         if ext == "oricmdlongscope" { return ["oricmd-test-longscope"] }
         if ext == "oricmdprefs" { return ["oricmd-test-prefs"] }
+        if ext == "oricmdmemory" { return ["oricmd-test-memory"] }
         #endif
         guard !plainExtensions.contains(ext) else { return [] }
         let markup = start.drop { $0.isWhitespace || $0 == "\u{FEFF}" }

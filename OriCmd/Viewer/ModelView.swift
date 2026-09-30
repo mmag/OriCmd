@@ -14,11 +14,8 @@ final class ModelView: NSView {
         triangleCount = model.triangleCount
         super.init(frame: .zero)
         let scene = SCNScene()
+        // Centered and of radius 1 already (see MeshDocument).
         let node = SCNNode(geometry: Self.geometry(model))
-        let center = (model.minimum + model.maximum) / 2
-        let radius = max(simd_length(model.maximum - model.minimum) / 2, .leastNormalMagnitude)
-        node.pivot = SCNMatrix4MakeTranslation(CGFloat(center.x), CGFloat(center.y), CGFloat(center.z))
-        node.scale = SCNVector3(1 / CGFloat(radius), 1 / CGFloat(radius), 1 / CGFloat(radius))
         node.eulerAngles.x = -.pi / 2
         scene.rootNode.addChildNode(node)
 

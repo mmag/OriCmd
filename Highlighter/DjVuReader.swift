@@ -78,13 +78,17 @@ final class DjVuReader {
         if !hasText { builder.notice = "djvu-no-text" }
     }
 
-    /// A page's text, decompressed (TXTz) or as it is (TXTa), charged to `budget`.
+    /// A page's text, decompressed (TXTz) or as it is (TXTa), charged to `budget`:
+    /// what decompressing cost, damaged layers too (many pages of layers that
+    /// expand past the limit would otherwise take the service's time for nothing).
     private func layer(_ chunk: (range: Range<Int>, compressed: Bool), budget: inout Int) -> [UInt8]? {
         let bytes = [UInt8](data[chunk.range])
+        budget -= bytes.count
         guard chunk.compressed else { return Self.layerText(bytes) }
-        guard let decoded = BZZ.decode(bytes) else { return nil }
-        budget -= decoded.count
-        return Self.layerText(decoded)
+        var work = 0
+        let decoded = BZZ.decode(bytes, work: &work)
+        budget -= work
+        return decoded.flatMap(Self.layerText)
     }
 
     /// A page's INFO and text chunks, between `start` and `end`.
@@ -262,12 +266,20 @@ struct ZPDecoder {
 /// transform whose bytes are coded by move-to-front ranks with the ZP coder. At
 /// most 16 MB come out; a damaged block stops the reading.
 enum BZZ {
+    /// The decompressed data (at most 16 MB); nil when damaged or larger.
     static func decode(_ input: [UInt8]) -> [UInt8]? {
+        var work = 0
+        return decode(input, work: &work)
+    }
+
+    /// Also counts in `work` the size of every block started, whether or not the
+    /// data turns out whole: what decoding it cost.
+    static func decode(_ input: [UInt8], work: inout Int) -> [UInt8]? {
         var zp = ZPDecoder(input)
         var contexts = [UInt8](repeating: 0, count: 300)
         var output: [UInt8] = []
         while true {
-            guard let block = decodeBlock(&zp, &contexts) else { return nil }
+            guard let block = decodeBlock(&zp, &contexts, work: &work) else { return nil }
             if block.isEmpty { break }
             output += block.dropLast()
             guard output.count <= 16 * 1024 * 1024, !zp.isAtEnd else { return output.count <= 16 * 1024 * 1024 ? output : nil }
@@ -290,10 +302,11 @@ enum BZZ {
     }
 
     /// One block (empty at the end of the stream); nil when damaged.
-    private static func decodeBlock(_ zp: inout ZPDecoder, _ contexts: inout [UInt8]) -> [UInt8]? {
+    private static func decodeBlock(_ zp: inout ZPDecoder, _ contexts: inout [UInt8], work: inout Int) -> [UInt8]? {
         let size = raw(&zp, bits: 24)
         if size == 0 { return [] }
         guard size <= 4096 * 1024, !zp.isAtEnd else { return nil }
+        work += size
         var shift = 0
         if zp.decode() != 0 {
             shift += 1

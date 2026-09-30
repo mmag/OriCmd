@@ -496,6 +496,18 @@ page = b'DJVU' + chunk(b'INFO', struct.pack('>HHBBHBB', 100, 100, 24, 0, 300, 22
     + b''.join(chunk(b'TXTz', big) for _ in range(63)) + chunk(b'TXTz', last)
 open(L + '/layers.djvu', 'wb').write(b'AT&T' + chunk(b'FORM', page))
 PY
+  # 300 pages, each with a text layer that expands past BZZ's 16 MB and fails.
+  python3 -c "import sys; sys.stdout.buffer.write(bytes([0,0,0]) + b'x' * (17 * 1024 * 1024))" > build/testdata/huge.txt
+  build/djvulibre/bin/bzz -e4096 build/testdata/huge.txt build/testdata/huge.bzz
+  python3 - "$L" <<'PY'
+import struct, sys
+L = sys.argv[1]
+def chunk(tag, body):
+    return tag + struct.pack('>I', len(body)) + body + (b'\0' if len(body) % 2 else b'')
+big = open('build/testdata/huge.bzz', 'rb').read()
+page = chunk(b'FORM', b'DJVU' + chunk(b'INFO', struct.pack('>HHBBHBB', 100, 100, 24, 0, 300, 22, 1)) + chunk(b'TXTz', big))
+open(L + '/manypages.djvu', 'wb').write(b'AT&T' + chunk(b'FORM', b'DJVM' + chunk(b'DIRM', bytes([0x81, 0x01, 0x2c])) + page * 300))
+PY
 fi
 run bkphrases "alt+p wait text:hrases escape f3 wait wait wait"
 run bknumbers "alt+n wait text:umbers.m escape f3 wait wait wait"
@@ -503,6 +515,8 @@ check "a CDIC naming one phrase thousands of times, and picture numbers out of r
 if [ -f $L/layers.djvu ]; then
   run djlayers "alt+l wait text:ayers escape f3 wait wait wait"
   check "a DjVu page with 64 huge text layers shows its last one at once" "grep -q 'Бомба.' build/shots/reg-djlayers-win1.txt && grep -q '^kills: 0' build/shots/reg-djlayers-highlighter.txt"
+  run djmany "alt+m wait text:anypages escape f3 wait wait wait wait"
+  check "300 pages of text layers that fail to expand are given up at once" "grep -q 'no text layer' build/shots/reg-djmany-win1.txt && grep -q '^kills: 0' build/shots/reg-djmany-highlighter.txt"
 fi
 
 # ddjvu gets the document on its standard input: a DjVu from an archive (a temporary
@@ -548,12 +562,16 @@ with open(L + '/box.stl', 'w') as f:
         f.write('facet normal 0 0 0\nouter loop\n' + ''.join('vertex %.3E %g %g\n' % v for v in t) + 'endloop\nendfacet\n')
     f.write('endsolid box\n')
 open(L + '/noise.stl', 'wb').write(os.urandom(5000))
+big = 3.0e38
+binary('huge.stl', [((-big, -big, 0), (big, -big, 0), (big, big, 0)), ((-big, -big, 0), (big, big, 0), (-big, big, big))])
 PY
 run stlring "alt+r wait text:ing.s escape f3 wait wait wait"
 check "Lister shows a binary STL in 3D (its size and triangles in the title)" "grep -q '\[model: 4096 triangles\]' build/shots/reg-stlring-win1.txt && head -1 build/shots/reg-stlring-win1.txt | grep -q '80 × 80 × 20, triangles: 4.*096'"
 run stlbox "alt+b wait text:ox.s escape f3 wait wait wait"
 run stlholes "alt+h wait text:oles.s escape f3 wait wait wait"
 check "Lister shows a text STL, and leaves out triangles that are not numbers" "grep -q '\[model: 2 triangles\]' build/shots/reg-stlbox-win1.txt && grep -q '\[model: 2 triangles\]' build/shots/reg-stlholes-win1.txt"
+run stlhuge "alt+h wait text:uge.s escape f3 wait wait wait"
+check "an STL with corners near Float's limits is shown, its size in scientific notation" "grep -q '\[model: 2 triangles\]' build/shots/reg-stlhuge-win1.txt && head -1 build/shots/reg-stlhuge-win1.txt | grep -q '6E38 × 6E38 × 3E38'"
 run stlnoise "alt+n wait text:oise.s escape f3 wait wait wait"
 run stltext "alt+b wait text:ox.s escape f3 wait wait wait 1 wait"
 check "a file named .stl that is no model shows as hex; 1 shows a text STL's text" "! grep -q '\[model' build/shots/reg-stlnoise-win1.txt && grep -q '00000000' build/shots/reg-stlnoise-win1.txt && grep -q 'vertex 1.000E+01' build/shots/reg-stltext-win1.txt"
@@ -595,6 +613,12 @@ printf 'x\n' > $L/r1.oricmdexit
 printf 'let x = 1\n' > $L/r2.oricmdhang
 run hlrestart "alt+r wait text:1.o escape f3 wait wait wait wait wait wait wait wait wait wait n $(printf 'wait %.0s' {1..40})"
 check "a service started again after dying is still killed when it hangs" "grep -q '^kills: 1' build/shots/reg-hlrestart-highlighter.txt"
+# A text that makes the service take memory without end: it ends itself near 2 GB
+# (not killed by OriCmd's time limit), the text stays plain, the next file is colored.
+echo "anything" > $L/mem1.oricmdmemory
+printf 'func greet() -> String { "Привет" }\nlet x = 1\n' > $L/mem2.swift
+run hlmemory "alt+m wait text:em1 escape f3 $(printf 'wait %.0s' {1..10}) n $(printf 'wait %.0s' {1..20})"
+check "a service taking memory without end ends itself; the next file is colored" "head -1 build/shots/reg-hlmemory-win1.txt | grep -q 'mem2.swift' && [ \"\$(colors hlmemory)\" -ge 5 ] && grep -q '^kills: 0' build/shots/reg-hlmemory-highlighter.txt"
 
 # Ready-made colors: High contrast's stripes go with another preset, stripes turned on
 # in Settings stay. Prints the setting the keys leave.
@@ -736,6 +760,13 @@ check "Lister: pages load nothing from the network" "[ -f build/leak.log ] && [ 
 rm -f build/leak.log
 run websource "alt+s wait text:ite enter wait alt+r wait text:EADME escape f3 wait wait wait 1 wait wait"
 check "Lister: 1 shows the Markdown source, colored" "grep -q '^# Заголовок Markdown' build/shots/reg-websource-win1.txt && grep -q 'text colors: [2-9]' build/shots/reg-websource-win1.txt"
+python3 -c "
+import json
+data = json.dumps([{'id': i, 'name': 'item %d' % i, 'tags': ['a', 'b']} for i in range(9000)], indent=2)
+open('$L/site/bigcode.md', 'w').write('# Большой блок кода\\n\\n\\x60\\x60\\x60json\\n' + data + '\\n\\x60\\x60\\x60\\n\\nКонец.\\n')
+"
+run webbigcode "alt+s wait text:ite enter wait alt+b wait text:igcode escape f3 wait wait wait wait wait"
+check "Lister: Markdown with a long colored code block still shows as a page" "page webbigcode | grep -q 'Большой блок кода' && page webbigcode | grep -q 'Конец.'"
 
 # F lays out JSON, XML, JavaScript, TypeScript (prettier) and HTML in the helper service.
 printf '{"name":"OriCmd","list":[1,{"a":null,"b":[]}],"empty":{}, // note\n"n":-1.5e3}' > $L/data.json
