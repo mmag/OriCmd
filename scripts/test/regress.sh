@@ -133,6 +133,8 @@ usertags() { xattr -px com.apple.metadata:_kMDItemUserTags $1 2>/dev/null | xxd 
 scripts/test/mkdata.sh
 run finderitems "alt+n wait text:otes escape contextmenu wait"
 check "the context menu ends with Share and Tags" "tail -2 build/shots/reg-finderitems-menu.txt | cut -d' ' -f1 | tr '\\n' ' ' | grep -q '^Share… Tags '"
+run servicedata "alt+n wait text:otes escape servicedata"
+check "a service gets the files as URLs, as paths and as text" "grep -q '^public.file-url: file://.*/notes.md' build/shots/reg-servicedata-services.txt && grep -q '^NSFilenamesPboardType: .*/notes.md' build/shots/reg-servicedata-services.txt && grep -q '^public.utf8-plain-text: /.*/notes.md' build/shots/reg-servicedata-services.txt"
 run tagred "alt+n wait text:otes escape menupick:Tags|0 wait"
 check "the first color in Tags gives the file the Finder's red tag" "usertags $L/notes.md | grep -q '\\\\n6\"'"
 run tagmixed "alt+n wait text:otes escape insert alt+r wait text:eadme escape insert contextmenu wait"

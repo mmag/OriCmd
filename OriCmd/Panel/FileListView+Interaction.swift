@@ -39,15 +39,16 @@ extension FileListView {
         return super.validRequestor(forSendType: sendType, returnType: returnType)
     }
 
+    /// The files as URLs, as paths and as the text of their paths: a service reads what
+    /// it reads whatever it declares (SnailSVN's asks for paths and reads the text).
     @objc func writeSelection(to pasteboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
         let urls = selectedEntries.map(\.url)
         guard !urls.isEmpty else { return false }
         pasteboard.clearContents()
-        var written = pasteboard.writeObjects(urls as [NSURL])
-        if types.contains(Self.filenamesType) {
-            written = pasteboard.setPropertyList(urls.map(\.path), forType: Self.filenamesType) || written
-        }
-        return written
+        guard pasteboard.writeObjects(urls as [NSURL]) else { return false }
+        pasteboard.setPropertyList(urls.map(\.path), forType: Self.filenamesType)
+        pasteboard.setString(urls.map(\.path).joined(separator: "\n"), forType: .string)
+        return true
     }
 }
 
