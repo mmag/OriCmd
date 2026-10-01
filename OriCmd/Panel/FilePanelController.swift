@@ -161,9 +161,6 @@ final class FilePanelController: NSViewController {
     /// Find Files → "Feed to Panel": the found files, listed instead of the folder.
     private var searchResults: (title: String, urls: [URL])?
 
-    /// Lends the Services menu to the context menu shown last.
-    private var servicesLoan: ServicesLoan?
-
     /// A server (SFTP, FTP) shown in the panel.
     struct RemoteLocation {
         let fileSystem: any RemoteFileSystem
@@ -2307,12 +2304,12 @@ extension FilePanelController: NSMenuItemValidation {
             menu.addItem(.separator())
             add(Command.properties.title, Command.properties.selector)
         }
-        // As in the Finder: Share, the files' tags, and Services (Quick Actions among them).
+        // As in the Finder: Share and the files' tags. AppKit adds Services (Quick Actions
+        // among them) below, as the app sends files to them (see AppDelegate).
         if !items.isEmpty, archive == nil, remote == nil {
             menu.addItem(.separator())
             menu.addItem(NSSharingServicePicker(items: items.map(\.url)).standardShareMenuItem)
             menu.addItem(tagsMenuItem(for: items))
-            servicesLoan = ServicesLoan(in: menu)
         }
         return menu
     }
@@ -3121,37 +3118,5 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileList(_ list: FileListView, markGroup mark: Bool) {
         askForMask(marking: mark)
-    }
-}
-
-/// The app's Services menu (Quick Actions among them) lent to a context menu while it is
-/// open: AppKit fills it when it is shown, for the files the menu is about (the file
-/// list offers them as the first responder). A context menu gets no Services otherwise.
-final class ServicesLoan: NSObject, NSMenuDelegate {
-    private let item = NSMenuItem(title: String(localized: "Services"), action: nil, keyEquivalent: "")
-    private let placeholder = NSMenu()
-    /// Where the Services menu lives the rest of the time.
-    private weak var home: NSMenuItem?
-
-    init(in menu: NSMenu) {
-        super.init()
-        item.submenu = placeholder
-        menu.addItem(item)
-        menu.delegate = self
-    }
-
-    func menuWillOpen(_ menu: NSMenu) {
-        guard let services = NSApp.servicesMenu,
-              let home = NSApp.mainMenu?.items.lazy.compactMap(\.submenu).flatMap(\.items).first(where: { $0.submenu === services })
-        else { return }
-        self.home = home
-        home.submenu = nil
-        item.submenu = services
-    }
-
-    func menuDidClose(_ menu: NSMenu) {
-        guard let services = NSApp.servicesMenu, item.submenu === services else { return }
-        item.submenu = placeholder
-        home?.submenu = services
     }
 }

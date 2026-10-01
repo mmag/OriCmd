@@ -126,15 +126,13 @@ run deletemenu "alt+s wait text:cript escape menu"
 check "the context menu has Delete Permanently under Shift" "grep -qx 'Delete Permanently' build/shots/reg-deletemenu-menu.txt"
 check "the context menu has Get Info (the Finder's window; not opened here)" "grep -qx 'Get Info' build/shots/reg-deletemenu-menu.txt"
 
-# As in the Finder, the context menu ends with Share, the files' tags (the color tags
+# As in the Finder, the context menu ends with Share and the files' tags (the color tags
 # under the Finder's own names, which differ by language: written so, they keep their
-# color) and Services, the app's Services menu lent while the menu is open.
+# color); AppKit adds Services below for a person (not in test runs, which stay behind).
 usertags() { xattr -px com.apple.metadata:_kMDItemUserTags $1 2>/dev/null | xxd -r -p | plutil -convert json -o - - 2>/dev/null; }
 scripts/test/mkdata.sh
-run finderitems "alt+n wait text:otes escape contextmenu wait servicesowner"
-check "the context menu ends with Share, Tags and Services" "tail -3 build/shots/reg-finderitems-menu.txt | cut -d' ' -f1 | tr '\\n' ' ' | grep -q '^Share… Tags Services '"
-check "Services in the context menu are filled for the files" "grep -q '^Services ▸ .*Services Settings…' build/shots/reg-finderitems-menu.txt"
-check "the Services menu goes back to the app menu after the context menu" "grep -qx OriCmd build/shots/reg-finderitems-services.txt"
+run finderitems "alt+n wait text:otes escape contextmenu wait"
+check "the context menu ends with Share and Tags" "tail -2 build/shots/reg-finderitems-menu.txt | cut -d' ' -f1 | tr '\\n' ' ' | grep -q '^Share… Tags '"
 run tagred "alt+n wait text:otes escape menupick:Tags|0 wait"
 check "the first color in Tags gives the file the Finder's red tag" "usertags $L/notes.md | grep -q '\\\\n6\"'"
 run tagmixed "alt+n wait text:otes escape insert alt+r wait text:eadme escape insert contextmenu wait"
@@ -142,7 +140,7 @@ check "a tag only some of the files have is shown with a dash" "grep -q '^Tags �
 run taguntag "alt+n wait text:otes escape menupick:Tags|0 wait"
 check "the color in Tags again takes the tag away" "[ -z \"\$(usertags $L/notes.md | tr -d '[]')\" ]"
 run tagarchive "alt+a wait text:rchive-test escape enter wait wait down contextmenu wait"
-check "no Share, Tags or Services inside an archive" "! grep -q '^Share\\|^Tags\\|^Services' build/shots/reg-tagarchive-menu.txt"
+check "no Share or Tags inside an archive" "! grep -q '^Share\\|^Tags' build/shots/reg-tagarchive-menu.txt"
 
 scripts/test/mkdata.sh
 run cmdline "text:touch space text:cmd-made.txt enter wait wait"
