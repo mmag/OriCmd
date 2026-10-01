@@ -161,6 +161,9 @@ final class FilePanelController: NSViewController {
     /// Find Files → "Feed to Panel": the found files, listed instead of the folder.
     private var searchResults: (title: String, urls: [URL])?
 
+    /// Lends the Services menu to the context menu shown last.
+    private var servicesLoan: ServicesLoan?
+
     /// A server (SFTP, FTP) shown in the panel.
     struct RemoteLocation {
         let fileSystem: any RemoteFileSystem
@@ -2304,7 +2307,83 @@ extension FilePanelController: NSMenuItemValidation {
             menu.addItem(.separator())
             add(Command.properties.title, Command.properties.selector)
         }
+        // As in the Finder: Share, the files' tags, and Services (Quick Actions among them).
+        if !items.isEmpty, archive == nil, remote == nil {
+            menu.addItem(.separator())
+            menu.addItem(NSSharingServicePicker(items: items.map(\.url)).standardShareMenuItem)
+            menu.addItem(tagsMenuItem(for: items))
+            servicesLoan = ServicesLoan(in: menu)
+        }
         return menu
+    }
+
+    /// What a tag item does: the tag, and the files it is added to or taken from.
+    private final class TagChange {
+        let name: String
+        let urls: [URL]
+
+        init(name: String, urls: [URL]) {
+            self.name = name
+            self.urls = urls
+        }
+    }
+
+    /// The Finder's tags: its seven colors under the Finder's names, then the files'
+    /// other tags; checked when all the files have one, with a dash when some do.
+    private func tagsMenuItem(for items: [FileItem]) -> NSMenuItem {
+        let urls = items.map(\.url)
+        let tagsOfFiles = urls.map(FinderTags.tags(of:))
+        let colorNames = FinderTags.colorNames()
+        let standard = FinderTags.colors.compactMap { color in colorNames[color].map { ($0, color) } }
+        var others: [String: Int] = [:]
+        for (name, color) in tagsOfFiles.joined() where !standard.contains(where: { $0.0 == name }) {
+            others[name] = color
+        }
+        let otherTags = others.sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }.map { ($0.key, $0.value) }
+        let menu = NSMenu()
+        for (name, color) in standard + otherTags {
+            if name == otherTags.first?.0 { menu.addItem(.separator()) }
+            let item = NSMenuItem(title: name, action: #selector(toggleTag(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = TagChange(name: name, urls: urls)
+            let count = tagsOfFiles.filter { $0.contains { $0.name == name } }.count
+            item.state = count == urls.count ? .on : (count > 0 ? .mixed : .off)
+            if color > 0, color < NSWorkspace.shared.fileLabelColors.count {
+                let fill = NSWorkspace.shared.fileLabelColors[color]
+                item.image = NSImage(size: NSSize(width: 12, height: 12), flipped: false) { rect in
+                    fill.setFill()
+                    NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+                    return true
+                }
+            }
+            menu.addItem(item)
+        }
+        let item = NSMenuItem(title: String(localized: "Tags"), action: nil, keyEquivalent: "")
+        item.submenu = menu
+        return item
+    }
+
+    /// A tag that all the files have is taken from them; otherwise it is added to all.
+    @objc private func toggleTag(_ sender: NSMenuItem) {
+        guard let change = sender.representedObject as? TagChange else { return }
+        let adding = sender.state != .on
+        for url in change.urls {
+            var tags = FinderTags.tags(of: url).map(\.name)
+            if adding {
+                if !tags.contains(change.name) { tags.append(change.name) }
+            } else {
+                tags.removeAll { $0 == change.name }
+            }
+            do {
+                try FinderTags.setTags(tags, of: url)
+            } catch {
+                Prompt.error(String(localized: "Cannot change the tags of \u{201C}\(url.lastPathComponent)\u{201D}"), error,
+                             in: view.window)
+                break
+            }
+        }
+        MetadataCache.shared.forget(change.urls, column: .tags)
+        listView.needsDisplay = true
     }
 
     // MARK: - Drive buttons
@@ -3042,5 +3121,37 @@ extension FilePanelController: FileListViewDelegate {
 
     func fileList(_ list: FileListView, markGroup mark: Bool) {
         askForMask(marking: mark)
+    }
+}
+
+/// The app's Services menu (Quick Actions among them) lent to a context menu while it is
+/// open: AppKit fills it when it is shown, for the files the menu is about (the file
+/// list offers them as the first responder). A context menu gets no Services otherwise.
+final class ServicesLoan: NSObject, NSMenuDelegate {
+    private let item = NSMenuItem(title: String(localized: "Services"), action: nil, keyEquivalent: "")
+    private let placeholder = NSMenu()
+    /// Where the Services menu lives the rest of the time.
+    private weak var home: NSMenuItem?
+
+    init(in menu: NSMenu) {
+        super.init()
+        item.submenu = placeholder
+        menu.addItem(item)
+        menu.delegate = self
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        guard let services = NSApp.servicesMenu,
+              let home = NSApp.mainMenu?.items.lazy.compactMap(\.submenu).flatMap(\.items).first(where: { $0.submenu === services })
+        else { return }
+        self.home = home
+        home.submenu = nil
+        item.submenu = services
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        guard let services = NSApp.servicesMenu, item.submenu === services else { return }
+        item.submenu = placeholder
+        home?.submenu = services
     }
 }

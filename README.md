@@ -356,9 +356,11 @@ other panel) shows the same server.
 
 Right-click (or `Ctrl`-click) opens the context menu: open, open with, view,
 show in Finder, clipboard, rename, delete, pack, Get Info (the Finder's window),
-and the system Services. Files can be dragged between the panels, from Finder
-and to Finder; copying by default, moving with `⌘`. Dropping onto a folder row
-puts the files into it.
+and as in the Finder, Share (AirDrop, Mail, Messages…), the Finder's tags (its
+colors under the names it gives them, so tags set here are the Finder's own) and
+Services, Quick Actions among them. Files can be dragged between the panels,
+from Finder and to Finder; copying by default, moving with `⌘`. Dropping onto a
+folder row puts the files into it.
 
 The right button can mark files instead (Settings → Panels → Mouse): a click
 marks or unmarks a file, a drag over files makes them all as the first one
