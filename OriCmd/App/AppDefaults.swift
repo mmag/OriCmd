@@ -40,12 +40,45 @@ enum AppDefaults {
 extension NSWindow {
     /// Restores the frame saved under `name` and keeps saving it — except in
     /// test runs, which must neither use nor change the user's window frames.
-    /// Returns whether a saved frame was applied.
+    /// Returns whether a saved frame was applied. Called once the window
+    /// controller has the window: `NSWindowController.init(window:)` clears the
+    /// window's autosave name, and the frame was then never saved.
+    ///
+    /// AppKit's own autosave does not keep the frame of a tiled or filled window
+    /// (Window ▸ Fill, a double click on the title bar) as it is: the frame the
+    /// window really has is saved as well, and wins.
     @discardableResult
     func rememberFrame(as name: String) -> Bool {
         guard !AppDefaults.isTestRun else { return false }
-        let restored = setFrameUsingName(name)
+        var restored = false
+        if let saved = AppDefaults.store.string(forKey: Self.frameKey(name)) {
+            let frame = NSRectFromString(saved)
+            // Not on a screen that is gone, nor smaller than the window may be.
+            if frame.width >= minSize.width, frame.height >= minSize.height,
+               let screen = NSScreen.screens.first(where: { $0.visibleFrame.intersects(frame) }) {
+                setFrame(constrainFrameRect(frame, to: screen), display: false)
+                restored = true
+            }
+        }
+        if !restored {
+            restored = setFrameUsingName(name)
+        }
         setFrameAutosaveName(name)
+        for notification in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(saveRememberedFrame(_:)),
+                                                   name: notification, object: self)
+        }
         return restored
+    }
+
+    /// Only the window that holds the autosave name saves (as with AppKit's own),
+    /// and not in full screen, whose frame is the screen's.
+    @objc private func saveRememberedFrame(_ notification: Notification) {
+        guard !frameAutosaveName.isEmpty, !styleMask.contains(.fullScreen), !isMiniaturized else { return }
+        AppDefaults.store.set(NSStringFromRect(frame), forKey: Self.frameKey(frameAutosaveName))
+    }
+
+    private static func frameKey(_ name: String) -> String {
+        "WindowFrame \(name)"
     }
 }

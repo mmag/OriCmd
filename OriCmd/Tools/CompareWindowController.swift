@@ -49,9 +49,9 @@ final class CompareWindowController: NSWindowController, NSWindowDelegate, Handl
                                    styleMask: [.titled, .closable, .miniaturizable, .resizable],
                                    backing: .buffered, defer: false)
         window.title = String(localized: "Compare: \(left.lastPathComponent) — \(right.lastPathComponent)")
+        super.init(window: window)
         window.rememberFrame(as: "Compare")
         window.center()
-        super.init(window: window)
         window.delegate = self
         window.keyHandler = { [weak self] event in self?.handleKey(event) ?? false }
         buildContent()
