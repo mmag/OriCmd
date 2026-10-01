@@ -103,6 +103,37 @@ scripts/test/mkdata.sh
 run pathfile "pathclick wait cmd+a text:$PWD/$L/notes.md enter wait f5 wait enter wait wait"
 check "a file typed into the path bar is selected in its folder" "[ -f $R/notes.md ]"
 
+# Breadcrumbs: a click on a parent folder in the path bar goes there, the cursor on the
+# folder it came from (in archives too, out of an inner archive back into the outer
+# one); "…" lists the parents a long path leaves out; right of the path edits it.
+# Parts are counted from "/" (0), so the test folder's depth decides their numbers.
+P=${#${(s:/:)PWD}}; T=$((P + 2)); first=${${(s:/:)PWD}[1]}; second=${${(s:/:)PWD}[2]}
+shown() { grep -qF "$2" build/shots/reg-$1-panels.txt; }
+scripts/test/mkdata.sh
+run crumbup "crumb:$T wait wait"
+check "a parent in the path bar goes there, the cursor on the folder left" "shown crumbup 'left*: $PWD/build/testdata | cursor: left |'"
+run crumbroot "crumb:0 wait wait"
+check "/ in the path bar goes to the root" "shown crumbroot 'left*: / | cursor: $first |'"
+run crumbother "othercrumb:$T wait wait"
+check "a parent in the other panel's path bar makes it active and goes there" "shown crumbother 'right*: $PWD/build/testdata | cursor: right |'"
+arc="alt+a wait text:rchive-test escape enter wait wait pathclick wait cmd+a text:$PWD/$L/archive-test.zip/beta/deep enter wait wait"
+run crumbarc "$arc crumb:$((T + 3)) wait wait"
+check "a folder in an archive in the path bar goes there" "shown crumbarc 'left*: $PWD/$L/archive-test.zip/beta | cursor: deep |'"
+run crumbarcout "$arc crumb:$((T + 1)) wait wait"
+check "a folder before an archive in the path bar leaves it" "shown crumbarcout 'left*: $PWD/$L | cursor: archive-test.zip |'"
+nested
+run crumbnest "alt+o wait text:uter enter wait wait alt+i wait text:nner enter wait wait wait down enter wait crumb:$((T + 2)) wait wait"
+check "the outer archive in the path bar goes back into it" "shown crumbnest 'left*: $PWD/$L/outer.zip | cursor: inner.zip |'"
+scripts/test/mkdata.sh
+long=$L/a-rather-long-folder-name-for-the-path-bar/another-quite-long-folder-name/and-a-third-level-folder
+mkdir -p $long
+run crumbmenu "pathclick wait cmd+a text:$PWD/$long enter wait wait crumbmenu"
+check "… in a long path lists the parents left out" "grep -qx '$PWD/build' build/shots/reg-crumbmenu-menu.txt"
+run crumbmenupick "pathclick wait cmd+a text:$PWD/$long enter wait wait crumbmenu:1 wait wait"
+check "a parent chosen from … goes there" "shown crumbmenupick 'left*: /$first | cursor: $second |'"
+run crumbend "pathend wait cmd+a text:$PWD/$L/alpha enter wait wait"
+check "a click right of the path still makes it editable" "shown crumbend 'left*: $PWD/$L/alpha |'"
+
 scripts/test/mkdata.sh
 run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"
 check "F2 renames in place (the extension kept)" "[ -f $L/by-f2.md ] && [ ! -f $L/notes.md ]"
@@ -882,6 +913,9 @@ check "terminal: Ctrl+Option+\` waits for the running program" "[ -f build/shots
 scripts/test/mkdata.sh
 run pathserver "$(connect sftp://oritest$PWD/$L) wait pathclick wait cmd+a text:sftp://oritest$PWD/$L/alp tab wait wait enter wait wait f7 wait text:srvmade enter wait wait"
 check "the path bar completes and goes to server folders" "[ -d $L/alpha/srvmade ]"
+scripts/test/mkdata.sh
+run crumbserver "$(connect sftp://oritest$PWD/$L/alpha) crumb:$((T + 1)) wait wait wait"
+check "a parent in the path bar goes there on a server" "shown crumbserver 'left*: sftp://oritest$PWD/$L | cursor: alpha |'"
 
 # ⌘K lists the servers connected to: ↓ in the address field picks the latest, Return connects.
 scripts/test/mkdata.sh

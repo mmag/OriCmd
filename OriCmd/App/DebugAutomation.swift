@@ -10,7 +10,7 @@ import WebKit
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
-///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `crumb:N` / `othercrumb:N` (a parent folder in the active / other panel's path bar), `pathend` (right of the path), `crumbmenu` / `crumbmenu:N` (the parents put away into "…"), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
@@ -180,6 +180,36 @@ enum DebugAutomation {
                                                       windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber,
                                                       clickCount: 2, pressure: 1) {
                         bar.mouseDown(with: event)
+                    }
+                } else if token.hasPrefix("crumb:") || token.hasPrefix("othercrumb:") || token == "pathend",
+                          let main = window.contentViewController as? MainViewController {
+                    // A click on a parent folder in a panel's path bar (`othercrumb:N`: the
+                    // inactive panel's), or right of the path (`pathend`).
+                    let panel = token.hasPrefix("other") ? main.panels.first { $0 !== main.activePanel } : main.activePanel
+                    guard let bar = panel?.panelView.pathBar else { continue }
+                    let point: NSPoint
+                    if token == "pathend" {
+                        point = NSPoint(x: bar.bounds.maxX - 4, y: bar.bounds.midY)
+                    } else if let index = token.split(separator: ":").last.flatMap({ Int($0) }), let rect = bar.crumbRect(index) {
+                        point = NSPoint(x: rect.midX, y: rect.midY)
+                    } else {
+                        continue
+                    }
+                    if let event = NSEvent.mouseEvent(with: .leftMouseDown, location: bar.convert(point, to: nil), modifierFlags: [],
+                                                      timestamp: ProcessInfo.processInfo.systemUptime,
+                                                      windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber,
+                                                      clickCount: 1, pressure: 1) {
+                        bar.mouseDown(with: event)
+                    }
+                } else if token.hasPrefix("crumbmenu"), let main = window.contentViewController as? MainViewController {
+                    // The menu of the parents put away into "…" in the active panel's path bar:
+                    // written to <snapshot>-menu.txt (empty when none), or with `:N` its item N chosen.
+                    let menu = main.activePanel.panelView.pathBar.hiddenCrumbsMenu()
+                    if let index = Int(token.dropFirst(10)), let menu, menu.items.indices.contains(index) {
+                        menu.performActionForItem(at: index)
+                    } else if let snapshot {
+                        try? (menu?.items.map(\.title) ?? []).joined(separator: "\n")
+                            .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"), atomically: true, encoding: .utf8)
                     }
                 } else if token.hasPrefix("lazyfile:") {
                     offerLazyFile(URL(filePath: String(token.dropFirst(9))))

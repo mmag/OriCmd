@@ -228,6 +228,7 @@ final class FilePanelController: NSViewController {
         panelView.pathBar.onClick = { [weak self] in self?.focus() }
         panelView.pathBar.editableText = { [weak self] in self?.editablePath ?? "" }
         panelView.pathBar.onCommit = { [weak self] text in self?.go(to: text) }
+        panelView.pathBar.onCrumbClick = { [weak self] index in self?.goToPathPart(index) }
         panelView.pathBar.completions = { [weak self] text in await self?.completions(for: text) ?? [] }
         panelView.onGoToRoot = { [weak self] in self?.goToRoot() }
         panelView.onGoToParent = { [weak self] in self?.goToParent() }
@@ -404,6 +405,7 @@ final class FilePanelController: NSViewController {
             watcher = DirectoryWatcher(url: directory) { [weak self] in self?.reread() }
         }
         panelView.show(directory: directory, volumes: listing.volumes, freeSpace: listing.freeSpace)
+        updatePathBar()
         refreshList(selecting: name, fallback: isNewDirectory ? 0 : listView.cursor)
         tabs[activeTabIndex].directory = directory
         updateTabBar()
@@ -479,7 +481,7 @@ final class FilePanelController: NSViewController {
                 entries = items
                 entriesOrder = nil
                 panelView.pathBar.showsMask = false
-                panelView.pathBar.path = remote?.displayPath ?? path
+                updatePathBar()
                 refreshList(selecting: name, fallback: isNewFolder ? 0 : listView.cursor)
                 delegate?.filePanelDidChangeDirectory(self)
             } catch {
@@ -811,6 +813,104 @@ final class FilePanelController: NSViewController {
 
     /// What a click on the path bar gives to edit: the folder, the server folder
     /// (sftp://…/folder), or the folder inside the archive.
+    /// Where a part of the path bar leads.
+    private enum PathTarget {
+        case folder(URL)
+        /// A folder of the archive shown, or of the archive `levelsUp` archives out of it.
+        case archiveFolder(levelsUp: Int, folder: String)
+        case serverFolder(String)
+    }
+
+    /// The parts of the path bar's text, from the root to the folder shown.
+    private var pathParts: [(range: NSRange, name: String, target: PathTarget)] = []
+
+    /// Shows where the panel is in the path bar, with the parts a click goes to.
+    private func updatePathBar() {
+        var text = ""
+        var parts: [(range: NSRange, name: String, target: PathTarget)] = []
+        func add(_ piece: String, _ target: PathTarget? = nil) {
+            if let target {
+                parts.append((NSRange(location: text.utf16.count, length: piece.utf16.count), piece, target))
+            }
+            text += piece
+        }
+        func addSeparator() {
+            if !text.hasSuffix("/") { add("/") }
+        }
+        func addFolders(of url: URL) {
+            var folder = URL(filePath: "/")
+            add("/", .folder(folder))
+            for name in url.pathComponents.dropFirst() {
+                folder.append(path: name, directoryHint: .isDirectory)
+                addSeparator()
+                add(name, .folder(folder))
+            }
+        }
+        func addArchive(_ location: ArchiveLocation, levelsUp: Int) {
+            if let outer = location.outer {
+                addArchive(outer.location, levelsUp: levelsUp + 1)
+                addSeparator()
+                add(outer.name, .archiveFolder(levelsUp: levelsUp, folder: ""))
+            } else {
+                addFolders(of: location.url.deletingLastPathComponent())
+                addSeparator()
+                add(location.url.lastPathComponent, .archiveFolder(levelsUp: levelsUp, folder: ""))
+            }
+            var folder = ""
+            for name in location.folder.split(separator: "/").map(String.init) {
+                folder = folder.isEmpty ? name : folder + "/" + name
+                addSeparator()
+                add(name, .archiveFolder(levelsUp: levelsUp, folder: folder))
+            }
+        }
+
+        let shown: String
+        if let searchResults {
+            shown = searchResults.title
+        } else if let remote {
+            shown = remote.displayPath
+            add(remote.fileSystem.displayName, .serverFolder("/"))
+            var folder = ""
+            for name in remote.path.split(separator: "/").map(String.init) {
+                folder = folder.isEmpty && !remote.path.hasPrefix("/") ? name : folder + "/" + name
+                addSeparator()
+                add(name, .serverFolder(folder))
+            }
+            if remote.path.hasSuffix("/") { addSeparator() }
+        } else if let archive {
+            shown = archive.displayPath
+            addArchive(archive, levelsUp: 0)
+        } else {
+            shown = directory.path
+            addFolders(of: directory)
+        }
+        // Only a path taken apart exactly has parts to click; any other is edited on a click.
+        pathParts = text == shown ? parts : []
+        panelView.pathBar.path = shown
+        panelView.pathBar.crumbs = pathParts.dropLast().map { PathBar.Crumb(range: $0.range, name: $0.name) }
+    }
+
+    /// A click on a part of the path bar: goes there, the cursor on the folder it came from.
+    private func goToPathPart(_ index: Int) {
+        guard pathParts.indices.contains(index + 1) else { return }
+        let cameFrom = pathParts[index + 1].name
+        switch pathParts[index].target {
+        case .folder(let url):
+            load(url, selecting: cameFrom)
+        case .serverFolder(let path):
+            loadRemote(path, selecting: cameFrom)
+        case .archiveFolder(let levelsUp, let folder):
+            for _ in 0..<levelsUp {
+                // Back to the outer archive; the temporary copy of this one goes, as with [..].
+                guard let archive, let outer = archive.outer else { return }
+                try? FileManager.default.removeItem(at: archive.url.deletingLastPathComponent())
+                self.archive = outer.location
+            }
+            archive?.folder = folder
+            showArchiveFolder(selecting: cameFrom)
+        }
+    }
+
     private var editablePath: String {
         if let remote { return remote.displayPath }
         if let archive { return archive.displayPath }
@@ -935,7 +1035,7 @@ final class FilePanelController: NSViewController {
         entriesOrder = nil
         panelView.show(directory: directory, volumes: Volume.mounted())
         panelView.pathBar.showsMask = false
-        panelView.pathBar.path = title
+        updatePathBar()
         refreshList(selecting: name, fallback: 0)
         delegate?.filePanelDidChangeDirectory(self)
     }
@@ -1103,7 +1203,7 @@ final class FilePanelController: NSViewController {
         entries = Array(children.values)
         entriesOrder = nil
         panelView.show(directory: directory, volumes: Volume.mounted())
-        panelView.pathBar.path = archive.displayPath
+        updatePathBar()
         refreshList(selecting: name, fallback: 0)
         delegate?.filePanelDidChangeDirectory(self)
     }
@@ -1339,7 +1439,7 @@ final class FilePanelController: NSViewController {
             entries = []
             listView.setMarked([])
             panelView.pathBar.showsMask = false
-            panelView.pathBar.path = server.displayPath
+            updatePathBar()
             refreshList(selecting: nil)
             loadRemote(server.path, selecting: tab.selectedName)
             if tab.terminal == nil, tab.showsTerminal {
@@ -1498,9 +1598,7 @@ final class FilePanelController: NSViewController {
             return
         }
         panelView.show(directory: directory, volumes: Volume.mounted())
-        if let remote {
-            panelView.pathBar.path = remote.displayPath
-        }
+        updatePathBar()
     }
 
     func goToParent() {

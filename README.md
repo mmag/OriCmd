@@ -11,9 +11,10 @@ keep working as always.
 
 ## Features
 
-- **Panels:** tabs, history, directory hotlist, tree, filters, quick search, an
-  editable path with `Tab` completion; full and brief views, thumbnails, optional
-  columns, file colors by mask and ready-made colors for color vision deficiencies.
+- **Panels:** tabs, history, directory hotlist, tree, filters, quick search, a
+  clickable path (breadcrumbs) that is also editable with `Tab` completion; full and
+  brief views, thumbnails, optional columns, file colors by mask and ready-made
+  colors for color vision deficiencies.
 - **Copy and move:** queue and background operations, file type filter, name
   masks, overwrite modes, verification after copying.
 - **Archives as folders:** zip, tar, 7z and more — browse, extract, pack and
@@ -365,11 +366,16 @@ marks or unmarks a file, a drag over files makes them all as the first one
 became, and holding the button still for half a second opens the context menu.
 On `[..]`, on empty space and with `Ctrl`-click the menu opens at once.
 
-A click on the path above a panel makes it editable: type a folder (or a file:
-it is shown selected; an archive opens), a folder on the server or in the archive
-shown, or another server's address, and press `Enter`; `Esc` cancels. `Tab`
-completes names, as in a shell; pressed again it goes through the choices
-(`Shift+Tab` back).
+The path above a panel works as breadcrumbs: a click on a parent folder in it goes
+there, with the cursor on the folder you came from (in archives and on servers too).
+When the path is too long, its start gives way to `…`, which lists the folders left
+out.
+
+A click on the current folder, the mask or right of the path makes it editable:
+type a folder (or a file: it is shown selected; an archive opens), a folder on the
+server or in the archive shown, or another server's address, and press `Enter`;
+`Esc` cancels. `Tab` completes names, as in a shell; pressed again it goes through
+the choices (`Shift+Tab` back).
 
 ### Command line
 
