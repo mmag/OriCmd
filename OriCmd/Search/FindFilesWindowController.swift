@@ -42,8 +42,8 @@ final class FindFilesWindowController: NSWindowController {
         )
         window.title = String(localized: "Find Files")
         window.center()
-        window.rememberFrame(as: "FindFiles")
         super.init(window: window)
+        window.rememberFrame(as: "FindFiles")
         window.delegate = self
         buildContent()
     }

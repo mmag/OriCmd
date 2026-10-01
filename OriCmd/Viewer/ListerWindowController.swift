@@ -96,8 +96,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             backing: .buffered, defer: false
         )
         window.center()
-        window.rememberFrame(as: "Lister")
         super.init(window: window)
+        window.rememberFrame(as: "Lister")
         window.delegate = self
 
         textView.isEditable = false
