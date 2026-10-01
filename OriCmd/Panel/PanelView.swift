@@ -210,7 +210,6 @@ final class PanelView: NSView {
         }
         self.volumes = volumes
         driveBar.currentPath = directory.path
-        pathBar.path = directory.path
 
         volumeButton.removeAllItems()
         volumeButton.addItems(withTitles: volumes.map(\.name))

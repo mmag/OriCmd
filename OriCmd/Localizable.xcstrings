@@ -2381,6 +2381,16 @@
         }
       }
     },
+    "Go to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти в %@"
+          }
+        }
+      }
+    },
     "Go to File": {
       "localizations": {
         "ru": {
@@ -3627,6 +3637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вставить"
+          }
+        }
+      }
+    },
+    "Path": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Путь"
           }
         }
       }
