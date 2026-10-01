@@ -424,8 +424,12 @@ final class FileListView: NSView {
             first = Int(dirtyRect.minY / thumbnailCell.height) * thumbnailColumns
             last = (Int(dirtyRect.maxY / thumbnailCell.height) + 1) * thumbnailColumns - 1
         }
-        let range = max(first, 0)...min(last, items.count - 1)
-        guard !range.isEmpty, range.lowerBound <= range.upperBound else { return }
+        // Only the area below the last row may need drawing (a menu closed over it): then
+        // there is no row to draw, and a range from the first to the last would trap.
+        let lowest = max(first, 0)
+        let highest = min(last, items.count - 1)
+        guard lowest <= highest else { return }
+        let range = lowest...highest
         let layout = ColumnLayout(width: bounds.width)
         for row in range {
             switch viewMode {

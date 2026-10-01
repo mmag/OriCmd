@@ -103,6 +103,12 @@ scripts/test/mkdata.sh
 run pathfile "pathclick wait cmd+a text:$PWD/$L/notes.md enter wait f5 wait enter wait wait"
 check "a file typed into the path bar is selected in its folder" "[ -f $R/notes.md ]"
 
+# Only the empty area below the last row is drawn (as when a menu closes over it): nothing
+# to draw there, and the app goes on (a backwards range of rows trapped).
+scripts/test/mkdata.sh
+run drawbelow "tab wait drawbelow wait"
+check "a redraw below the last row does not stop the app" "[ -f build/shots/reg-drawbelow-panels.txt ]"
+
 scripts/test/mkdata.sh
 run renamef2 "alt+n wait text:otes escape f2 wait text:by-f2 enter wait"
 check "F2 renames in place (the extension kept)" "[ -f $L/by-f2.md ] && [ ! -f $L/notes.md ]"

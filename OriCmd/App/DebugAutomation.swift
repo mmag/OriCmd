@@ -8,7 +8,7 @@ import WebKit
 /// - `ORICMD_LEFT`, `ORICMD_RIGHT`: initial panel directories.
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
-///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
+///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drawbelow` (draws only a strip below the last row), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
 ///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
@@ -57,6 +57,10 @@ enum DebugAutomation {
                     }
                     try? titles.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                                                 atomically: true, encoding: .utf8)
+                } else if token == "drawbelow", let list = window.firstResponder as? FileListView, !list.items.isEmpty {
+                    // Only a strip below the last row is drawn, as when a menu closes over it.
+                    let last = list.rowRect(list.items.count - 1)
+                    list.display(NSRect(x: 0, y: last.maxY + last.height, width: list.bounds.width, height: last.height))
                 } else if token == "textmenu", let snapshot, let text = textView(in: topmost(window).contentView),
                           let event = NSEvent.mouseEvent(
                             with: .rightMouseDown, location: text.convert(NSPoint(x: 20, y: 10), to: nil), modifierFlags: [],
