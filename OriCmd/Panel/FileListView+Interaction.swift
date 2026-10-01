@@ -39,9 +39,14 @@ extension FileListView {
         return super.validRequestor(forSendType: sendType, returnType: returnType)
     }
 
+}
+
+/// As a services requestor AppKit finds `writeSelectionToPasteboard:types:`: on its own
+/// the method was exported as `writeSelectionTo:types:`, and services got no files.
+extension FileListView: NSServicesMenuRequestor {
     /// The files as URLs, as paths and as the text of their paths: a service reads what
     /// it reads whatever it declares (SnailSVN's asks for paths and reads the text).
-    @objc func writeSelection(to pasteboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
+    func writeSelection(to pasteboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
         let urls = selectedEntries.map(\.url)
         guard !urls.isEmpty else { return false }
         pasteboard.clearContents()

@@ -94,8 +94,12 @@ enum DebugAutomation {
                 } else if token == "servicedata", let list = window.firstResponder as? FileListView, let snapshot {
                     // What a service gets for the selected files (on a private pasteboard): each
                     // type with its value, to <snapshot>-services.txt.
+                    // Asked by its Objective-C name, as AppKit asks for it.
                     let board = NSPasteboard(name: NSPasteboard.Name("ru.themmag.OriCmd.tests.services"))
-                    _ = list.writeSelection(to: board, types: [])
+                    board.clearContents()
+                    if list.responds(to: #selector(NSServicesMenuRequestor.writeSelection(to:types:))) {
+                        _ = (list as NSServicesMenuRequestor).writeSelection?(to: board, types: [])
+                    }
                     let lines = (board.types ?? []).map { type in
                         type.rawValue + ": " + (board.string(forType: type)
                             ?? board.propertyList(forType: type).map { "\($0)" }?.replacingOccurrences(of: "\n", with: " ") ?? "")
