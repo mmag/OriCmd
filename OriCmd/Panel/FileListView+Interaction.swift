@@ -25,11 +25,15 @@ extension FileListView {
 // MARK: - Services
 
 extension FileListView {
-    /// Offers the selected files to macOS Services (e.g. in the context menu).
+    /// The paths of files, as older services take them (SnailSVN's, for one).
+    private static let filenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
+
+    /// Offers the selected files to macOS Services (e.g. in the context menu), as file
+    /// URLs and as paths: a service is listed only when it gets the kind it asks for.
     override func validRequestor(forSendType sendType: NSPasteboard.PasteboardType?,
                                  returnType: NSPasteboard.PasteboardType?) -> Any? {
-        if sendType == .fileURL, returnType == nil, delegate?.fileListCanDragItems(self) == true,
-           !selectedEntries.isEmpty {
+        if let sendType, [.fileURL, Self.filenamesType].contains(sendType), returnType == nil,
+           delegate?.fileListCanDragItems(self) == true, !selectedEntries.isEmpty {
             return self
         }
         return super.validRequestor(forSendType: sendType, returnType: returnType)
@@ -39,7 +43,11 @@ extension FileListView {
         let urls = selectedEntries.map(\.url)
         guard !urls.isEmpty else { return false }
         pasteboard.clearContents()
-        return pasteboard.writeObjects(urls as [NSURL])
+        var written = pasteboard.writeObjects(urls as [NSURL])
+        if types.contains(Self.filenamesType) {
+            written = pasteboard.setPropertyList(urls.map(\.path), forType: Self.filenamesType) || written
+        }
+        return written
     }
 }
 
