@@ -10,7 +10,7 @@ import WebKit
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
-///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
@@ -180,6 +180,24 @@ enum DebugAutomation {
                                                       windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber,
                                                       clickCount: 2, pressure: 1) {
                         bar.mouseDown(with: event)
+                    }
+                } else if token.hasPrefix("tabmiddleclick:"), let tab = Int(token.dropFirst(15)),
+                          let main = window.contentViewController as? MainViewController,
+                          let center = main.activePanel.panelView.tabBar.center(ofTab: tab) {
+                    // The middle button (the mouse wheel) pressed and let go on a tab of the
+                    // active panel's tab bar.
+                    let bar = main.activePanel.panelView.tabBar
+                    let point = bar.convert(center, to: nil)
+                    for type in [NSEvent.EventType.otherMouseDown, .otherMouseUp] {
+                        // AppKit makes no other-button events of its own: the button number
+                        // is set through Quartz.
+                        guard let cgEvent = NSEvent.mouseEvent(
+                            with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                            windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber, clickCount: 1,
+                            pressure: type == .otherMouseDown ? 1 : 0)?.cgEvent else { continue }
+                        cgEvent.setIntegerValueField(.mouseEventButtonNumber, value: 2)
+                        guard let event = NSEvent(cgEvent: cgEvent) else { continue }
+                        type == .otherMouseDown ? bar.otherMouseDown(with: event) : bar.otherMouseUp(with: event)
                     }
                 } else if token.hasPrefix("lazyfile:") {
                     offerLazyFile(URL(filePath: String(token.dropFirst(9))))

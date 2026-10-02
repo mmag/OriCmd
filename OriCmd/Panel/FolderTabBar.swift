@@ -1,8 +1,8 @@
 import AppKit
 
 /// Folder tabs above a panel's path bar, drawn as flat TC-style tabs.
-/// Click selects a tab, double click closes it; a tab dragged to another place of
-/// the bar, or to the other panel's, goes there.
+/// Click selects a tab, double click or a click of the middle button (the mouse wheel)
+/// closes it; a tab dragged to another place of the bar, or to the other panel's, goes there.
 final class FolderTabBar: NSView, NSDraggingSource {
     /// A tab being dragged: its identifier (tabs are only dragged inside OriCmd).
     static let pasteboardType = NSPasteboard.PasteboardType("ru.themmag.OriCmd.tab")
@@ -33,6 +33,9 @@ final class FolderTabBar: NSView, NSDraggingSource {
 
     /// Where a press on a tab started, until it becomes a drag.
     private var pressed: (point: NSPoint, index: Int)?
+    /// The tab the middle button was pressed on: it closes when the button is let go
+    /// over it (as in browsers), not when the press leaves it.
+    private var middlePressed: Int?
     /// Where a dragged tab would go (a line is drawn there).
     private var dropIndex: Int? {
         didSet { if dropIndex != oldValue { needsDisplay = true } }
@@ -96,16 +99,21 @@ final class FolderTabBar: NSView, NSDraggingSource {
         }
     }
 
-    override func menu(for event: NSEvent) -> NSMenu? {
+    /// The tab under the event's location.
+    private func tabIndex(at event: NSEvent) -> Int? {
         let point = convert(event.locationInWindow, from: nil)
-        guard let index = tabRects().firstIndex(where: { $0.contains(point) }) else { return nil }
+        return tabRects().firstIndex { $0.contains(point) }
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard let index = tabIndex(at: event) else { return nil }
         return onContextMenu?(index)
     }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         pressed = nil
-        guard let index = tabRects().firstIndex(where: { $0.contains(point) }) else {
+        guard let index = tabIndex(at: event) else {
             if event.clickCount == 2 { onNewTab?() }
             return
         }
@@ -133,6 +141,20 @@ final class FolderTabBar: NSView, NSDraggingSource {
 
     override func mouseUp(with event: NSEvent) {
         pressed = nil
+    }
+
+    /// The middle button (the mouse wheel pressed) closes a tab; other extra buttons
+    /// (back, forward) go on up the responder chain.
+    override func otherMouseDown(with event: NSEvent) {
+        guard event.buttonNumber == 2 else { return super.otherMouseDown(with: event) }
+        middlePressed = tabIndex(at: event)
+    }
+
+    override func otherMouseUp(with event: NSEvent) {
+        guard event.buttonNumber == 2 else { return super.otherMouseUp(with: event) }
+        defer { middlePressed = nil }
+        guard let index = middlePressed, tabIndex(at: event) == index else { return }
+        onClose?(index)
     }
 
     private func picture(of rect: NSRect) -> NSImage? {
@@ -180,5 +202,11 @@ final class FolderTabBar: NSView, NSDraggingSource {
     /// Drops a tab as if it were dragged there (for the tests).
     func drop(_ id: UUID, at index: Int) -> Bool {
         onDropTab?(id, index) ?? false
+    }
+
+    /// The middle of the tab at the index (for the tests).
+    func center(ofTab index: Int) -> NSPoint? {
+        let rects = tabRects()
+        return rects.indices.contains(index) ? NSPoint(x: rects[index].midX, y: rects[index].midY) : nil
     }
 }
