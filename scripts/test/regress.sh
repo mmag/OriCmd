@@ -956,15 +956,17 @@ check "A selection loaded from the clipboard" "[ \"\$(items selclip left | tr ',
 
 # Pause and the speed limit of a copy (a real copy, not an APFS clone): limited, it
 # is still under way after a few seconds; paused at once, hardly anything is copied.
+# The limit is given before the copy starts (speed:): set in the sheet, it raced the copy.
 scripts/test/mkdata.sh
 head -c 40000000 /dev/urandom > $L/big.bin
 defaults write ru.themmag.OriCmd.tests CopyAttributes -bool false
-run climit "alt+b wait text:ig escape f5 wait enter set:transferSpeed=5_MB/s wait wait wait wait"
+run climit "alt+b wait text:ig escape speed:5_MB/s f5 wait enter wait wait wait wait"
 part=$(print -l $R/.oricmd-*.part(N) | head -1)
 check "A copy keeps to the speed limit" "[ ! -e $R/big.bin ] && [ -n \"$part\" ] && [ \$(stat -f %z $part) -gt 1000000 ] && [ \$(stat -f %z $part) -lt 36000000 ]"
 rm -f $R/.oricmd-*.part(N)
+rm -f $R/big.bin
 defaults write ru.themmag.OriCmd.tests CopyAttributes -bool false
-run cpause "alt+b wait text:ig escape f5 wait enter set:transferSpeed=1_MB/s click:Pause wait wait wait"
+run cpause "alt+b wait text:ig escape speed:1_MB/s f5 wait enter wait click:Pause wait wait wait"
 check "A paused copy waits" "grep -qx 'Copying (paused)' build/shots/reg-cpause-sheet.txt && grep -qx '\\[button\\] Resume' build/shots/reg-cpause-sheet.txt && [ ! -e $R/big.bin ]"
 rm -f $R/.oricmd-*.part(N)
 

@@ -64,6 +64,12 @@ final class TransferController {
             $0.target = target
         }
         refresh()
+        #if DEBUG
+        if let speed = DebugAutomation.takeTransferSpeed() {
+            speedPopup.selectItem(withTitle: speed)
+            speedChanged(nil)
+        }
+        #endif
         if startsInBackground {
             showInOwnWindow()
         } else {

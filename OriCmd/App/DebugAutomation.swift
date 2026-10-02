@@ -10,7 +10,7 @@ import WebKit
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
-///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `keybindings` (the Keyboard Shortcuts window), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `speed:5_MB/s` (the speed limit the next copy starts with), `keybindings` (the Keyboard Shortcuts window), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title` (also a tab of a tab view),
 ///   `set:identifier=value` (a control by its identifier: text, a pop-up item's title, `on`/`off`/`mixed`, a
@@ -181,6 +181,10 @@ enum DebugAutomation {
                 } else if token.hasPrefix("file:") {
                     // The file the next save or open sheet would have chosen.
                     chosenFile = String(token.dropFirst(5))
+                } else if token.hasPrefix("speed:") {
+                    // `speed:5_MB/s`: the speed limit the next copy starts with (set in
+                    // its progress sheet later, a small file would be copied already).
+                    transferSpeed = String(token.dropFirst(6)).replacingOccurrences(of: "_", with: " ")
                 } else if token.hasPrefix("tree:"), let main = window.contentViewController as? MainViewController {
                     // `tree:/path`: the folder chosen in the Alt+F10 tree (quietly, as
                     // there choosing is not going) or in the separate tree, as by a click.
@@ -482,6 +486,15 @@ enum DebugAutomation {
         guard isTestRun, let snapshot = environment["ORICMD_SNAPSHOT"] else { return false }
         try? text.write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-print.txt"), atomically: true, encoding: .utf8)
         return true
+    }
+
+    /// The speed limit given with `speed:` for the next copy.
+    private static var transferSpeed: String?
+
+    /// Takes the speed limit given with `speed:` (once): a title of the progress sheet's pop-up.
+    static func takeTransferSpeed() -> String? {
+        defer { transferSpeed = nil }
+        return transferSpeed
     }
 
     /// Takes the file given with `file:` (once), instead of asking in a sheet.
