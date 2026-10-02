@@ -117,6 +117,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `Ctrl+Shift+←` / `Ctrl+Shift+→`, `Ctrl+←` / `Ctrl+→` (`⌥⌘←` / `⌥⌘→`) | Show in the left / right panel what is under the cursor: a folder's or an archive's contents, the folder of a file (with the file selected) |
 | `Alt+F1` / `Alt+F2` | Volume list of the left / right panel |
 | `Ctrl+\` | Root of the volume |
+| `Alt+F10` | A folder tree in a dialog: typing a folder's first letters finds it, `Enter` goes there |
 | `⌘T` / `⌘W` | New tab (or a double click on the empty part of the tab bar) / close tab (or a click on it with the mouse wheel) |
 | Dragging a tab | To another place of its bar, or onto the other panel's tabs: it moves there, with its server and terminal (a panel's only tab is copied) |
 | Commands → Lock Tab / Lock Tab, Allow Folder Changes (also in the tab's context menu) | A locked tab (marked `*`) keeps its folder: going elsewhere opens a new tab beside it; one locked with folder changes allowed comes back to its folder when chosen again. Locks and names given in the tab menu (Rename Tab…) are kept between launches |

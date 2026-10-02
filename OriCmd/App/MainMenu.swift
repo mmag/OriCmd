@@ -28,7 +28,7 @@ enum MainMenu {
             [.toggleLockCurrentTab, .toggleLockDcaCurrentTab],
             [.searchFor, .directoryHotlist],
             [.compareDirs, .syncDirs, .syncChangeDir],
-            [.goToPrevDir, .goToNextDir, .directoryHistory, .goToParent, .goToRoot],
+            [.goToPrevDir, .goToNextDir, .directoryHistory, .goToParent, .goToRoot, .cdTree],
             [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],
         ])

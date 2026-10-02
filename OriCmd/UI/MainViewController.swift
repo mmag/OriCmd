@@ -209,6 +209,46 @@ final class MainViewController: NSViewController {
     var separateTreeForTests: DirectoryTreePanel? { separateTree }
     #endif
 
+    /// The tree of the Alt+F10 dialog while it is open (for the test harness).
+    private(set) var folderTreeDialog: DirectoryTreePanel?
+
+    /// Alt+F10 (cm_CDtree): a folder tree in a dialog, the active panel's folder
+    /// selected; typing finds a folder, Enter (or OK) goes there.
+    @objc(cm_CDtree:)
+    func cdTree(_ sender: Any?) {
+        guard let window = view.window, activePanel.remote == nil else {
+            NSSound.beep()
+            return
+        }
+        let tree = DirectoryTreePanel(root: URL(filePath: "/"), showsHidden: showsHidden, insets: (0, 0))
+        tree.frame = NSRect(x: 0, y: 0, width: 420, height: 420)
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Go to Folder")
+        alert.informativeText = String(localized: "Type a folder's first letters to find it.")
+        alert.accessoryView = tree
+        alert.addButton(withTitle: String(localized: "Go"))
+        alert.addCancelButton()
+        tree.onSwitchPanel = { [weak alert] in
+            guard let alert else { return }
+            window.endSheet(alert.window, returnCode: .alertFirstButtonReturn)
+        }
+        tree.onClose = { [weak alert] _ in
+            guard let alert else { return }
+            window.endSheet(alert.window, returnCode: .cancel)
+        }
+        folderTreeDialog = tree
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            folderTreeDialog = nil
+            if response == .alertFirstButtonReturn, let url = tree.selectedURL {
+                activePanel.load(url)
+            }
+            activePanel.focus()
+        }
+        tree.reveal(activePanel.directory, quietly: true)
+        tree.focus()
+    }
+
     /// Show → Use the Ignore List (cm_SwitchIgnoreList).
     @objc(cm_SwitchIgnoreList:)
     func switchIgnoreList(_ sender: Any?) {

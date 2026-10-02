@@ -1061,6 +1061,13 @@ check "The ignore list leaves out a mask, a name, a path" "! grep '^left items: 
 run ignoreoff "menuitem:Ignore_List… wait set:ignoreList=*.csv\\nalpha click:OK wait cmd:cm_SwitchIgnoreList wait wait"
 check "...and shows them again when switched off" "grep '^left items: ' build/shots/reg-ignoreoff-panels.txt | grep -q 'alpha'"
 
+# Alt+F10: a folder tree in a dialog; Enter goes to the folder chosen, Esc stays.
+scripts/test/mkdata.sh
+run cdtree "alt+f10 wait wait tree:$PWD/$L/beta/deep wait enter wait wait"
+check "Alt+F10: the folder chosen in the tree" "panels cdtree | grep -q '^left\*: .*/left/beta/deep |'"
+run cdtreeesc "alt+f10 wait wait tree:$PWD/$L/beta/deep wait escape wait"
+check "Alt+F10: Esc stays where the panel was" "panels cdtreeesc | grep -q '^left\*: .*/left |'"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

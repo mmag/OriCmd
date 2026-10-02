@@ -2971,12 +2971,42 @@
         }
       }
     },
+    "Go": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти"
+          }
+        }
+      }
+    },
     "Go to File": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Перейти к файлу"
+          }
+        }
+      }
+    },
+    "Go to Folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти в папку"
+          }
+        }
+      }
+    },
+    "Go to Folder in Tree…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти в папку по дереву…"
           }
         }
       }
@@ -6417,6 +6447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Дерево"
+          }
+        }
+      }
+    },
+    "Type a folder's first letters to find it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наберите первые буквы папки, чтобы найти её."
           }
         }
       }

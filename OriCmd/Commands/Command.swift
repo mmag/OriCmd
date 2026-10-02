@@ -90,6 +90,7 @@ enum Command: String, CaseIterable {
     case srcLong = "cm_SrcLong"
     case srcThumbs = "cm_SrcThumbs"
     case srcTree = "cm_SrcTree"
+    case cdTree = "cm_CDtree"
     case toggleSeparateTree1 = "cm_ToggleSeparateTree1"
     case horizontalPanels = "cm_HorizontalPanels"
     case srcQuickView = "cm_SrcQuickview"
@@ -192,6 +193,7 @@ enum Command: String, CaseIterable {
         case .srcLong: String(localized: "Full")
         case .srcThumbs: String(localized: "Thumbnails")
         case .srcTree: String(localized: "Tree")
+        case .cdTree: String(localized: "Go to Folder in Tree…")
         case .toggleSeparateTree1: String(localized: "Separate Tree")
         case .horizontalPanels: String(localized: "Horizontal Panels")
         case .srcQuickView: String(localized: "Quick View")
@@ -248,6 +250,7 @@ enum Command: String, CaseIterable {
         case .sortByDateTime: .f(5, .control)
         case .sortBySize: .f(6, .control)
         case .unsorted: .f(7, .control)
+        case .cdTree: .f(10, .option)
         case .switchHidSys: .cmd(".", .shift)
         case .goToPrevDir: .cmd("[")
         case .goToNextDir: .cmd("]")

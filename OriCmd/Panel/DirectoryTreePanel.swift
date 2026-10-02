@@ -44,7 +44,9 @@ final class DirectoryTreePanel: NSView {
         (outline.item(atRow: outline.selectedRow) as? Node)?.url
     }
 
-    init(root: URL, showsHidden: Bool) {
+    /// `insets`: the room above and below, to line up with a panel's path bar
+    /// and status line (none in a dialog).
+    init(root: URL, showsHidden: Bool, insets: (top: CGFloat, bottom: CGFloat) = (29, 22)) {
         self.root = Node(url: root, showsHidden: showsHidden)
         super.init(frame: .zero)
 
@@ -74,9 +76,9 @@ final class DirectoryTreePanel: NSView {
             view.trailingAnchor.constraint(equalTo: trailingAnchor).isActive = true
         }
         NSLayoutConstraint.activate([
-            titleBar.topAnchor.constraint(equalTo: topAnchor, constant: 29),
+            titleBar.topAnchor.constraint(equalTo: topAnchor, constant: insets.top),
             scrollView.topAnchor.constraint(equalTo: titleBar.bottomAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -22),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -insets.bottom),
         ])
         outline.reloadData()
     }
@@ -153,6 +155,11 @@ extension DirectoryTreePanel: NSOutlineViewDataSource, NSOutlineViewDelegate {
         cell.textField?.stringValue = (item as? Node)?.name ?? ""
         cell.imageView?.image = NSWorkspace.shared.icon(for: .folder)
         return cell
+    }
+
+    /// Typing a folder's first letters finds it among the folders shown.
+    func outlineView(_ outlineView: NSOutlineView, typeSelectStringFor tableColumn: NSTableColumn?, item: Any) -> String? {
+        (item as? Node)?.name
     }
 
     func outlineViewSelectionDidChange(_ notification: Notification) {

@@ -179,8 +179,14 @@ enum DebugAutomation {
                     // The file the next save or open sheet would have chosen.
                     chosenFile = String(token.dropFirst(5))
                 } else if token.hasPrefix("tree:"), let main = window.contentViewController as? MainViewController {
-                    // `tree:/path`: the folder chosen in the separate tree, as by a click.
-                    main.separateTreeForTests?.reveal(URL(filePath: String(token.dropFirst(5))))
+                    // `tree:/path`: the folder chosen in the Alt+F10 tree (quietly, as
+                    // there choosing is not going) or in the separate tree, as by a click.
+                    let url = URL(filePath: String(token.dropFirst(5)))
+                    if let dialog = main.folderTreeDialog {
+                        dialog.reveal(url, quietly: true)
+                    } else {
+                        main.separateTreeForTests?.reveal(url)
+                    }
                 } else if token.hasPrefix("headermenu:"), let main = window.contentViewController as? MainViewController {
                     // `headermenu:Item_Title`: an item of the active panel's column header menu.
                     let title = String(token.dropFirst(11)).replacingOccurrences(of: "_", with: " ")
