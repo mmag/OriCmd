@@ -97,6 +97,7 @@ enum Command: String, CaseIterable {
     case sortByDateTime = "cm_SrcByDateTime"
     case sortBySize = "cm_SrcBySize"
     case reverseOrder = "cm_SrcNegOrder"
+    case unsorted = "cm_SrcUnsorted"
     case switchHidSys = "cm_SwitchHidSys"
 
     // The terminal of a server under the panel (OriCmd's own)
@@ -196,6 +197,7 @@ enum Command: String, CaseIterable {
         case .sortByDateTime: String(localized: "Sort by Date")
         case .sortBySize: String(localized: "Sort by Size")
         case .reverseOrder: String(localized: "Reverse Order")
+        case .unsorted: String(localized: "Unsorted")
         case .switchHidSys: String(localized: "Show Hidden Files")
         case .serverTerminal: String(localized: "Server Terminal")
         case .terminalChangeDir: String(localized: "Terminal: Go to Panel Folder")
@@ -241,6 +243,7 @@ enum Command: String, CaseIterable {
         case .sortByExt: .f(4, .control)
         case .sortByDateTime: .f(5, .control)
         case .sortBySize: .f(6, .control)
+        case .unsorted: .f(7, .control)
         case .switchHidSys: .cmd(".", .shift)
         case .goToPrevDir: .cmd("[")
         case .goToNextDir: .cmd("]")
@@ -277,6 +280,7 @@ enum Command: String, CaseIterable {
         case .sortByExt: [.cmd("2", [.control, .option])]
         case .sortByDateTime: [.cmd("3", [.control, .option])]
         case .sortBySize: [.cmd("4", [.control, .option])]
+        case .unsorted: [.cmd("5", [.control, .option])]
         case .switchToNextTab: [.cmd("}")]
         case .switchToPreviousTab: [.cmd("{")]
         case .searchFor: [.cmd("f")]

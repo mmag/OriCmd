@@ -40,7 +40,7 @@ final class FileListHeaderView: NSView {
         for column in layout.columns {
             let cell = layout.rect(for: column, y: 0, height: bounds.height).offsetBy(dx: 1, dy: 0)
             var title = Self.titles[column]!
-            if column == sortOrder.column {
+            if column == sortOrder.column, !sortOrder.isUnsorted {
                 title += sortOrder.ascending ? " ▴" : " ▾"
             }
             let size = (title as NSString).size(withAttributes: attributes)

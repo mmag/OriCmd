@@ -23,9 +23,14 @@ nonisolated enum SortColumn: String, CaseIterable, Sendable {
 nonisolated struct SortOrder: Equatable, Sendable {
     var column: SortColumn = .name
     var ascending = true
+    /// Show → Unsorted: the order the folder is read in (folders first).
+    var isUnsorted = false
 
     func sorted(_ items: [FileItem]) -> [FileItem] {
-        items.sorted(by: areInIncreasingOrder)
+        guard !isUnsorted else {
+            return items.filter(\.isParent) + items.filter { !$0.isParent && $0.isFolder } + items.filter { !$0.isFolder }
+        }
+        return items.sorted(by: areInIncreasingOrder)
     }
 
     private func areInIncreasingOrder(_ a: FileItem, _ b: FileItem) -> Bool {

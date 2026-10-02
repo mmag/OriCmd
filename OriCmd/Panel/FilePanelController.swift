@@ -1148,11 +1148,14 @@ final class FilePanelController: NSViewController {
         guard let archive else { return }
         let prefix = archive.folder.isEmpty ? "" : archive.folder + "/"
         var children: [String: FileItem] = [:]
+        // The order the archive has its entries in (for Unsorted).
+        var order: [String] = []
         for entry in archive.entries where entry.path.hasPrefix(prefix) && entry.path.count > prefix.count {
             let rest = entry.path.dropFirst(prefix.count)
             let childName = String(rest.prefix { $0 != "/" })
             let isNested = rest.contains("/")
             if isNested && children[childName] != nil { continue }
+            if children[childName] == nil { order.append(childName) }
             let isFolder = isNested || entry.isDirectory
             children[childName] = FileItem(
                 name: childName, url: archive.url.appending(path: prefix + childName),
@@ -1161,7 +1164,7 @@ final class FilePanelController: NSViewController {
                 mode: isNested ? 0o755 : entry.mode
             )
         }
-        entries = Array(children.values)
+        entries = order.compactMap { children[$0] }
         entriesOrder = nil
         panelView.show(directory: directory, volumes: Volume.mounted())
         panelView.pathBar.path = archive.displayPath
@@ -1777,7 +1780,7 @@ final class FilePanelController: NSViewController {
     }
 
     func sort(by column: SortColumn) {
-        if sortOrder.column == column {
+        if sortOrder.column == column, !sortOrder.isUnsorted {
             sortOrder.ascending.toggle()
         } else {
             sortOrder = SortOrder(column: column, ascending: true)
@@ -2276,6 +2279,19 @@ extension FilePanelController: NSMenuItemValidation {
 
     /// The set the panel shows ("" the Default view), for the menu's check mark.
     var columnSetShown: String { panelView.headerView.columnSet }
+
+    /// Show → Unsorted (Ctrl+F7): the entries in the order the folder is read in;
+    /// the folder is read again, since the order shown is a sorted one.
+    @objc(cm_SrcUnsorted:)
+    func srcUnsorted(_ sender: Any?) {
+        guard !sortOrder.isUnsorted else { return }
+        sortOrder = SortOrder(column: .name, ascending: true, isUnsorted: true)
+        if archive != nil, let location = archive {
+            reopenArchive(location, selecting: listView.currentItem?.name, force: true)
+        } else {
+            reread()
+        }
+    }
 
     /// Show → All Files: removes the filter (and Only Selected Files).
     @objc(cm_SrcAllFiles:)
@@ -3145,7 +3161,9 @@ extension FilePanelController: NSMenuItemValidation {
         default: nil
         }
         if let sortColumn {
-            menuItem.state = sortOrder.column == sortColumn ? .on : .off
+            menuItem.state = sortOrder.column == sortColumn && !sortOrder.isUnsorted ? .on : .off
+        } else if command == .unsorted {
+            menuItem.state = sortOrder.isUnsorted ? .on : .off
         } else if command == .reverseOrder {
             menuItem.state = sortOrder.ascending ? .off : .on
         } else if command == .goToParent {

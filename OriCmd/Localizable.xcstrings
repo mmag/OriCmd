@@ -6541,6 +6541,16 @@
         }
       }
     },
+    "Unsorted": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без сортировки"
+          }
+        }
+      }
+    },
     "Update failed": {
       "localizations": {
         "ru": {

@@ -1037,6 +1037,15 @@ check "Ctrl+Z: the comment shown for editing" "grep -qx 'my-note' build/shots/re
 run cmtclear "alt+r wait text:eadme escape ctrl+z wait backspace enter wait"
 check "Ctrl+Z: an empty comment removes it" "[ -z \"\$(comment $L/readme.txt)\" ] && ! xattr $L/readme.txt | grep -q FinderComment"
 
+# Ctrl+F7 (Unsorted): the order the folder is read in (as ls -f), folders first;
+# Ctrl+F3 sorts by name again.
+scripts/test/mkdata.sh
+mkdir -p $L/uns/dir; for n in zeta alpha mike bravo; do touch $L/uns/$n.txt; done
+run uns "alt+u wait text:ns enter wait cmd:cm_SrcUnsorted wait wait"
+check "Unsorted: as the folder is read" "[ \"\$(grep '^left items: ' build/shots/reg-uns-panels.txt | sed 's/^left items: //')\" = \"dir, \$(ls -f $L/uns | grep '\.txt\$' | paste -sd, - | sed 's/,/, /g')\" ]"
+run unsback "alt+u wait text:ns enter wait cmd:cm_SrcUnsorted wait wait ctrl+f3 wait"
+check "...and sorted by name again" "grep -qx 'left items: dir, alpha.txt, bravo.txt, mike.txt, zeta.txt' build/shots/reg-unsback-panels.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

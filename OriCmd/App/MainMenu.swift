@@ -55,7 +55,7 @@ enum MainMenu {
             [.srcShort, .srcLong, .srcThumbs, .srcTree, .toggleSeparateTree1, .srcQuickView],
             [.srcAllFiles, .srcUserSpec, .showOnlySelected, .quickFilter, .branchView],
             [.countDirContent],
-            [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
+            [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .unsorted, .reverseOrder],
             [.switchHidSys],
         ], extra: [
             .separator(),
