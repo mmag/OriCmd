@@ -474,6 +474,11 @@ file under the cursor in the other panel) are inserted already quoted. A command
 can have its own shortcut (`CM+E` is ⌃⌘E) and run in Terminal; Customize
 Toolbar… puts commands on the button bar.
 
+Commands with the same group make a submenu of Start; a group named like a menu
+of the bar (Files, Commands, Net…) puts its commands at the end of that menu instead,
+so the main menu gets commands of your own. On the button bar a group is one
+button with its commands in a dropdown.
+
 ## Internal associations
 
 Files → Internal Associations… (or the button in Settings): for a mask

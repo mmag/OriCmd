@@ -8,6 +8,7 @@ final class UserCommandsWindowController: NSWindowController {
     private let titleField = NSTextField(string: "")
     private let commandField = NSTextField(string: "")
     private let keysField = NSTextField(string: "")
+    private let groupBox = NSComboBox()
     private let terminalBox = NSButton(checkboxWithTitle: String(localized: "Run in Terminal"), target: nil, action: nil)
     private var commands: [UserCommand] = []
 
@@ -58,9 +59,15 @@ final class UserCommandsWindowController: NSWindowController {
             NSButton(title: String(localized: "Move Down"), target: self, action: #selector(moveEntryDown(_:))),
         ])
 
-        for field in [titleField, commandField, keysField] {
+        for field in [titleField, commandField, keysField, groupBox] {
             field.delegate = self
         }
+        groupBox.placeholderString = String(localized: "none: Start itself")
+        groupBox.target = self
+        groupBox.action = #selector(formChanged(_:))
+        groupBox.identifier = NSUserInterfaceItemIdentifier("commandGroup")
+        titleField.identifier = NSUserInterfaceItemIdentifier("commandTitle")
+        commandField.identifier = NSUserInterfaceItemIdentifier("commandLine")
         commandField.placeholderString = "open -a TextEdit %S"
         keysField.placeholderString = String(localized: "e.g. CM+E (C Control, A Option, S Shift, M Command)")
         terminalBox.target = self
@@ -75,6 +82,7 @@ final class UserCommandsWindowController: NSWindowController {
             [NSTextField(labelWithString: String(localized: "Title:")), titleField],
             [NSTextField(labelWithString: String(localized: "Command:")), commandField],
             [NSTextField(labelWithString: String(localized: "Keys:")), keysField],
+            [NSTextField(labelWithString: String(localized: "Group:")), groupBox],
             [NSGridCell.emptyContentView, terminalBox],
             [NSGridCell.emptyContentView, help],
         ])
@@ -109,10 +117,15 @@ final class UserCommandsWindowController: NSWindowController {
 
     private func updateForm() {
         let command = selectedIndex.map { commands[$0] }
-        for field in [titleField, commandField, keysField] {
+        for field in [titleField, commandField, keysField, groupBox] {
             field.isEnabled = command != nil
         }
         terminalBox.isEnabled = command != nil
+        // A group of Start, or a menu of the bar to put the command in.
+        groupBox.removeAllItems()
+        groupBox.addItems(withObjectValues: UserCommands.groups + (NSApp.mainMenu?.items.dropFirst().compactMap {
+            $0.submenu?.title } ?? []).filter { $0 != String(localized: "Start") && !UserCommands.groups.contains($0) })
+        groupBox.stringValue = command?.group ?? ""
         titleField.stringValue = command?.title ?? ""
         commandField.stringValue = command?.command ?? ""
         keysField.stringValue = command?.keys ?? ""
@@ -149,6 +162,8 @@ final class UserCommandsWindowController: NSWindowController {
         commands[index].command = commandField.stringValue
         commands[index].keys = keysField.stringValue
         commands[index].runsInTerminal = terminalBox.state == .on
+        let group = groupBox.stringValue.trimmingCharacters(in: .whitespaces)
+        commands[index].group = group.isEmpty ? nil : group
         UserCommands.all = commands
         table.reloadData(forRowIndexes: [index], columnIndexes: IndexSet(integersIn: 0..<table.numberOfColumns))
     }

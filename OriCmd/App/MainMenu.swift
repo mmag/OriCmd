@@ -83,6 +83,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: helpMenu))
         NSApp.helpMenu = helpMenu
 
+        moveUserGroups(in: mainMenu)
         return mainMenu
     }
 
@@ -173,18 +174,47 @@ enum MainMenu {
     /// Total Commander's "Start" menu: the user's own commands.
     private static func startMenu() -> NSMenu {
         let menu = NSMenu(title: String(localized: "Start"))
-        for command in UserCommands.all {
-            let shortcut = Shortcut(text: command.keys)
-            let entry = item(command.title, #selector(MainViewController.runUserCommand(_:)),
-                             shortcut?.key ?? "", shortcut?.modifiers ?? [])
-            entry.representedObject = command.id.uuidString
-            menu.addItem(entry)
+        for command in UserCommands.all where (command.group ?? "").trimmingCharacters(in: .whitespaces).isEmpty {
+            menu.addItem(userCommandItem(command))
+        }
+        // Groups are submenus (those named as a menu of the bar go there: see make()).
+        for group in UserCommands.groups {
+            let submenu = NSMenu(title: group)
+            UserCommands.commands(in: group).map(userCommandItem).forEach(submenu.addItem)
+            menu.addItem(container(for: submenu))
         }
         if !menu.items.isEmpty {
             menu.addItem(.separator())
         }
         menu.addItem(item(String(localized: "Change Start Menu…"), #selector(AppDelegate.showStartMenuEditor(_:))))
         return menu
+    }
+
+    static func userCommandItem(_ command: UserCommand) -> NSMenuItem {
+        let shortcut = Shortcut(text: command.keys)
+        let entry = item(command.title, #selector(MainViewController.runUserCommand(_:)),
+                         shortcut?.key ?? "", shortcut?.modifiers ?? [])
+        entry.representedObject = command.id.uuidString
+        return entry
+    }
+
+    /// Start's groups named as another menu of the bar ("Files"…) are moved to the
+    /// end of that menu: the user's own items in the main menu.
+    private static func moveUserGroups(in mainMenu: NSMenu) {
+        guard let start = mainMenu.items.first(where: { $0.submenu?.title == String(localized: "Start") })?.submenu else {
+            return
+        }
+        for entry in start.items {
+            guard let group = entry.submenu,
+                  let target = mainMenu.items.first(where: { $0.submenu !== start && $0.submenu?.title == group.title })?
+                    .submenu else { continue }
+            start.removeItem(entry)
+            target.addItem(.separator())
+            for item in group.items {
+                group.removeItem(item)
+                target.addItem(item)
+            }
+        }
     }
 
     /// The command's item with its shortcut, plus hidden items for its other keys.

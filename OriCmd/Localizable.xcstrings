@@ -3381,6 +3381,16 @@
         }
       }
     },
+    "Group:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Группа:"
+          }
+        }
+      }
+    },
     "Help": {
       "localizations": {
         "ru": {
@@ -7961,6 +7971,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "имя"
+          }
+        }
+      }
+    },
+    "none: Start itself": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет: сам «Запуск»"
           }
         }
       }

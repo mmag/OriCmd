@@ -8,6 +8,9 @@ nonisolated struct UserCommand: Codable, Equatable, Sendable {
     var command: String
     var keys = ""
     var runsInTerminal = false
+    /// A submenu of Start the command is in — or, named as a menu of the menu bar
+    /// ("Files", "Commands"…), that menu. Nil or empty: Start itself.
+    var group: String?
 
     /// Values for the parameters, taken from the panels.
     struct Context {
@@ -69,5 +72,16 @@ enum UserCommands {
 
     static func command(withID id: String) -> UserCommand? {
         all.first { $0.id.uuidString == id }
+    }
+
+    /// The groups, in the order of their first commands.
+    static var groups: [String] {
+        var seen = Set<String>()
+        return all.compactMap { $0.group?.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
+    static func commands(in group: String) -> [UserCommand] {
+        all.filter { $0.group?.trimmingCharacters(in: .whitespaces) == group }
     }
 }

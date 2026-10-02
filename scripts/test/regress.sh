@@ -1181,6 +1181,22 @@ run netconnect "menuitem:Servers_on_the_Network… wait wait wait set:networkSer
 check "Servers on the Network: its address put in Connect to Server" "grep -qx \"ftp://\$(scutil --get LocalHostName).local:2121/\" build/shots/reg-netconnect-sheet.txt"
 kill $dnssd
 
+# Start menu groups: a submenu of Start, a group named as a menu of the bar (its
+# commands at the end of that menu), and a command of Start itself.
+scripts/test/mkdata.sh
+usercommands() { python3 -c "
+import json,uuid
+print(json.dumps([{'id':str(uuid.uuid4()).upper(),'title':'Hello','command':'touch hello-group.txt','keys':'','runsInTerminal':False,'group':'Tools'},{'id':str(uuid.uuid4()).upper(),'title':'Hi Files','command':'touch hello-files.txt','keys':'','runsInTerminal':False,'group':'Files'},{'id':str(uuid.uuid4()).upper(),'title':'Plain','command':'touch plain.txt','keys':'','runsInTerminal':False}]).encode().hex())"; }
+defaults write ru.themmag.OriCmd.tests UserCommands -data $(usercommands)
+run ugroup "menuitem:Start>Tools>Hello wait wait"
+check "Start: a command in a submenu" "[ -e $L/hello-group.txt ]"
+defaults write ru.themmag.OriCmd.tests UserCommands -data $(usercommands)
+run umenu "menuitem:Files>Hi_Files wait wait"
+check "Start: a group named Files puts its command in the Files menu" "[ -e $L/hello-files.txt ]"
+defaults write ru.themmag.OriCmd.tests UserCommands -data $(usercommands)
+run uplain "menuitem:Start>Plain wait wait"
+check "Start: a command of Start itself" "[ -e $L/plain.txt ]"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

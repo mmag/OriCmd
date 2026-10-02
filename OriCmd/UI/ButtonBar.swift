@@ -53,10 +53,13 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         Self.buttons.map { NSToolbarItem.Identifier($0.0.rawValue) }
             + UserCommands.all.map { NSToolbarItem.Identifier(Self.userPrefix + $0.id.uuidString) }
+            + UserCommands.groups.map { NSToolbarItem.Identifier(Self.groupPrefix + $0) }
             + [.space, .flexibleSpace]
     }
 
     private static let userPrefix = "user."
+    /// A button opening a group of Start's commands (Total Commander's subbar).
+    private static let groupPrefix = "group."
 
     /// The Start menu command a toolbar button stands for.
     static func userCommandID(from identifier: NSToolbarItem.Identifier) -> String? {
@@ -74,6 +77,21 @@ final class ButtonBar: NSObject, NSToolbarDelegate {
             item.paletteLabel = name
             item.toolTip = name
             item.view = button
+            return item
+        }
+        if identifier.rawValue.hasPrefix(Self.groupPrefix) {
+            let group = String(identifier.rawValue.dropFirst(Self.groupPrefix.count))
+            let commands = UserCommands.commands(in: group)
+            guard !commands.isEmpty else { return nil }
+            let menu = NSMenu(title: group)
+            commands.map(MainMenu.userCommandItem).forEach(menu.addItem)
+            let item = NSMenuToolbarItem(itemIdentifier: identifier)
+            item.label = group
+            item.paletteLabel = group
+            item.toolTip = group
+            item.image = NSImage(systemSymbolName: "list.bullet.rectangle", accessibilityDescription: group)
+            item.menu = menu
+            item.showsIndicator = true
             return item
         }
         if let id = Self.userCommandID(from: identifier) {
