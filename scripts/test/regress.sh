@@ -954,6 +954,20 @@ check "A selection saved to a file" "[ \"\$(cat $R/saved.txt)\" = \"\$(printf 'n
 run selclip "alt+r wait text:eadme escape space alt+n wait text:otes escape space cmd:cm_CopyNamesToClip cmd:cm_ClearAll wait cmd:cm_LoadSelectionFromClip wait"
 check "A selection loaded from the clipboard" "[ \"\$(items selclip left | tr ',' '\n' | grep -c '\*')\" = 2 ]"
 
+# Pause and the speed limit of a copy (a real copy, not an APFS clone): limited, it
+# is still under way after a few seconds; paused at once, hardly anything is copied.
+scripts/test/mkdata.sh
+head -c 40000000 /dev/urandom > $L/big.bin
+defaults write ru.themmag.OriCmd.tests CopyAttributes -bool false
+run climit "alt+b wait text:ig escape f5 wait enter set:transferSpeed=5_MB/s wait wait wait wait"
+part=$(print -l $R/.oricmd-*.part(N) | head -1)
+check "A copy keeps to the speed limit" "[ ! -e $R/big.bin ] && [ -n \"$part\" ] && [ \$(stat -f %z $part) -gt 1000000 ] && [ \$(stat -f %z $part) -lt 36000000 ]"
+rm -f $R/.oricmd-*.part(N)
+defaults write ru.themmag.OriCmd.tests CopyAttributes -bool false
+run cpause "alt+b wait text:ig escape f5 wait enter set:transferSpeed=1_MB/s click:Pause wait wait wait"
+check "A paused copy waits" "grep -qx 'Copying (paused)' build/shots/reg-cpause-sheet.txt && grep -qx '\\[button\\] Resume' build/shots/reg-cpause-sheet.txt && [ ! -e $R/big.bin ]"
+rm -f $R/.oricmd-*.part(N)
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.
@@ -1128,6 +1142,23 @@ check "the path bar completes and goes to server folders" "[ -d $L/alpha/srvmade
 scripts/test/mkdata.sh
 run recentserver "$(connect sftp://oritest$PWD/$L) wait cmd:cm_FtpDisconnect wait wait cmd:connectToServer wait cmd+a text:x down enter wait wait wait"
 check "Connect to Server lists recent servers" "grep -q 'left %' build/shots/reg-recentserver-terminal.txt"
+# Resume after a break: a smaller file met by a server transfer (zeros in it, to
+# tell an append from a new copy) is completed with "Resume" — SFTP and FTP, both ways.
+scripts/test/mkdata.sh
+resprep() { head -c 2000000 /dev/urandom > $L/big.dat; head -c 1000000 /dev/zero > $R/big.dat; head -c 2000000 /dev/urandom > $R/up.dat; head -c 1000000 /dev/zero > $L/up.dat; }
+resumed() { [ "$(stat -f %z $1)" = 2000000 ] && [ "$(head -c 1000000 $1 | tr -d '\0' | wc -c | tr -d ' ')" = 0 ] && cmp -s <(tail -c +1000001 $1) <(tail -c +1000001 $2); }
+resprep; run sres "$(connect sftp://oritest$PWD/$L) alt+b wait text:ig.dat escape f5 wait enter wait wait click:Resume wait wait wait"
+check "SFTP: a download resumed" "resumed $R/big.dat $L/big.dat"
+resprep; run sresup "$(connect sftp://oritest$PWD/$L) tab alt+u wait text:p.dat escape f5 wait enter wait wait click:Resume wait wait wait"
+check "SFTP: an upload resumed" "resumed $L/up.dat $R/up.dat"
+resprep; run fres "$(connect ftp://tester@127.0.0.1:2121/left 'text:secret enter wait') alt+b wait text:ig.dat escape f5 wait enter wait wait click:Resume wait wait wait"
+check "FTP: a download resumed" "resumed $R/big.dat $L/big.dat"
+resprep; run fresup "$(connect ftp://tester@127.0.0.1:2121/left 'text:secret enter wait') tab alt+u wait text:p.dat escape f5 wait enter wait wait click:Resume wait wait wait"
+check "FTP: an upload resumed" "resumed $L/up.dat $R/up.dat"
+resprep; cp $L/big.dat $R/big.dat
+run snores "$(connect sftp://oritest$PWD/$L) alt+b wait text:ig.dat escape f5 wait enter wait wait"
+check "No Resume for a file as big as the source" "grep -qx 'File already exists' build/shots/reg-snores-sheet2.txt && grep -qx '\[button\] Skip' build/shots/reg-snores-sheet2.txt && ! grep -qx '\[button\] Resume' build/shots/reg-snores-sheet2.txt"
+
 scripts/test/servers.sh stop
 
 echo "passed: $pass, failed: $fail"

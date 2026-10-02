@@ -21,6 +21,16 @@
         }
       }
     },
+    "%@ (paused)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (пауза)"
+          }
+        }
+      }
+    },
     "%@ already exists. Replace?": {
       "localizations": {
         "ru": {
@@ -67,6 +77,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%P — каталог активной панели, %N — файл под курсором, %S — выделенные файлы, %T — каталог другой панели, %M — файл под курсором в ней. Значения экранируются для оболочки."
+          }
+        }
+      }
+    },
+    "%lld MB/s": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld МБ/с"
           }
         }
       }
@@ -3591,6 +3611,16 @@
         }
       }
     },
+    "No speed limit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без ограничения скорости"
+          }
+        }
+      }
+    },
     "None": {
       "localizations": {
         "ru": {
@@ -4161,6 +4191,16 @@
         }
       }
     },
+    "Pause": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза"
+          }
+        }
+      }
+    },
     "Pictures": {
       "localizations": {
         "ru": {
@@ -4727,6 +4767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Восстановить выделение  (Num /)"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить"
           }
         }
       }
@@ -5337,6 +5387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сортировать по размеру"
+          }
+        }
+      }
+    },
+    "Speed limit (copying files; a clone on the same disk is instant)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ограничение скорости (при копировании файлов; клон на том же диске мгновенный)"
           }
         }
       }
@@ -6898,6 +6958,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@»"
+          }
+        }
+      }
+    },
+    "resume.transfer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Докачать"
           }
         }
       }

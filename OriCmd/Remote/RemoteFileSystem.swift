@@ -37,30 +37,43 @@ nonisolated final class RemoteConflicts: Sendable {
         self.resolve = resolve
     }
 
-    /// Whether the existing `target` is replaced by `source`; false skips it.
-    func replaces(_ source: ConflictItem, _ target: ConflictItem) async throws -> Bool {
-        guard let resolve else { return true }
+    enum Answer: Sendable {
+        case replace, skip
+        /// The existing smaller file is completed (sftp reget/reput, curl -C -).
+        case resume
+    }
+
+    /// What becomes of the existing `target` met by `source`: replaced, kept, or,
+    /// when it is the smaller file, completed (asked about only, never an "all" answer).
+    func decide(_ source: ConflictItem, _ target: ConflictItem) async throws -> Answer {
+        guard let resolve else { return .replace }
         let isOlder = (target.modified ?? .distantPast) < (source.modified ?? .distantFuture)
         switch mode.withLock({ $0 }) {
-        case .overwriteAll: return true
-        case .skipAll: return false
-        case .overwriteOlder: return isOlder
+        case .overwriteAll: return .replace
+        case .skipAll: return .skip
+        case .overwriteOlder: return isOlder ? .replace : .skip
         default: break
+        }
+        var target = target
+        if !source.isFolder, !target.isFolder, let have = target.size, let whole = source.size, have > 0, have < whole {
+            target.resumable = true
         }
         switch await resolve(source, target) {
         case .overwrite:
-            return true
+            return .replace
         case .overwriteAll:
             mode.withLock { $0 = .overwriteAll }
-            return true
+            return .replace
         case .skip:
-            return false
+            return .skip
         case .skipAll:
             mode.withLock { $0 = .skipAll }
-            return false
+            return .skip
         case .overwriteAllOlder:
             mode.withLock { $0 = .overwriteOlder }
-            return isOlder
+            return isOlder ? .replace : .skip
+        case .resume:
+            return target.resumable ? .resume : .replace
         case .cancel:
             throw CancellationError()
         }
@@ -77,6 +90,8 @@ nonisolated struct UploadCheck: Sendable {
     var incomplete: Set<Int> = []
     /// Server folders that existed already (their permissions are left alone).
     var existingFolders: Set<String> = []
+    /// Local files whose smaller copy on the server is to be completed.
+    var resumed: Set<String> = []
 }
 
 extension RemoteFileSystem {
@@ -108,9 +123,14 @@ extension RemoteFileSystem {
                     } else if isFolder != item.isDirectory {
                         throw RemoteError(String(localized:
                             "\u{201C}\(item.name)\u{201D} is a folder on one side and a file on the other."))
-                    } else if try await !conflicts.replaces(.local(url), .remote(item)) {
-                        check.kept.insert(url.path)
-                        check.incomplete.insert(top)
+                    } else {
+                        switch try await conflicts.decide(.local(url), .remote(item)) {
+                        case .replace: break
+                        case .resume: check.resumed.insert(url.path)
+                        case .skip:
+                            check.kept.insert(url.path)
+                            check.incomplete.insert(top)
+                        }
                     }
                 }
             }
@@ -145,6 +165,8 @@ nonisolated struct PlannedFile: Sendable {
     let source: String
     let target: String
     let size: Int64
+    /// Completes a smaller existing target instead of replacing it.
+    var resumes = false
 }
 
 /// Byte progress of a transfer that a command line tool makes file by file:

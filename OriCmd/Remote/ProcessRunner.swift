@@ -51,12 +51,19 @@ nonisolated enum ProcessRunner {
                 try? writer.close()
             }
         }
+        // Paused in the progress window: the tool is stopped (SIGSTOP) until it goes on.
+        var stopped = false
         while process.isRunning {
             // Cancelled through the progress window, or the task was (Esc while listing).
             if progress?.isCancelled == true || Task.isCancelled {
+                if stopped { kill(process.processIdentifier, SIGCONT) }
                 process.terminate()
                 process.waitUntilExit()
                 throw CancellationError()
+            }
+            if let paused = progress?.snapshot.isPaused, paused != stopped {
+                kill(process.processIdentifier, paused ? SIGSTOP : SIGCONT)
+                stopped = paused
             }
             try? await Task.sleep(for: .milliseconds(40))
         }

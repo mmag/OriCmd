@@ -391,7 +391,8 @@ enum DebugAutomation {
                 var suffix = "-sheet"
                 while let current = sheet {
                     save(current, to: snapshot.replacingOccurrences(of: ".png", with: "\(suffix).png"))
-                    saveTexts(of: current, to: snapshot.replacingOccurrences(of: ".png", with: "\(suffix).txt"))
+                    saveTexts(of: current, to: snapshot.replacingOccurrences(of: ".png", with: "\(suffix).txt"),
+                              buttons: true)
                     sheet = current.attachedSheet
                     suffix += "2"
                 }
@@ -466,10 +467,14 @@ enum DebugAutomation {
     }
 
     /// Writes the texts `window` shows (its title, labels, fields, text views, the
-    /// rows of a table drawn by cells), one per line.
-    private static func saveTexts(of window: NSWindow, to path: String) {
+    /// rows of a table drawn by cells), one per line; for a sheet, its buttons too
+    /// (`[button] Title`, the ones shown).
+    private static func saveTexts(of window: NSWindow, to path: String, buttons: Bool = false) {
         func texts(in view: NSView) -> [String] {
             var result: [String] = []
+            if buttons, let button = view as? NSButton, !(button is NSPopUpButton), !button.isHidden, !button.title.isEmpty {
+                result.append("[button] \(button.title)")
+            }
             if let field = view as? NSTextField, !field.stringValue.isEmpty {
                 result.append(field is NSSecureTextField ? "[secure]" : field.stringValue)
             }

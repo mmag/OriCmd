@@ -60,7 +60,7 @@ class Session(socketserver.StreamRequestHandler):
         elif command in ("SYST",):
             self.reply("215 UNIX Type: L8")
         elif command == "FEAT":
-            self.reply("211-Features:\r\n MLSD\r\n SIZE\r\n MDTM\r\n UTF8\r\n211 End")
+            self.reply("211-Features:\r\n MLSD\r\n SIZE\r\n MDTM\r\n REST STREAM\r\n UTF8\r\n211 End")
         elif command == "OPTS":
             self.reply("200 OK")
         elif command == "PWD":
@@ -100,16 +100,20 @@ class Session(socketserver.StreamRequestHandler):
                         time.strftime("%b %d %H:%M", time.localtime(info.st_mtime)), name)
                 conn.sendall((text + "\r\n").encode())
             conn.close(); self.reply("226 Done")
+        elif command == "REST":
+            self.offset = int(arg); self.reply("350 Restarting at %d" % self.offset)
         elif command == "RETR":
             _, full = self.real(arg)
+            offset, self.offset = getattr(self, "offset", 0), 0
             with open(full, "rb") as source:
+                source.seek(offset)
                 self.reply("150 Sending"); conn = self.open_data()
                 conn.sendall(source.read()); conn.close()
             self.reply("226 Done")
-        elif command == "STOR":
+        elif command in ("STOR", "APPE"):
             _, full = self.real(arg)
             self.reply("150 Receiving"); conn = self.open_data()
-            with open(full, "wb") as target:
+            with open(full, "ab" if command == "APPE" else "wb") as target:
                 while True:
                     data = conn.recv(65536)
                     if not data: break

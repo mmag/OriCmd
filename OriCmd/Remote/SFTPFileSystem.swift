@@ -261,11 +261,13 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
                 level.append((remote, local, top))
                 return
             }
-            if exists, try await !conflicts.replaces(.remote(item), .local(local)) {
+            let answer = exists ? try await conflicts.decide(.remote(item), .local(local)) : .replace
+            if answer == .skip {
                 incomplete.insert(top)
                 return
             }
-            let command = item.isSymlink ? "-get -Rp" : "get -p"
+            // reget appends the rest of the file to the smaller local one.
+            let command = item.isSymlink ? "-get -Rp" : answer == .resume ? "reget -p" : "get -p"
             let (source, target) = (try Self.quoted(remote), try Self.quoted(local.path))
             commands.append("\(command) \(source) \(target)")
             files.append(PlannedFile(source: remote, target: local.path, size: item.isSymlink ? 0 : item.size))
@@ -328,7 +330,8 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
                     try add(child, remote: RemotePath.join(remote, child.lastPathComponent))
                 }
             } else if values?.isRegularFile == true {
-                commands.append("put -p \(local) \(target)")
+                // reput sends the rest of a file the server has a smaller copy of.
+                commands.append("\(check.resumed.contains(url.path) ? "reput" : "put") -p \(local) \(target)")
                 planned.append(PlannedFile(source: url.path, target: remote, size: Int64(values?.fileSize ?? 0)))
             }
         }

@@ -13,12 +13,17 @@ final class TransferController {
 
     private let sheet = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 480, height: 150),
                                 styleMask: [.titled], backing: .buffered, defer: true)
+    private let heading = NSTextField(labelWithString: "")
     private let fromLabel = NSTextField(labelWithString: "")
     private let toLabel = NSTextField(labelWithString: "")
     private let fileBar = NSProgressIndicator()
     private let totalBar = NSProgressIndicator()
     private var timer: Timer?
     private let backgroundButton = NSButton(title: String(localized: "Background"), target: nil, action: nil)
+    private let pauseButton = NSButton(title: String(localized: "Pause"), target: nil, action: nil)
+    private let speedPopup = NSPopUpButton()
+    /// The speed limits offered, in megabytes per second (0: none).
+    private static let speeds: [Int64] = [0, 1, 5, 10, 20, 50, 100]
     /// After "Background" the progress is a separate window and the main window stays usable.
     private var isInBackground = false
 
@@ -96,7 +101,7 @@ final class TransferController {
     }
 
     private func buildSheet() {
-        let heading = NSTextField(labelWithString: title)
+        heading.stringValue = title
         heading.font = .boldSystemFont(ofSize: 13)
         for label in [fromLabel, toLabel] {
             label.font = Theme.chromeFont
@@ -113,7 +118,19 @@ final class TransferController {
 
         backgroundButton.target = self
         backgroundButton.action = #selector(moveToBackground(_:))
+        pauseButton.target = self
+        pauseButton.action = #selector(togglePause(_:))
+        speedPopup.addItems(withTitles: Self.speeds.map { megabytes in
+            megabytes == 0 ? String(localized: "No speed limit") : String(localized: "\(megabytes) MB/s")
+        })
+        speedPopup.target = self
+        speedPopup.action = #selector(speedChanged(_:))
+        speedPopup.toolTip = String(localized: "Speed limit (copying files; a clone on the same disk is instant)")
+        pauseButton.identifier = NSUserInterfaceItemIdentifier("transferPause")
+        speedPopup.identifier = NSUserInterfaceItemIdentifier("transferSpeed")
         let buttonRow = NSStackView()
+        buttonRow.addView(speedPopup, in: .leading)
+        buttonRow.addView(pauseButton, in: .trailing)
         buttonRow.addView(backgroundButton, in: .trailing)
         buttonRow.addView(cancel, in: .trailing)
         sheet.hidesOnDeactivate = false
@@ -162,7 +179,21 @@ final class TransferController {
     }
 
     @objc private func cancel(_ sender: Any?) {
+        progress.setPaused(false)
         progress.cancel()
+    }
+
+    /// Pause / Resume: the copying waits between blocks of data.
+    @objc private func togglePause(_ sender: Any?) {
+        let paused = !progress.snapshot.isPaused
+        progress.setPaused(paused)
+        pauseButton.title = paused ? String(localized: "Resume") : String(localized: "Pause")
+        heading.stringValue = paused ? String(localized: "\(title) (paused)") : title
+    }
+
+    @objc private func speedChanged(_ sender: Any?) {
+        let megabytes = Self.speeds[max(speedPopup.indexOfSelectedItem, 0)]
+        progress.setSpeedLimit(megabytes == 0 ? nil : megabytes << 20)
     }
 
     private func askOverwrite(_ source: ConflictItem, _ target: ConflictItem) async -> ConflictDecision {
@@ -176,6 +207,10 @@ final class TransferController {
                       String(localized: "Skip All"), String(localized: "Overwrite All Older")] {
             alert.addButton(withTitle: title)
         }
+        // A smaller file on the other side of a server transfer can be completed.
+        if target.resumable {
+            alert.addButton(withTitle: String(localized: "resume.transfer", defaultValue: "Resume"))
+        }
         alert.addCancelButton()
         let response = await alert.beginSheetModal(for: sheet)
         switch response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue {
@@ -184,6 +219,7 @@ final class TransferController {
         case 2: return .skip
         case 3: return .skipAll
         case 4: return .overwriteAllOlder
+        case 5 where target.resumable: return .resume
         default: return .cancel
         }
     }

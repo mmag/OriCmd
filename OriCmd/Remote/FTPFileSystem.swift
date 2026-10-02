@@ -155,11 +155,12 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
                     try await plan(try await list(path), from: path, to: target, top: top)
                     continue
                 }
-                if exists, try await !conflicts.replaces(.remote(item), .local(target)) {
+                let answer = exists ? try await conflicts.decide(.remote(item), .local(target)) : .replace
+                if answer == .skip {
                     incomplete.insert(top)
                     continue
                 }
-                files.append(PlannedFile(source: path, target: target.path, size: item.size))
+                files.append(PlannedFile(source: path, target: target.path, size: item.size, resumes: answer == .resume))
             }
         }
         try await plan(items, from: folder, to: local, top: nil)
@@ -169,7 +170,10 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
         let meter = TransferMeter(files: files, progress: progress)
         for (index, file) in files.enumerated() {
             meter.start(index)
-            _ = try await curl(["-R", "-o", file.target, url(for: file.source, directory: false)], progress: progress) {
+            // -C -: curl asks for the rest of the file only (REST), appending it.
+            _ = try await curl((file.resumes ? ["-C", "-"] : []) + ["-R", "-o", file.target,
+                                                                    url(for: file.source, directory: false)],
+                               progress: progress) {
                 meter.advance(index, to: Int64(Double(file.size) * $0 / 100))
             }
         }
@@ -195,7 +199,8 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
                     try plan(child, into: remote)
                 }
             } else if values?.isRegularFile == true {
-                planned.append(PlannedFile(source: url.path, target: path, size: Int64(values?.fileSize ?? 0)))
+                planned.append(PlannedFile(source: url.path, target: path, size: Int64(values?.fileSize ?? 0),
+                                           resumes: check.resumed.contains(url.path)))
             }
         }
         for file in files {
@@ -208,7 +213,9 @@ nonisolated final class FTPFileSystem: RemoteFileSystem {
         let meter = TransferMeter(files: planned, progress: progress)
         for (index, file) in planned.enumerated() {
             meter.start(index)
-            _ = try await curl(["--ftp-create-dirs", "-T", file.source, url(for: file.target, directory: true)],
+            // -C -: curl asks the server for the size it has and sends the rest (APPE).
+            _ = try await curl((file.resumes ? ["-C", "-"] : []) + ["--ftp-create-dirs", "-T", file.source,
+                                                                    url(for: file.target, directory: true)],
                                progress: progress) {
                 meter.advance(index, to: Int64(Double(file.size) * $0 / 100))
             }

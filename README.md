@@ -200,6 +200,11 @@ shortcuts in parentheses.
 
 Long operations (copy, move, archives) show their progress; the "Background"
 button moves it to a separate window so you can keep working with the panels.
+"Pause" stops a copy (and a server transfer) until "Resume"; the speed pop-up limits
+copying (1 to 100 MB/s; a clone on the same APFS disk is instant anyway). When a
+server transfer meets a smaller file of the same name (a transfer cut off), "File
+already exists" offers "Resume": the rest is sent or fetched and appended (SFTP
+`reget`/`reput`, FTP `REST`/`APPE`).
 
 #### E-books in the viewer
 
