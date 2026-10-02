@@ -1010,6 +1010,23 @@ scripts/test/mkdata.sh
 run redit 'plus wait cmd+a text:file*.txt enter wait ctrl+m wait wait click:Edit_Names… wait set:renameNames=first.txt\nsecond.txt click:OK wait'
 check "Multi-Rename: names edited one by one" "[ \"\$(rows redit)\" = '[row] file2.txt | first.txt;[row] file10.txt | second.txt;' ]"
 
+# Compare by content, editing: a difference copied right or left, a line changed,
+# saved as written (CRLF kept; a side without lines removes them); closing with
+# changes asks first and keeps the files.
+scripts/test/mkdata.sh
+cprep() { printf 'a\nb\nc\n' > $L/c1.txt; printf 'a\nB\nc\n' > $L/c2.txt; printf 'one\r\ntwo\r\n' > $L/w1.txt; printf 'one\r\nTWO\r\nthree\r\n' > $L/w2.txt; }
+compare() { echo "plus wait cmd+a text:$1 enter wait cmd:cm_CompareFilesByContent wait wait"; }
+cprep; run crt "$(compare 'c?.txt') click:Copy_to_Right_→ wait click:Save wait"
+check "Compare: a difference copied to the right and saved" "[ \"\$(cat $L/c2.txt)\" = \"\$(printf 'a\nb\nc')\" ]"
+cprep; run clt "$(compare 'c?.txt') click:←_Copy_to_Left wait click:Save wait"
+check "Compare: a difference copied to the left and saved" "[ \"\$(cat $L/c1.txt)\" = \"\$(printf 'a\nB\nc')\" ]"
+cprep; run ced "$(compare 'c?.txt') click:Edit_Line… wait set:compareLeftLine=X click:OK wait click:Save wait"
+check "Compare: a line changed and saved" "[ \"\$(cat $L/c1.txt)\" = \"\$(printf 'a\nX\nc')\" ]"
+cprep; run cwin "$(compare 'w?.txt') click:Copy_to_Right_→ wait click:Save wait"
+check "Compare: CRLF line breaks kept, lines removed" "cmp -s $L/w2.txt <(printf 'one\r\ntwo\r\n')"
+cprep; run cclose "$(compare 'c?.txt') click:Copy_to_Right_→ wait escape wait"
+check "Compare: closing with changes asks first" "grep -qx 'Save the changes?' build/shots/reg-cclose-win1-sheet.txt && grep -qx \"\\[button\\] Don't Save\" build/shots/reg-cclose-win1-sheet.txt && [ \"\$(cat $L/c2.txt)\" = \"\$(printf 'a\nB\nc')\" ]"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

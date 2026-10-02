@@ -429,6 +429,11 @@ enum DebugAutomation {
                 for (index, other) in others.enumerated() {
                     save(other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).png"))
                     saveTexts(of: other, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1).txt"))
+                    // A sheet on it (a question of the compare window) as -winN-sheet.txt.
+                    if let sheet = other.attachedSheet {
+                        saveTexts(of: sheet, to: snapshot.replacingOccurrences(of: ".png", with: "-win\(index + 1)-sheet.txt"),
+                                  buttons: true)
+                    }
                     if let model = other.contentView as? ModelView,
                        let tiff = model.snapshot().tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
                         try? rep.representation(using: .png, properties: [:])?

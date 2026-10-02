@@ -231,6 +231,16 @@
         }
       }
     },
+    "(no line)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(нет строки)"
+          }
+        }
+      }
+    },
     "1. Ask user": {
       "localizations": {
         "ru": {
@@ -1041,6 +1051,16 @@
         }
       }
     },
+    "Cannot save “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся сохранить «%@»"
+          }
+        }
+      }
+    },
     "Cannot test archives": {
       "localizations": {
         "ru": {
@@ -1741,6 +1761,16 @@
         }
       }
     },
+    "Copy to Right →": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать вправо →"
+          }
+        }
+      }
+    },
     "Copy to all %lld selected folders in the target panel": {
       "localizations": {
         "ru": {
@@ -2131,6 +2161,16 @@
         }
       }
     },
+    "Don't Save": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не сохранять"
+          }
+        }
+      }
+    },
     "Done: %@": {
       "localizations": {
         "ru": {
@@ -2267,6 +2307,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Правка (F4):"
+          }
+        }
+      }
+    },
+    "Edit Line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка строки"
+          }
+        }
+      }
+    },
+    "Edit Line…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Править строку…"
           }
         }
       }
@@ -5051,6 +5111,16 @@
         }
       }
     },
+    "Save the changes?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить изменения?"
+          }
+        }
+      }
+    },
     "Save the rule": {
       "localizations": {
         "ru": {
@@ -5541,6 +5611,16 @@
         }
       }
     },
+    "Some of its letters cannot be written in %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Часть его букв нельзя записать в кодировке %@."
+          }
+        }
+      }
+    },
     "Sort by Date": {
       "localizations": {
         "ru": {
@@ -5897,6 +5977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Цвет выделенных файлов и цвета файлов по маскам будут заменены."
+          }
+        }
+      }
+    },
+    "The compared files were changed here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сравниваемые файлы были изменены здесь."
           }
         }
       }
@@ -7415,6 +7505,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» прочитан целиком: содержимое не повреждено."
+          }
+        }
+      }
+    },
+    "← Copy to Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "← Копировать влево"
           }
         }
       }
