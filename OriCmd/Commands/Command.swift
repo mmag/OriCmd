@@ -91,6 +91,7 @@ enum Command: String, CaseIterable {
     case srcThumbs = "cm_SrcThumbs"
     case srcTree = "cm_SrcTree"
     case toggleSeparateTree1 = "cm_ToggleSeparateTree1"
+    case horizontalPanels = "cm_HorizontalPanels"
     case srcQuickView = "cm_SrcQuickview"
     case sortByName = "cm_SrcByName"
     case sortByExt = "cm_SrcByExt"
@@ -191,6 +192,7 @@ enum Command: String, CaseIterable {
         case .srcThumbs: String(localized: "Thumbnails")
         case .srcTree: String(localized: "Tree")
         case .toggleSeparateTree1: String(localized: "Separate Tree")
+        case .horizontalPanels: String(localized: "Horizontal Panels")
         case .srcQuickView: String(localized: "Quick View")
         case .sortByName: String(localized: "Sort by Name")
         case .sortByExt: String(localized: "Sort by Extension")

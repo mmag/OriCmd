@@ -125,11 +125,13 @@ final class MainViewController: NSViewController {
         activate(leftPanel)
         applyLayoutSettings()
         applySeparateTree()
+        applyPanelArrangement()
     }
 
     @objc private func settingsDidChange(_ notification: Notification) {
         applyLayoutSettings()
         applySeparateTree()
+        applyPanelArrangement()
         leftPanel.settingsDidChange()
         rightPanel.settingsDidChange()
     }
@@ -206,6 +208,23 @@ final class MainViewController: NSViewController {
     /// The separate tree, for the test harness.
     var separateTreeForTests: DirectoryTreePanel? { separateTree }
     #endif
+
+    /// Show → Horizontal Panels (cm_HorizontalPanels): the panels one above the other.
+    @objc(cm_HorizontalPanels:)
+    func horizontalPanels(_ sender: Any?) {
+        Settings.panelsOneAboveTheOther.toggle()
+    }
+
+    /// Side by side, or one above the other; the share of each stays.
+    private func applyPanelArrangement() {
+        let vertical = !Settings.panelsOneAboveTheOther
+        guard splitView.isVertical != vertical else { return }
+        let ratio = splitView.ratio
+        splitView.isVertical = vertical
+        splitView.adjustSubviews()
+        splitView.layoutSubtreeIfNeeded()
+        splitView.setRatio(ratio)
+    }
 
     /// Show → Separate Tree (cm_ToggleSeparateTree1): one tree for both panels.
     @objc(cm_ToggleSeparateTree1:)
@@ -1189,7 +1208,8 @@ extension MainViewController: NSMenuItemValidation {
     /// Puts `newView` where `oldView` is in the split view, keeping the divider.
     private func replaceInSplitView(_ oldView: NSView, with newView: NSView) {
         guard let index = splitView.arrangedSubviews.firstIndex(of: oldView) else { return }
-        let position = splitView.arrangedSubviews[0].frame.width
+        let first = splitView.arrangedSubviews[0].frame
+        let position = splitView.isVertical ? first.width : first.height
         splitView.removeArrangedSubview(oldView)
         oldView.removeFromSuperview()
         splitView.insertArrangedSubview(newView, at: index)
@@ -1307,6 +1327,8 @@ extension MainViewController: NSMenuItemValidation {
             menuItem.state = quickView == nil ? .off : .on
         } else if menuItem.action == #selector(ejectVolume(_:)) {
             return ejectableVolume != nil
+        } else if menuItem.action == Command.horizontalPanels.selector {
+            menuItem.state = splitView.isVertical ? .off : .on
         } else if menuItem.action == Command.toggleSeparateTree1.selector {
             menuItem.state = separateTree == nil ? .off : .on
         } else if menuItem.action == Command.srcTree.selector {

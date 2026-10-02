@@ -136,6 +136,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | Commands → Synchronous Directory Changes | Entering a subfolder or going up in one panel is repeated in the other (if it has such a folder) |
 | Commands → Synchronize Directories… | Compare two folders recursively and copy in the chosen directions (double-click or `Space` changes the direction) |
 | `Ctrl+U` | Swap panels |
+| Show → Horizontal Panels | The left panel above the right one (and back); kept between launches |
 | Commands → Left = Right / Right = Left | Show the folder of one panel in the other |
 | `⌘R` (`Ctrl+R`) | Reread the folder (changes are also picked up automatically) |
 | `⇧⌘.` | Show / hide hidden files |

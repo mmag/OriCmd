@@ -393,7 +393,11 @@ enum DebugAutomation {
                         "\(side)\(panel === main.activePanel ? "*" : ""): \(panel.panelView.pathBar.path)"
                             + " | cursor: \(panel.listView.currentItem?.name ?? "")"
                             + " | tabs: \(panel.panelView.tabBar.titles.joined(separator: ", "))"
-                    } + zip(["left", "right"], main.panels).map { side, panel in
+                    } + [
+                        // Side by side, or one above the other (Show → Horizontal Panels).
+                        "arrangement: " + (abs(main.panels[0].view.frame.minX - main.panels[1].view.frame.minX) < 1
+                            ? "one above the other" : "side by side"),
+                    ] + zip(["left", "right"], main.panels).map { side, panel in
                         "\(side) columns: " + panel.listView.columns.map(\.rawValue).joined(separator: ", ")
                     } + zip(["left", "right"], main.panels).map { side, panel in
                         // The entries listed (the first 30), the marked ones with *.

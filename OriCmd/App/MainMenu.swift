@@ -53,6 +53,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: net))
         let show = commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcThumbs, .srcTree, .toggleSeparateTree1, .srcQuickView],
+            [.horizontalPanels],
             [.srcAllFiles, .srcUserSpec, .showOnlySelected, .quickFilter, .branchView],
             [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .unsorted, .reverseOrder],

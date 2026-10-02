@@ -3061,6 +3061,16 @@
         }
       }
     },
+    "Horizontal Panels": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панели одна над другой"
+          }
+        }
+      }
+    },
     "If a file exists:": {
       "localizations": {
         "ru": {

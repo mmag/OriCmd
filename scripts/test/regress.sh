@@ -1046,6 +1046,13 @@ check "Unsorted: as the folder is read" "[ \"\$(grep '^left items: ' build/shots
 run unsback "alt+u wait text:ns enter wait cmd:cm_SrcUnsorted wait wait ctrl+f3 wait"
 check "...and sorted by name again" "grep -qx 'left items: dir, alpha.txt, bravo.txt, mike.txt, zeta.txt' build/shots/reg-unsback-panels.txt"
 
+# Show → Horizontal Panels: one above the other, and side by side again.
+scripts/test/mkdata.sh
+run horiz "cmd:cm_HorizontalPanels wait wait"
+check "Horizontal Panels: one above the other" "grep -qx 'arrangement: one above the other' build/shots/reg-horiz-panels.txt"
+run horizback "cmd:cm_HorizontalPanels wait cmd:cm_HorizontalPanels wait wait"
+check "...and side by side again" "grep -qx 'arrangement: side by side' build/shots/reg-horizback-panels.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.
