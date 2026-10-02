@@ -8,7 +8,7 @@ import WebKit
 /// - `ORICMD_LEFT`, `ORICMD_RIGHT`: initial panel directories.
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
-///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
+///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `contextmenu` (the same, opened for real, with what AppKit adds), `menupick:Title|N` (item N of its submenu Title chosen), `servicedata` (what a service gets for the selected files, to `<snapshot>-services.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
 ///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
@@ -57,6 +57,56 @@ enum DebugAutomation {
                     }
                     try? titles.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                                                 atomically: true, encoding: .utf8)
+                } else if token.hasPrefix("menupick:"), let list = window.firstResponder as? FileListView,
+                          let menu = list.delegate?.fileList(list, contextMenuFor: list.selectedEntries) {
+                    // `menupick:Title|N`: item N of the context menu's submenu Title is chosen.
+                    let parts = token.dropFirst(9).split(separator: "|").map(String.init)
+                    if parts.count == 2, let index = Int(parts[1]),
+                       let submenu = menu.items.first(where: { $0.title == parts[0].replacingOccurrences(of: "_", with: " ") })?.submenu,
+                       submenu.items.indices.contains(index) {
+                        submenu.performActionForItem(at: index)
+                    }
+                } else if token == "contextmenu", let list = window.firstResponder as? FileListView, let snapshot,
+                          let event = NSEvent.mouseEvent(
+                            with: .rightMouseDown, location: list.convert(NSPoint(x: 40, y: list.rowRect(list.cursor).midY), to: nil),
+                            modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                            context: nil, eventNumber: harnessEventNumber, clickCount: 1, pressure: 1),
+                          let menu = list.menu(for: event) {
+                    // The cursor row's context menu opened as a right click opens it, with what AppKit
+                    // adds (Services): written to <snapshot>-menu.txt while open, then closed.
+                    let file = snapshot.replacingOccurrences(of: ".png", with: "-menu.txt")
+                    // The timer fires on the main thread, during the menu's tracking.
+                    nonisolated(unsafe) let tracked = menu
+                    let timer = Timer(timeInterval: 0.5, repeats: false) { _ in
+                        MainActor.assumeIsolated {
+                            let menu = tracked
+                            let titles = menu.items.map { item in
+                                item.isSeparatorItem ? "---" : item.title
+                                    + (item.submenu.map { " ▸ " + $0.items.map { ($0.state == .on ? "✓" : $0.state == .mixed ? "–" : "") + $0.title }
+                                        .joined(separator: " | ") } ?? "")
+                            }
+                            try? titles.joined(separator: "\n").write(toFile: file, atomically: true, encoding: .utf8)
+                            menu.cancelTracking()
+                        }
+                    }
+                    RunLoop.main.add(timer, forMode: .eventTracking)
+                    NSMenu.popUpContextMenu(menu, with: event, for: list)
+                } else if token == "servicedata", let list = window.firstResponder as? FileListView, let snapshot {
+                    // What a service gets for the selected files (on a private pasteboard): each
+                    // type with its value, to <snapshot>-services.txt.
+                    // Asked by its Objective-C name, as AppKit asks for it.
+                    let board = NSPasteboard(name: NSPasteboard.Name("ru.themmag.OriCmd.tests.services"))
+                    board.clearContents()
+                    if list.responds(to: #selector(NSServicesMenuRequestor.writeSelection(to:types:))) {
+                        _ = (list as NSServicesMenuRequestor).writeSelection?(to: board, types: [])
+                    }
+                    let lines = (board.types ?? []).map { type in
+                        type.rawValue + ": " + (board.string(forType: type)
+                            ?? board.propertyList(forType: type).map { "\($0)" }?.replacingOccurrences(of: "\n", with: " ") ?? "")
+                    }
+                    try? lines.joined(separator: "\n")
+                        .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-services.txt"), atomically: true, encoding: .utf8)
+                    board.releaseGlobally()
                 } else if token == "textmenu", let snapshot, let text = textView(in: topmost(window).contentView),
                           let event = NSEvent.mouseEvent(
                             with: .rightMouseDown, location: text.convert(NSPoint(x: 20, y: 10), to: nil), modifierFlags: [],

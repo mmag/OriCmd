@@ -96,6 +96,15 @@ nonisolated final class MetadataCache: Sendable {
         return nil
     }
 
+    /// Drops the cached values of a column for these files (their tags changed, which
+    /// leaves their modification date as it was).
+    func forget(_ urls: [URL], column: SortColumn) {
+        let paths = Set(urls.map(\.path))
+        state.withLock { state in
+            state.values = state.values.filter { !($0.key.column == column && paths.contains($0.key.path)) }
+        }
+    }
+
     /// Image size from Spotlight, or read from the file itself when it is not indexed.
     private static func pixelSize(of url: URL) -> (Double, Double)? {
         if let metadata = MDItemCreateWithURL(nil, url as CFURL),
