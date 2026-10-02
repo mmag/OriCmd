@@ -2101,6 +2101,16 @@
         }
       }
     },
+    "Encrypted archives can be unpacked, not changed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зашифрованные архивы можно распаковывать, но не изменять."
+          }
+        }
+      }
+    },
     "Enter a whole number.": {
       "localizations": {
         "ru": {
@@ -3881,6 +3891,16 @@
         }
       }
     },
+    "Password for “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль для «%@»"
+          }
+        }
+      }
+    },
     "Password:": {
       "localizations": {
         "ru": {
@@ -5251,6 +5271,16 @@
         }
       }
     },
+    "The archive is encrypted. Enter its password:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив зашифрован. Введите пароль:"
+          }
+        }
+      }
+    },
     "The archive would become empty.": {
       "localizations": {
         "ru": {
@@ -5347,6 +5377,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "В панелях одинаковые файлы."
+          }
+        }
+      }
+    },
+    "The password for “%@” is wrong.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль для «%@» неверный."
+          }
+        }
+      }
+    },
+    "The password is wrong. Enter it again:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль неверный. Введите его ещё раз:"
           }
         }
       }
@@ -5457,6 +5507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Страницы этого документа DjVu лежат в отдельных файлах; откройте тот, в котором они перечислены."
+          }
+        }
+      }
+    },
+    "This archive is encrypted": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот архив зашифрован"
           }
         }
       }
@@ -6568,6 +6628,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» — папка с одной стороны и файл с другой."
+          }
+        }
+      }
+    },
+    "“%@” is encrypted: OriCmd can unpack encrypted zip archives only, not 7z or RAR ones.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» зашифрован: OriCmd распаковывает только зашифрованные zip-архивы, не 7z и не RAR."
+          }
+        }
+      }
+    },
+    "“%@” is encrypted: a password is needed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» зашифрован: нужен пароль."
           }
         }
       }

@@ -322,6 +322,12 @@ temporary folder). rar, iso, cab and others are read-only. An archive inside an
 archive opens the same way (`Enter`, `Ctrl+PgDn`; `[..]` goes back to the outer one);
 it is read-only.
 
+Encrypted zip archives (ZipCrypto or AES) ask for the password when something is
+unpacked or viewed; it is checked before anything is written, asked for again while
+it is wrong and remembered until OriCmd quits. Encrypted archives are not changed;
+encrypted 7z and RAR ones cannot be unpacked (the system libarchive cannot decrypt
+them).
+
 ### Button bar and drive buttons
 
 Under the window title there is a button bar with frequent commands (reread,

@@ -33,6 +33,9 @@ int archive_read_data_block(struct archive *, const void **buffer, size_t *size,
 int archive_read_data_skip(struct archive *);
 int archive_read_free(struct archive *);
 const char *archive_error_string(struct archive *);
+int archive_read_add_passphrase(struct archive *, const char *);
+/// ARCHIVE_FORMAT_* of the archive being read (zip: 0x50000 and its variants).
+int archive_format(struct archive *);
 
 const char *archive_entry_pathname(struct archive_entry *);
 const char *archive_entry_pathname_utf8(struct archive_entry *);
@@ -43,6 +46,7 @@ int64_t archive_entry_size(struct archive_entry *);
 time_t archive_entry_mtime(struct archive_entry *);
 mode_t archive_entry_filetype(struct archive_entry *);
 mode_t archive_entry_perm(struct archive_entry *);
+int archive_entry_is_encrypted(struct archive_entry *);
 
 struct archive *archive_write_disk_new(void);
 int archive_write_disk_set_options(struct archive *, int flags);

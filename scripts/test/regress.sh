@@ -852,6 +852,20 @@ run tplsaved "$tplsave"
 run tpldelete "$tplsave set:findTemplates=bigfiles click:Delete wait"
 check "Find Files: a saved search listed, then deleted" "grep -qx '\[row\] bigfiles' build/shots/reg-tplsaved-win1.txt && ! grep -q '^\[row\] bigfiles' build/shots/reg-tpldelete-win1.txt"
 
+# Encrypted zip archives: the password is asked for (again while wrong, nothing
+# unpacked meanwhile), F3 inside asks too, changes are refused.
+scripts/test/mkdata.sh
+(cd $L && echo 'the secret text' > secret.txt && zip -q -P secret crypto.zip secret.txt && rm secret.txt)
+run encok "alt+c wait text:rypto escape alt+f9 wait enter wait text:secret enter wait wait wait"
+check "An encrypted zip is unpacked with its password" "[ \"\$(cat $R/secret.txt 2>/dev/null)\" = 'the secret text' ]"
+rm -f $R/secret.txt
+run encwrong "alt+c wait text:rypto escape alt+f9 wait enter wait text:wrong enter wait wait"
+check "A wrong password is asked for again, nothing unpacked" "grep -qx 'The password is wrong. Enter it again:' build/shots/reg-encwrong-sheet.txt && [ ! -e $R/secret.txt ]"
+run encview "alt+c wait text:rypto enter wait wait alt+s wait text:ecret escape f3 wait text:secret enter wait wait wait"
+check "F3 in an encrypted zip asks for the password" "grep -q 'the secret text' build/shots/reg-encview-win1.txt"
+run encedit "alt+c wait text:rypto enter wait wait alt+s wait text:ecret escape f8 wait enter wait wait"
+check "An encrypted zip is not changed" "grep -qx 'This archive is encrypted' build/shots/reg-encedit-sheet.txt && unzip -l $L/crypto.zip | grep -q secret.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

@@ -104,20 +104,26 @@ enum Prompt {
     }
 
     /// Asks for a password (hidden while typing).
-    static func password(_ title: String, message: String, in window: NSWindow,
-                         completion: @escaping (String) -> Void) {
+    static func password(_ title: String, message: String, okTitle: String = String(localized: "Connect"),
+                         in window: NSWindow, completion: @escaping (String) -> Void) {
+        password(title, message: message, okTitle: okTitle, in: window, answer: { password in
+            if let password { completion(password) }
+        })
+    }
+
+    /// Asks for a password; `answer` gets nil when it is cancelled.
+    static func password(_ title: String, message: String, okTitle: String, in window: NSWindow,
+                         answer: @escaping (String?) -> Void) {
         let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 22))
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = message
         alert.accessoryView = field
-        alert.addButton(withTitle: String(localized: "Connect"))
+        alert.addButton(withTitle: okTitle)
         alert.addCancelButton()
         alert.window.initialFirstResponder = field
         alert.beginSheetModal(for: window) { response in
-            if response == .alertFirstButtonReturn {
-                completion(field.stringValue)
-            }
+            answer(response == .alertFirstButtonReturn ? field.stringValue : nil)
         }
     }
 

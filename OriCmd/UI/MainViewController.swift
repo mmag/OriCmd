@@ -369,11 +369,13 @@ extension MainViewController: NSMenuItemValidation {
             guard let self, !text.isEmpty else { return }
             let destination = Self.resolveFolder(text, base: source.directory)
             let paths = items.map { archive.path(of: $0.name) }
-            let total = archive.entries
-                .filter { entry in paths.contains { entry.path == $0 || entry.path.hasPrefix($0 + "/") } }
-                .reduce(Int64(0)) { $0 + $1.size }
+            let entries = ArchivePasswords.entries(archive.entries, at: paths)
+            let total = entries.reduce(Int64(0)) { $0 + $1.size }
             confirmOverwriting(items.map(\.name), in: destination) {
-                self.unpack([(archive.url, paths, archive.folder, destination)], total: total)
+                Task {
+                    guard let passwords = await self.passwords(for: [(archive.url, entries)]) else { return }
+                    self.unpack([(archive.url, paths, archive.folder, destination, passwords[archive.url])], total: total)
+                }
             }
         }
     }
@@ -437,30 +439,41 @@ extension MainViewController: NSMenuItemValidation {
             }
             // Unpacking replaces existing files: ask first, as for the other operations.
             Task {
-                let (existing, total) = await Self.existingEntries(jobs.map { ($0.url, $0.destination) })
+                let (existing, total, entries) = await Self.existingEntries(jobs.map { ($0.url, $0.destination) })
+                let unpack: () -> Void = {
+                    Task {
+                        guard let passwords = await self.passwords(for: jobs.map { ($0.url, entries[$0.url] ?? []) }) else {
+                            return
+                        }
+                        self.unpack(jobs.map { ($0.url, $0.paths, $0.base, $0.destination, passwords[$0.url]) }, total: total)
+                    }
+                }
                 guard !existing.isEmpty else {
-                    self.unpack(jobs, total: total)
+                    unpack()
                     return
                 }
                 let what = existing.count == 1 ? String(localized: "\u{201C}\(existing[0])\u{201D}")
                     : String(localized: "\(existing.count) files/folders")
                 Prompt.confirm(String(localized: "\(what) already exists. Replace?"),
                                okTitle: String(localized: "Overwrite"), in: window) {
-                    self.unpack(jobs, total: total)
+                    unpack()
                 }
             }
         }
     }
 
     /// Top-level entries of the archives that already exist in their destinations,
-    /// and the total size (so the archives are not read once more for the progress).
+    /// the total size (so the archives are not read once more for the progress) and
+    /// the entries of each archive.
     @concurrent
     private nonisolated static func existingEntries(_ archives: [(url: URL, destination: URL)]) async
-        -> (existing: [String], total: Int64) {
+        -> (existing: [String], total: Int64, entries: [URL: [ArchiveEntry]]) {
         var existing: [String] = []
         var total: Int64 = 0
+        var all: [URL: [ArchiveEntry]] = [:]
         for (url, destination) in archives {
             let entries = (try? ArchiveReader.entries(of: url)) ?? []
+            all[url] = entries
             total += entries.reduce(Int64(0)) { $0 + $1.size }
             let names = Set(entries.compactMap {
                 $0.path.split(separator: "/").first.map(String.init)
@@ -469,7 +482,24 @@ extension MainViewController: NSMenuItemValidation {
                 FileManager.default.fileExists(atPath: destination.appending(path: $0).path)
             }
         }
-        return (existing, total)
+        return (existing, total, all)
+    }
+
+    /// The passwords of the encrypted archives among `archives`, asked one after
+    /// another; nil when the user cancels or an archive cannot be decrypted (said so).
+    private func passwords(for archives: [(url: URL, entries: [ArchiveEntry])]) async -> [URL: String]? {
+        var passwords: [URL: String] = [:]
+        for (url, entries) in archives {
+            do {
+                passwords[url] = try await ArchivePasswords.password(for: url, entries: entries, in: view.window)
+            } catch is CancellationError {
+                return nil
+            } catch {
+                Prompt.error(String(localized: "Cannot unpack \u{201C}\(url.lastPathComponent)\u{201D}"), error, in: view.window)
+                return nil
+            }
+        }
+        return passwords
     }
 
     /// Alt+F5: packs the selection into a new archive; the suffix picks the format.
@@ -514,7 +544,8 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
-    private func unpack(_ archives: [(url: URL, paths: [String], base: String, destination: URL)], total: Int64?) {
+    private func unpack(_ archives: [(url: URL, paths: [String], base: String, destination: URL, password: String?)],
+                        total: Int64?) {
         guard let window = view.window, let destination = archives.first?.destination else { return }
         Task {
             let controller = TransferController(title: String(localized: "Unpacking"),
@@ -526,8 +557,13 @@ extension MainViewController: NSMenuItemValidation {
                 progress.update { $0.totalBytes = size }
                 for archive in archives {
                     try FileManager.default.createDirectory(at: archive.destination, withIntermediateDirectories: true)
-                    try await ArchiveReader.extract(archive.url, paths: archive.paths, base: archive.base,
-                                                    to: archive.destination, progress: progress)
+                    do {
+                        try await ArchiveReader.extract(archive.url, paths: archive.paths, base: archive.base,
+                                                        to: archive.destination, password: archive.password, progress: progress)
+                    } catch let error as ArchiveError where error.kind == .wrongPassword {
+                        await ArchivePasswords.forget(archive.url)
+                        throw error
+                    }
                 }
                 return archives.map(\.url)
             }

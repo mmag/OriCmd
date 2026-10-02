@@ -1066,6 +1066,12 @@ final class FilePanelController: NSViewController {
     func applyArchiveEdit(_ edit: ArchiveEditor.Edit, selecting name: String? = nil,
                           completion: ((Bool) -> Void)? = nil) {
         guard let archive, let window = view.window else { return }
+        guard !archive.entries.contains(where: \.isEncrypted) else {
+            Prompt.info(String(localized: "This archive is encrypted"),
+                        message: String(localized: "Encrypted archives can be unpacked, not changed."), in: window)
+            completion?(false)
+            return
+        }
         let url = archive.url
         Task {
             let controller = TransferController(title: String(localized: "Updating archive"),
@@ -1160,12 +1166,24 @@ final class FilePanelController: NSViewController {
     private func extractToTemporaryFolder(_ item: FileItem) async -> URL? {
         guard let archive else { return nil }
         let folder = FileManager.default.temporaryDirectory.appending(path: "OriCmd-\(UUID().uuidString)")
+        let path = archive.path(of: item.name)
         do {
+            let password = try await ArchivePasswords.password(
+                for: archive.url, entries: ArchivePasswords.entries(archive.entries, at: [path]), in: view.window)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            try await ArchiveReader.extract(archive.url, paths: [archive.path(of: item.name)], base: archive.folder,
-                                            to: folder, progress: TransferProgress())
+            do {
+                try await ArchiveReader.extract(archive.url, paths: [path], base: archive.folder, to: folder,
+                                                password: password, progress: TransferProgress())
+            } catch let error as ArchiveError where error.kind == .wrongPassword {
+                ArchivePasswords.forget(archive.url)
+                throw error
+            }
             return folder.appending(path: item.name)
+        } catch is CancellationError {
+            try? FileManager.default.removeItem(at: folder)
+            return nil
         } catch {
+            try? FileManager.default.removeItem(at: folder)
             Prompt.error(String(localized: "Cannot unpack \u{201C}\(item.name)\u{201D}"), error, in: view.window)
             return nil
         }

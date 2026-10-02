@@ -9,18 +9,46 @@ nonisolated struct ArchiveEntry: Sendable {
     let modified: Date
     let mode: mode_t
     var isSymbolicLink = false
+    /// Its data needs a password.
+    var isEncrypted = false
 }
 
 nonisolated struct ArchiveError: LocalizedError {
+    enum Kind: Sendable {
+        case other
+        /// An encrypted entry, and no password given.
+        case passwordNeeded
+        case wrongPassword
+        /// Encrypted, but not as zip archives are: libarchive cannot decrypt it.
+        case unsupportedEncryption
+    }
+
     let message: String
+    var kind = Kind.other
     var errorDescription: String? { message }
 
-    init(message: String) {
+    init(message: String, kind: Kind = .other) {
         self.message = message
+        self.kind = kind
     }
 
     init(_ archive: OpaquePointer?, _ fallback: String) {
         message = archive.flatMap(archive_error_string).map { String(cString: $0) } ?? fallback
+    }
+
+    /// The error for an encrypted entry that could not be read with `password`.
+    fileprivate static func encrypted(_ url: URL, password: String?, archive: OpaquePointer) -> ArchiveError {
+        let name = url.lastPathComponent
+        guard ArchiveReader.isZip(archive) else {
+            return ArchiveError(message: String(localized:
+                "\u{201C}\(name)\u{201D} is encrypted: OriCmd can unpack encrypted zip archives only, not 7z or RAR ones."),
+                kind: .unsupportedEncryption)
+        }
+        return password == nil
+            ? ArchiveError(message: String(localized: "\u{201C}\(name)\u{201D} is encrypted: a password is needed."),
+                           kind: .passwordNeeded)
+            : ArchiveError(message: String(localized: "The password for \u{201C}\(name)\u{201D} is wrong."),
+                           kind: .wrongPassword)
     }
 }
 
@@ -70,7 +98,8 @@ nonisolated enum ArchiveReader {
                     isDirectory: archive_entry_filetype(entry) & S_IFMT == S_IFDIR || name.hasSuffix("/"),
                     size: archive_entry_size(entry),
                     modified: Date(timeIntervalSince1970: TimeInterval(archive_entry_mtime(entry))),
-                    mode: archive_entry_perm(entry)
+                    mode: archive_entry_perm(entry),
+                    isEncrypted: archive_entry_is_encrypted(entry) != 0
                 ))
             }
             archive_read_data_skip(archive)
@@ -99,7 +128,8 @@ nonisolated enum ArchiveReader {
             let item = ArchiveEntry(
                 path: path, isDirectory: type == S_IFDIR || name.hasSuffix("/"), size: archive_entry_size(entry),
                 modified: Date(timeIntervalSince1970: TimeInterval(archive_entry_mtime(entry))),
-                mode: archive_entry_perm(entry), isSymbolicLink: type == S_IFLNK
+                mode: archive_entry_perm(entry), isSymbolicLink: type == S_IFLNK,
+                isEncrypted: archive_entry_is_encrypted(entry) != 0
             )
             let data = !item.isDirectory && item.size <= dataLimit && wantsData(item) ? data(of: archive, limit: dataLimit) : nil
             archive_read_data_skip(archive)
@@ -123,12 +153,50 @@ nonisolated enum ArchiveReader {
         }
     }
 
-    /// Extracts the entries at `paths` (and everything inside them; all entries if
-    /// `paths` is empty) into `destination`, removing the `base` folder prefix.
+    /// Whether the archive being read is a zip one (libarchive decrypts only those).
+    fileprivate static func isZip(_ archive: OpaquePointer) -> Bool {
+        archive_format(archive) & 0xFF0000 == 0x50000
+    }
+
+    /// Reads the beginning of the first encrypted file with `password`, before
+    /// anything is unpacked with it (a file to be replaced would already be cut).
+    /// Throws a `.wrongPassword` (or `.unsupportedEncryption`) error.
     @concurrent
-    static func extract(_ url: URL, paths: [String], base: String, to destination: URL,
+    static func check(_ password: String, for url: URL) async throws {
+        let archive = try open(url, password: password)
+        defer { archive_read_free(archive) }
+        var entry: OpaquePointer?
+        while archive_read_next_header(archive, &entry) >= ARCHIVE_WARN, let entry {
+            guard archive_entry_is_encrypted(entry) != 0, archive_entry_size(entry) > 0 else {
+                archive_read_data_skip(archive)
+                continue
+            }
+            var buffer: UnsafeRawPointer?
+            var length = 0
+            var offset: Int64 = 0
+            guard archive_read_data_block(archive, &buffer, &length, &offset) >= ARCHIVE_WARN else {
+                throw ArchiveError.encrypted(url, password: password, archive: archive)
+            }
+            return
+        }
+    }
+
+    /// Whether an archive with encrypted entries can be decrypted at all (zip ones).
+    @concurrent
+    static func decryptsEntries(of url: URL) async -> Bool {
+        guard let archive = try? open(url) else { return false }
+        defer { archive_read_free(archive) }
+        var entry: OpaquePointer?
+        return archive_read_next_header(archive, &entry) >= ARCHIVE_WARN && isZip(archive)
+    }
+
+    /// Extracts the entries at `paths` (and everything inside them; all entries if
+    /// `paths` is empty) into `destination`, removing the `base` folder prefix;
+    /// encrypted ones with `password`.
+    @concurrent
+    static func extract(_ url: URL, paths: [String], base: String, to destination: URL, password: String? = nil,
                         progress: TransferProgress) async throws {
-        let reader = try open(url)
+        let reader = try open(url, password: password)
         defer { archive_read_free(reader) }
         guard let writer = archive_write_disk_new() else { throw ArchiveError(nil, destination.path) }
         defer { archive_write_free(writer) }
@@ -170,6 +238,10 @@ nonisolated enum ArchiveReader {
                 }
                 archive_entry_set_hardlink(entry, linkTarget)
             }
+            let encrypted = archive_entry_is_encrypted(entry) != 0
+            if encrypted && (password == nil || !isZip(reader)) {
+                throw ArchiveError.encrypted(url, password: nil, archive: reader)
+            }
             let size = archive_entry_size(entry)
             progress.update {
                 $0.source = url.path
@@ -185,7 +257,10 @@ nonisolated enum ArchiveReader {
             while true {
                 let result = archive_read_data_block(reader, &buffer, &length, &offset)
                 if result == ARCHIVE_EOF { break }
-                guard result >= ARCHIVE_WARN else { throw ArchiveError(reader, url.path) }
+                guard result >= ARCHIVE_WARN else {
+                    throw encrypted ? ArchiveError.encrypted(url, password: password, archive: reader)
+                        : ArchiveError(reader, url.path)
+                }
                 guard archive_write_data_block(writer, buffer, length, offset) >= ARCHIVE_WARN else {
                     throw ArchiveError(writer, targetPath)
                 }
@@ -200,10 +275,13 @@ nonisolated enum ArchiveReader {
         }
     }
 
-    private static func open(_ url: URL) throws -> OpaquePointer {
+    private static func open(_ url: URL, password: String? = nil) throws -> OpaquePointer {
         guard let archive = archive_read_new() else { throw ArchiveError(nil, url.path) }
         archive_read_support_filter_all(archive)
         archive_read_support_format_all(archive)
+        if let password {
+            archive_read_add_passphrase(archive, password)
+        }
         guard archive_read_open_filename(archive, url.path, 64 * 1024) == ARCHIVE_OK else {
             let error = ArchiveError(archive, url.path)
             archive_read_free(archive)
