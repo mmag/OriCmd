@@ -1054,6 +1054,32 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
+    /// A hard link to the file under the cursor: another name of the same file (on
+    /// the same volume; folders cannot have them).
+    @objc(cm_CreateHardLink:)
+    func createHardLink(_ sender: Any?) {
+        guard let item = activePanel.listView.currentItem, !item.isParent, !item.isDirectory, !item.isSymlink,
+              activePanel.archive == nil, activePanel.remote == nil, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let folder = inactivePanel.archive == nil && inactivePanel.remote == nil ? inactivePanel.directory : activePanel.directory
+        let initial = folder.appending(path: item.name).path
+        Prompt.text(String(localized: "Create Hard Link"),
+                    message: String(localized: "Another name of \u{201C}\(item.name)\u{201D} (on the same volume):"),
+                    initial: initial, okTitle: String(localized: "Create"), in: window) { [weak self] path in
+            guard let self, !path.isEmpty else { return }
+            let link = URL(filePath: (path as NSString).expandingTildeInPath)
+            do {
+                try FileManager.default.linkItem(at: item.url, to: link)
+                leftPanel.reread()
+                rightPanel.reread()
+            } catch {
+                Prompt.error(String(localized: "Cannot create link"), error, in: window)
+            }
+        }
+    }
+
     /// Opens the "Synchronize directories" window for the two panels' folders.
     @objc(cm_SyncDirs:)
     func syncDirs(_ sender: Any?) {

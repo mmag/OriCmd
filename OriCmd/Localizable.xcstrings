@@ -591,6 +591,16 @@
         }
       }
     },
+    "Another name of “%@” (on the same volume):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё одно имя для «%@» (на том же томе):"
+          }
+        }
+      }
+    },
     "Any cm_ command can get its own keys; shortcuts can be imported from wincmd.ini. Keys work on any keyboard layout.": {
       "localizations": {
         "ru": {
@@ -1887,6 +1897,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Создать файл контрольных сумм…"
+          }
+        }
+      }
+    },
+    "Create Hard Link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать жёсткую ссылку"
+          }
+        }
+      }
+    },
+    "Create Hard Link…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать жёсткую ссылку…"
           }
         }
       }

@@ -1068,6 +1068,14 @@ check "Alt+F10: the folder chosen in the tree" "panels cdtree | grep -q '^left\*
 run cdtreeesc "alt+f10 wait wait tree:$PWD/$L/beta/deep wait escape wait"
 check "Alt+F10: Esc stays where the panel was" "panels cdtreeesc | grep -q '^left\*: .*/left |'"
 
+# Files → Create Hard Link: another name of the same file (in the other panel by
+# default); not for a folder.
+scripts/test/mkdata.sh
+run hardlink "alt+r wait text:eadme escape cmd:cm_CreateHardLink wait enter wait wait"
+check "A hard link made in the other panel" "[ \"\$(stat -f %i $R/readme.txt 2>/dev/null)\" = \"\$(stat -f %i $L/readme.txt)\" ]"
+run hardlinkdir "alt+a wait text:lpha escape cmd:cm_CreateHardLink wait enter wait wait"
+check "No hard link to a folder" "[ ! -e $R/alpha ] && [ ! -f build/shots/reg-hardlinkdir-sheet.png ]"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

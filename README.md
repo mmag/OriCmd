@@ -186,6 +186,7 @@ shortcuts in parentheses.
 | `F8`, `Del` (`⌘⌫`) | Move to the Trash |
 | `Shift+F8`, `Shift+Del`, `Shift+⌫`, `⇧⌘⌫`, `⌥⌘⌫` | Delete permanently, past the Trash (in the context menu, Delete becomes Delete Permanently while Shift is held) |
 | `Ctrl+Shift+F5` | Create a symbolic link (in the other panel by default) |
+| Files → Create Hard Link… | Another name of the same file, on the same volume (in the other panel by default) |
 | Files → Compare by Content | Two marked files, or the files under the cursors of both panels. The compare window aligns the lines: changed ones are yellow (with the differing part highlighted), removed ones red, added ones green; `N`/`P` (`⌥↓`/`⌥↑`) — next/previous difference, "Ignore whitespace"; text files can be edited: "Copy to Right →" / "← Copy to Left" puts a difference on the other side, "Edit Line…" (or a double click) changes both lines of a row, `⌘S` saves in the file's own encoding and line breaks (closing with changes asks first); binary files are compared byte by byte in hex |
 | `Ctrl+Z` | Edit the Finder comment of the file under the cursor (kept with the file, found by Spotlight); the Comment column shows it |
 | `⌘I` | Change attributes: rwx permissions, hidden, locked, modification date (also recursively) |
