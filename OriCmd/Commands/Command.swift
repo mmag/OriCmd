@@ -27,6 +27,8 @@ enum Command: String, CaseIterable {
     case createSymlink = "cm_CreateSymlink"
     case commentFiles = "cm_CommentFiles"
     case createHardLink = "cm_CreateHardLink"
+    case fileSpliter = "cm_FileSpliter"
+    case fileCombine = "cm_FileCombine"
     case crcCreate = "cm_CRCcreate"
     case crcCheck = "cm_CRCcheck"
     case internalAssociate = "cm_InternalAssociate"
@@ -137,6 +139,8 @@ enum Command: String, CaseIterable {
         case .createSymlink: String(localized: "Create Symbolic Link…")
         case .commentFiles: String(localized: "Edit Comment…")
         case .createHardLink: String(localized: "Create Hard Link…")
+        case .fileSpliter: String(localized: "Split File…")
+        case .fileCombine: String(localized: "Combine Files…")
         case .crcCreate: String(localized: "Create Checksum File…")
         case .crcCheck: String(localized: "Verify Checksums")
         case .internalAssociate: String(localized: "Internal Associations…")

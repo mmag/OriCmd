@@ -16,6 +16,7 @@ enum MainMenu {
             [.setAttrib, .properties, .createSymlink, .createHardLink, .commentFiles, .compareFilesByContent],
             [.packFiles, .unpackFiles, .testArchive],
             [.crcCreate, .crcCheck],
+            [.fileSpliter, .fileCombine],
             [.internalAssociate],
         ])))
         mainMenu.addItem(container(for: editMenu()))

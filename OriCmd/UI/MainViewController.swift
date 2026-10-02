@@ -1054,6 +1054,113 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
+    /// The piece sizes offered when splitting (any other can be typed).
+    private static let pieceSizes = ["10 MB", "100 MB", "650 MB", "700 MB", "1 GB", "2 GB", "4095 MB", "4.7 GB"]
+
+    /// "650 MB", "1.5 GB", "100000": bytes (no unit: megabytes).
+    private static func bytes(in text: String) -> Int64? {
+        let parts = text.trimmingCharacters(in: .whitespaces).uppercased().replacingOccurrences(of: ",", with: ".")
+            .split(separator: " ", omittingEmptySubsequences: true)
+        guard let number = parts.first.flatMap({ Double($0) }), number > 0 else { return nil }
+        let unit: Double = switch parts.count > 1 ? String(parts[1]) : "MB" {
+        case "B": 1
+        case "KB", "K": 1024
+        case "MB", "M": 1024 * 1024
+        case "GB", "G": 1024 * 1024 * 1024
+        default: 0
+        }
+        return unit > 0 ? Int64(number * unit) : nil
+    }
+
+    /// Files → Split File… (cm_FileSpliter): the file under the cursor cut into
+    /// pieces of a size chosen (`name.001`… and `name.crc`), by default in the
+    /// other panel.
+    @objc(cm_FileSpliter:)
+    func fileSpliter(_ sender: Any?) {
+        guard let item = activePanel.listView.currentItem, !item.isParent, !item.isDirectory,
+              activePanel.archive == nil, activePanel.remote == nil, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let folderField = NSTextField(string: Self.folderText(inactivePanel.archive == nil && inactivePanel.remote == nil
+            ? inactivePanel.directory : activePanel.directory))
+        let sizeBox = NSComboBox()
+        sizeBox.addItems(withObjectValues: Self.pieceSizes)
+        sizeBox.stringValue = AppDefaults.store.string(forKey: "SplitPieceSize") ?? "100 MB"
+        folderField.identifier = NSUserInterfaceItemIdentifier("splitFolder")
+        sizeBox.identifier = NSUserInterfaceItemIdentifier("splitSize")
+        folderField.widthAnchor.constraint(equalToConstant: 380).isActive = true
+        let grid = NSGridView(views: [[NSTextField(labelWithString: String(localized: "Into:")), folderField],
+                                      [NSTextField(labelWithString: String(localized: "Piece size:")), sizeBox]])
+        grid.rowSpacing = 6
+        grid.column(at: 0).xPlacement = .trailing
+        grid.frame = NSRect(origin: .zero, size: grid.fittingSize)
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Split File")
+        alert.informativeText = String(localized: "Cut \u{201C}\(item.name)\u{201D} into pieces:")
+        alert.accessoryView = grid
+        alert.addButton(withTitle: String(localized: "Split"))
+        alert.addCancelButton()
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            guard let size = Self.bytes(in: sizeBox.stringValue) else {
+                Prompt.info(String(localized: "Cannot split \u{201C}\(item.name)\u{201D}"),
+                            message: String(localized: "The piece size is not understood: write it as 650 MB or 1.5 GB."),
+                            in: window)
+                return
+            }
+            AppDefaults.store.set(sizeBox.stringValue, forKey: "SplitPieceSize")
+            let folder = Self.resolveFolder(folderField.stringValue, base: activePanel.directory)
+            Task {
+                let controller = TransferController(title: String(localized: "Splitting"),
+                                                    failureTitle: String(localized: "Splitting failed"), window: window)
+                _ = await controller.run(source: item.url.path, target: folder.path) { progress, _ in
+                    try await FileSplitter.split(item.url, pieceSize: size, into: folder, progress: progress)
+                }
+                self.leftPanel.reread()
+                self.rightPanel.reread()
+            }
+        }
+    }
+
+    /// Files → Combine Files… (cm_FileCombine): the pieces of the one under the
+    /// cursor (`name.001`, or `name.crc`) put together, by default in the other panel.
+    @objc(cm_FileCombine:)
+    func fileCombine(_ sender: Any?) {
+        guard let item = activePanel.listView.currentItem, !item.isParent, !item.isDirectory,
+              activePanel.archive == nil, activePanel.remote == nil, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let first = item.url.pathExtension.lowercased() == "crc"
+            ? item.url.deletingPathExtension().appendingPathExtension("001") : item.url
+        guard FileSplitter.baseName(of: first) != nil, FileManager.default.fileExists(atPath: first.path) else {
+            Prompt.info(String(localized: "Cannot combine \u{201C}\(item.name)\u{201D}"),
+                        message: String(localized: "Choose the first piece (a name ending in .001) or the .crc file."),
+                        in: window)
+            return
+        }
+        Prompt.text(String(localized: "Combine Files"),
+                    message: String(localized: "Put the pieces of \u{201C}\(first.deletingPathExtension().lastPathComponent)\u{201D} together in:"),
+                    initial: Self.folderText(inactivePanel.archive == nil && inactivePanel.remote == nil
+                        ? inactivePanel.directory : activePanel.directory),
+                    okTitle: String(localized: "Combine"), in: window) { [weak self] text in
+            guard let self, !text.isEmpty else { return }
+            let folder = Self.resolveFolder(text, base: activePanel.directory)
+            confirmOverwriting([FileSplitter.combinedName(of: first) ?? ""], in: folder) { [self] in
+            Task {
+                let controller = TransferController(title: String(localized: "Combining"),
+                                                    failureTitle: String(localized: "Combining failed"), window: window)
+                _ = await controller.run(source: first.path, target: folder.path) { progress, _ in
+                    [try await FileSplitter.combine(first, into: folder, progress: progress)]
+                }
+                self.leftPanel.reread()
+                self.rightPanel.reread()
+            }
+            }
+        }
+    }
+
     /// A hard link to the file under the cursor: another name of the same file (on
     /// the same volume; folders cannot have them).
     @objc(cm_CreateHardLink:)

@@ -841,6 +841,16 @@
         }
       }
     },
+    "Cannot combine “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся собрать «%@»"
+          }
+        }
+      }
+    },
     "Cannot connect to “%@”": {
       "localizations": {
         "ru": {
@@ -1081,6 +1091,16 @@
         }
       }
     },
+    "Cannot split “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся разрезать «%@»"
+          }
+        }
+      }
+    },
     "Cannot test archives": {
       "localizations": {
         "ru": {
@@ -1261,6 +1281,26 @@
         }
       }
     },
+    "Choose the first piece (a name ending in .001) or the .crc file.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите первую часть (имя оканчивается на .001) или файл .crc."
+          }
+        }
+      }
+    },
+    "Choose the first piece (a name ending in .001).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите первую часть (имя оканчивается на .001)."
+          }
+        }
+      }
+    },
     "Choose what the duplicates have in common.": {
       "localizations": {
         "ru": {
@@ -1427,6 +1467,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Колонки:"
+          }
+        }
+      }
+    },
+    "Combine": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собрать"
+          }
+        }
+      }
+    },
+    "Combine Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собрать файлы"
+          }
+        }
+      }
+    },
+    "Combine Files…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собрать файлы…"
+          }
+        }
+      }
+    },
+    "Combining": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сборка"
+          }
+        }
+      }
+    },
+    "Combining failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось собрать"
           }
         }
       }
@@ -1987,6 +2077,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вырезать"
+          }
+        }
+      }
+    },
+    "Cut “%@” into pieces:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать «%@» на части:"
           }
         }
       }
@@ -3257,6 +3357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Внутренние ассоциации…"
+          }
+        }
+      }
+    },
+    "Into:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Куда:"
           }
         }
       }
@@ -4551,6 +4661,16 @@
         }
       }
     },
+    "Piece size:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер части:"
+          }
+        }
+      }
+    },
     "Press Compare to compare these folders.": {
       "localizations": {
         "ru": {
@@ -4627,6 +4747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Программы:"
+          }
+        }
+      }
+    },
+    "Put the pieces of “%@” together in:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собрать части «%@» в:"
           }
         }
       }
@@ -5801,6 +5931,56 @@
         }
       }
     },
+    "Split": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать"
+          }
+        }
+      }
+    },
+    "Split File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать файл"
+          }
+        }
+      }
+    },
+    "Split File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать файл…"
+          }
+        }
+      }
+    },
+    "Splitting": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезание"
+          }
+        }
+      }
+    },
+    "Splitting failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось разрезать"
+          }
+        }
+      }
+    },
     "Standard": {
       "localizations": {
         "ru": {
@@ -6071,6 +6251,16 @@
         }
       }
     },
+    "That would make more than 999 pieces: choose bigger ones.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получится больше 999 частей: выберите части побольше."
+          }
+        }
+      }
+    },
     "The archive cannot be put inside a folder being packed.": {
       "localizations": {
         "ru": {
@@ -6247,6 +6437,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пароли не совпадают."
+          }
+        }
+      }
+    },
+    "The piece size is not understood: write it as 650 MB or 1.5 GB.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер части не распознан: напишите его как 650 MB или 1.5 GB."
+          }
+        }
+      }
+    },
+    "The piece size must be more than 0.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер части должен быть больше 0."
+          }
+        }
+      }
+    },
+    "The pieces do not make “%@”: its size or CRC differs from the .crc file (a piece is missing or damaged).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Части не складываются в «%@»: размер или CRC не совпадает с файлом .crc (часть отсутствует или повреждена)."
           }
         }
       }
@@ -7635,6 +7855,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» заблокирован. Чтобы заменить его, включите «Перезаписывать/удалять заблокированные файлы»."
+          }
+        }
+      }
+    },
+    "“%@” is not bigger than one piece.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» не больше одной части."
           }
         }
       }

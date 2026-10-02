@@ -1076,6 +1076,21 @@ check "A hard link made in the other panel" "[ \"\$(stat -f %i $R/readme.txt 2>/
 run hardlinkdir "alt+a wait text:lpha escape cmd:cm_CreateHardLink wait enter wait wait"
 check "No hard link to a folder" "[ ! -e $R/alpha ] && [ ! -f build/shots/reg-hardlinkdir-sheet.png ]"
 
+# Split File / Combine Files: pieces name.001… and name.crc (the name, size and
+# CRC32 as zlib counts them); put together again, the same file; a damaged piece is
+# said so; an existing file is asked about.
+scripts/test/mkdata.sh
+head -c 2500000 /dev/urandom > $L/big.bin
+run split "alt+b wait text:ig.bin escape cmd:cm_FileSpliter wait set:splitSize=1_MB enter wait wait"
+check "Split: three pieces and the .crc file" "[ \"\$(stat -f %z $R/big.001 $R/big.002 $R/big.003 | paste -sd' ' -)\" = '1048576 1048576 402848' ] && grep -q \"crc32=\$(python3 -c \"import zlib;print('%08X'%zlib.crc32(open('$L/big.bin','rb').read()))\")\" $R/big.crc && grep -q 'filename=big.bin' $R/big.crc"
+run combine "tab wait alt+b wait text:ig.001 escape cmd:cm_FileCombine wait text:$PWD/$R/ enter wait wait"
+check "Combine: the pieces make the file again" "cmp -s $R/big.bin $L/big.bin"
+run combineask "tab wait alt+b wait text:ig.001 escape cmd:cm_FileCombine wait enter wait wait"
+check "Combine: an existing file is asked about" "grep -q 'already exists. Replace?' build/shots/reg-combineask-sheet.txt"
+rm -f $R/big.bin; printf 'X' | dd of=$R/big.002 bs=1 seek=1000 conv=notrunc 2>/dev/null
+run combinebad "tab wait alt+b wait text:ig.001 escape cmd:cm_FileCombine wait text:$PWD/$R/ enter wait wait"
+check "Combine: a damaged piece is said so" "grep -q 'do not make' build/shots/reg-combinebad-sheet.txt && [ ! -e $R/big.bin ]"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

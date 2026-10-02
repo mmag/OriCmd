@@ -204,6 +204,7 @@ shortcuts in parentheses.
 | `Alt+F9` | Unpack the selected archives |
 | `Alt+Shift+F9` | Test the selected archives (or the one shown): they are read through, their checksums checked, and the damaged files named |
 | Files → Create Checksum File… | MD5 / SHA-1 / SHA-256 / SHA-512 for the selection (`shasum`/`md5sum` format) |
+| Files → Split File… / Combine Files… | A file cut into pieces of a size chosen (`name.001`, `name.002`… and `name.crc` with its name, size and CRC32, as Total Commander makes them); the pieces put together again from `name.001` or `name.crc`, checked against the .crc file |
 | Files → Verify Checksums | Check the `.md5`/`.sha1`/`.sha256`/`.sha512` file under the cursor |
 
 Long operations (copy, move, archives) show their progress; the "Background"
