@@ -1355,6 +1355,14 @@ check "the path bar completes and goes to server folders" "[ -d $L/alpha/srvmade
 scripts/test/mkdata.sh
 run recentserver "$(connect sftp://oritest$PWD/$L) wait cmd:cm_FtpDisconnect wait wait cmd:connectToServer wait cmd+a text:x down enter wait wait wait"
 check "Connect to Server lists recent servers" "grep -q 'left %' build/shots/reg-recentserver-terminal.txt"
+# Between two servers (Total Commander's FXP, here through this Mac): a file copied
+# from one SFTP panel to the other; moved, it leaves the first server.
+scripts/test/mkdata.sh
+run relay "$(connect sftp://oritest$PWD/$L) tab $(connect sftp://oritest$PWD/$R) tab alt+r wait text:eadme escape f5 wait enter wait wait wait wait"
+check "Server to server: copied" "cmp -s $L/readme.txt $R/readme.txt"
+run relaymove "$(connect sftp://oritest$PWD/$L) tab $(connect sftp://oritest$PWD/$R) tab alt+n wait text:otes escape f6 wait enter wait wait wait wait"
+check "Server to server: moved" "[ -f $R/notes.md ] && [ ! -e $L/notes.md ]"
+
 # Resume after a break: a smaller file met by a server transfer (zeros in it, to
 # tell an append from a new copy) is completed with "Resume" — SFTP and FTP, both ways.
 scripts/test/mkdata.sh

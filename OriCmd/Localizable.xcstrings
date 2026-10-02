@@ -1801,6 +1801,26 @@
         }
       }
     },
+    "Copy": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать"
+          }
+        }
+      }
+    },
+    "Copy %@ to %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать %@ в %@?"
+          }
+        }
+      }
+    },
     "Copy %@ to:": {
       "localizations": {
         "ru": {
@@ -3207,6 +3227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Найденные файлы"
+          }
+        }
+      }
+    },
+    "From one server to the other, through this Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С одного сервера на другой, через этот Mac."
           }
         }
       }
@@ -5877,6 +5907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Адрес сервера (smb://, afp://, nfs://, https:// для WebDAV):"
+          }
+        }
+      }
+    },
+    "Server to server failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось передать с сервера на сервер"
           }
         }
       }

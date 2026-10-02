@@ -514,14 +514,24 @@ extension MainViewController: NSMenuItemValidation {
     private func askForServerTransfer(_ items: [FileItem], kind: TransferJob.Kind, from source: FilePanelController,
                                       to target: FilePanelController) {
         guard let window = view.window else { return }
+        let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
+            : String(localized: "\(items.count) files/folders")
+        if let from = source.remote, let to = target.remote, source.archive == nil, target.archive == nil {
+            Prompt.confirm(kind == .copy ? String(localized: "Copy \(what) to \(to.displayPath)?")
+                                         : String(localized: "Move \(what) to \(to.displayPath)?"),
+                           message: String(localized: "From one server to the other, through this Mac."),
+                           okTitle: kind == .copy ? String(localized: "Copy") : String(localized: "move.button", defaultValue: "Move"),
+                           in: window) {
+                Task { await self.relay(items, from: from, to: to, moving: kind == .move, source: source, target: target) }
+            }
+            return
+        }
         guard (source.remote == nil) != (target.remote == nil), source.archive == nil, target.archive == nil,
               target.searchResultsShown == false else {
             Prompt.info(String(localized: "Not supported on servers"),
                         message: String(localized: "Copy between a server and a local folder."), in: window)
             return
         }
-        let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
-            : String(localized: "\(items.count) files/folders")
         if source.remote != nil {
             Prompt.text(kind == .copy ? String(localized: "Download") : String(localized: "Download and delete"),
                         message: String(localized: "Download \(what) to:"),
@@ -544,6 +554,36 @@ extension MainViewController: NSMenuItemValidation {
                     source.listView.setMarked([])
                 }
             }
+        }
+    }
+
+    /// F5/F6 between two servers (Total Commander's FXP, here through this Mac):
+    /// the entries are downloaded into a temporary folder and uploaded from there;
+    /// moving deletes on the first server what reached the other one whole.
+    private func relay(_ items: [FileItem], from: FilePanelController.RemoteLocation,
+                       to: FilePanelController.RemoteLocation, moving: Bool,
+                       source: FilePanelController, target: FilePanelController) async {
+        guard let window = view.window else { return }
+        let controller = TransferController(title: moving ? String(localized: "Moving") : String(localized: "Copying"),
+                                            failureTitle: String(localized: "Server to server failed"), window: window)
+        let done = await controller.run(source: from.displayPath, target: to.displayPath) { progress, resolveConflict in
+            let temporary = FileManager.default.temporaryDirectory.appending(path: "OriCmd-relay-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            let fetched = try await from.fileSystem.download(items, from: from.path, to: temporary, progress: progress,
+                                                             conflicts: RemoteConflicts(nil))
+            let local = items.filter { fetched.contains($0.name) }.map { temporary.appending(path: $0.name) }
+            let sent = try await to.fileSystem.upload(local, to: to.path, progress: progress,
+                                                      conflicts: RemoteConflicts(resolveConflict))
+            let names = Set(sent.map(\.lastPathComponent))
+            if moving {
+                try await from.fileSystem.delete(items.filter { names.contains($0.name) }, in: from.path)
+            }
+            return Array(sent)
+        }
+        if !done.isEmpty {
+            target.reread()
+            if moving { source.reread() }
         }
     }
 

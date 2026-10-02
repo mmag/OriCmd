@@ -379,7 +379,8 @@ system `curl`. On a server navigation, `F3`, `Enter`, `F5`/`F6` both ways
 (download/upload), `F7`, `F8`, `Shift+F6`, paste from the clipboard and dropping
 files onto the server panel work. Transfers go file by file with byte progress
 (current file and total). SFTP keeps permissions and dates of files and folders,
-FTP keeps the dates of downloaded files.
+FTP keeps the dates of downloaded files. With a server in both panels, `F5`/`F6`
+copy or move from one to the other through this Mac (Total Commander's FXP).
 
 #### Server terminal
 
