@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""unar -o dir -f -q -D -i archive index…: unpacks entries of stored RAR 4 test archives."""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import rar4
+args = sys.argv[1:]
+output = args[args.index("-o") + 1]
+rest = [a for i, a in enumerate(args) if not a.startswith("-") and (i == 0 or args[i - 1] != "-o")]
+archive, indexes = rest[0], {int(i) for i in rest[1:]}
+for entry in rar4.entries(archive):
+    if indexes and entry["index"] not in indexes:
+        continue
+    target = os.path.join(output, entry["name"])
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    open(target, "wb").write(entry["data"])
+    os.utime(target, (entry["time"], entry["time"]))

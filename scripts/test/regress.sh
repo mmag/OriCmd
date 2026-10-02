@@ -1144,6 +1144,20 @@ printf '[Shortcuts]\nCS+F5=cm_CopyNamesToClip\nA+X=cm_NoSuchCommand\n[Colors]\nM
 run tcimport "keybindings wait file:$PWD/$L/wincmd.ini click:Import_wincmd.ini… wait"
 check "wincmd.ini: keys, colors and hotlist folders taken over" "grep -qx 'Imported 1 keys, 3 colors, 1 hotlist folders; skipped 3' build/shots/reg-tcimport-win1.txt"
 
+# Solid RAR 4 (libarchive refuses it): said so without The Unarchiver's tools;
+# with them (fake ones reading stored archives) listed, unpacked and viewed.
+scripts/test/mkdata.sh
+echo "first file" > $L/r1.txt; echo "second file, solid" > $L/r2.txt
+python3 scripts/test/mkrar4.py $L/solid.rar one.txt=$L/r1.txt docs/two.txt=$L/r2.txt
+run rarnone "alt+s wait text:olid escape enter wait wait"
+check "Solid RAR 4: the tools to install are named" "grep -q 'is a solid RAR 4 archive.*brew install unar' build/shots/reg-rarnone-sheet.txt"
+ORICMD_UNAR_DIR=$PWD/scripts/test/fakeunar run rarlist "alt+s wait text:olid escape enter wait wait"
+check "Solid RAR 4: listed through lsar" "grep -qx 'left items: docs, one.txt' build/shots/reg-rarlist-panels.txt"
+ORICMD_UNAR_DIR=$PWD/scripts/test/fakeunar run rarf5 "alt+s wait text:olid escape enter wait wait alt+d wait text:ocs escape f5 wait enter wait wait"
+check "Solid RAR 4: a folder unpacked through unar" "[ \"\$(cat $R/docs/two.txt 2>/dev/null)\" = 'second file, solid' ]"
+ORICMD_UNAR_DIR=$PWD/scripts/test/fakeunar run rarview "alt+s wait text:olid escape enter wait wait alt+o wait text:ne escape f3 wait wait"
+check "Solid RAR 4: a file viewed" "grep -qx 'first file' build/shots/reg-rarview-win1.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

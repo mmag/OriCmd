@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""lsar -j archive: the listing of The Unarchiver's lsar, for stored RAR 4 test archives."""
+import json, os, sys, time
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import rar4
+archive = sys.argv[-1]
+print(json.dumps({"lsarFormatVersion": 2, "lsarFormatName": "RAR", "lsarContents": [
+    {"XADFileName": e["name"], "XADFileSize": e["size"], "XADIndex": e["index"], "XADPosixPermissions": e["mode"],
+     "XADLastModificationDate": time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(e["time"]))}
+    for e in rar4.entries(archive)]}))

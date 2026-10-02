@@ -11,6 +11,8 @@ nonisolated struct ArchiveEntry: Sendable {
     var isSymbolicLink = false
     /// Its data needs a password.
     var isEncrypted = false
+    /// Its number in lsar's listing (an archive read by The Unarchiver's tools).
+    var index: Int?
 }
 
 nonisolated struct ArchiveError: LocalizedError {
@@ -81,7 +83,18 @@ nonisolated enum ArchiveReader {
         return components.joined(separator: "/")
     }
 
+    /// The entries; a solid RAR 4 archive (which libarchive cannot read) through
+    /// The Unarchiver's lsar when it is installed.
     static func entries(of url: URL) throws -> [ArchiveEntry] {
+        do {
+            return try libarchiveEntries(of: url)
+        } catch where Unarchiver.isSolidRAR(error) {
+            guard let tools = Unarchiver.tools else { throw Unarchiver.solidError(url) }
+            return try Unarchiver.entries(of: url, lsar: tools.lsar)
+        }
+    }
+
+    private static func libarchiveEntries(of url: URL) throws -> [ArchiveEntry] {
         let archive = try open(url)
         defer { archive_read_free(archive) }
 
@@ -240,6 +253,18 @@ nonisolated enum ArchiveReader {
     @concurrent
     static func extract(_ url: URL, paths: [String], base: String, to destination: URL, password: String? = nil,
                         progress: TransferProgress) async throws {
+        do {
+            try await libarchiveExtract(url, paths: paths, base: base, to: destination, password: password, progress: progress)
+        } catch where Unarchiver.isSolidRAR(error) {
+            // What was unpacked before libarchive stopped is unpacked again, whole.
+            guard let tools = Unarchiver.tools else { throw Unarchiver.solidError(url) }
+            try await Unarchiver.extract(url, paths: paths, base: base, to: destination, tools: tools, progress: progress)
+        }
+    }
+
+    @concurrent
+    private static func libarchiveExtract(_ url: URL, paths: [String], base: String, to destination: URL, password: String?,
+                                          progress: TransferProgress) async throws {
         let reader = try open(url, password: password)
         defer { archive_read_free(reader) }
         guard let writer = archive_write_disk_new() else { throw ArchiveError(nil, destination.path) }

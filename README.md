@@ -350,6 +350,10 @@ it is wrong and remembered until OriCmd quits. An encrypted zip is changed with 
 password and stays encrypted the same way; encrypted 7z and RAR archives cannot be
 unpacked (the system libarchive cannot decrypt them).
 
+Solid RAR 4 archives (old ones, made with "Create solid archive") cannot be read by
+the system libarchive either; with The Unarchiver's command line tools installed
+(`brew install unar`) OriCmd lists, views and unpacks them through `lsar` and `unar`.
+
 ### Button bar and drive buttons
 
 Under the window title there is a button bar with frequent commands (reread,

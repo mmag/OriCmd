@@ -7751,6 +7751,16 @@
         }
       }
     },
+    "lsar cannot list “%@”.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "lsar не может прочитать список «%@»."
+          }
+        }
+      }
+    },
     "mark.selectAll": {
       "extractionState": "manual",
       "localizations": {
@@ -8015,6 +8025,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» — папка с одной стороны и файл с другой."
+          }
+        }
+      }
+    },
+    "“%@” is a solid RAR 4 archive, which the system libarchive cannot unpack. Install The Unarchiver's command line tools (brew install unar): OriCmd then uses them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» — непрерывный (solid) архив RAR 4, его системная libarchive распаковать не может. Установите инструменты командной строки The Unarchiver (brew install unar) — OriCmd будет пользоваться ими."
           }
         }
       }
