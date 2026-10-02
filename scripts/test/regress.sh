@@ -1091,6 +1091,22 @@ rm -f $R/big.bin; printf 'X' | dd of=$R/big.002 bs=1 seek=1000 conv=notrunc 2>/d
 run combinebad "tab wait alt+b wait text:ig.001 escape cmd:cm_FileCombine wait text:$PWD/$R/ enter wait wait"
 check "Combine: a damaged piece is said so" "grep -q 'do not make' build/shots/reg-combinebad-sheet.txt && [ ! -e $R/big.bin ]"
 
+# Lister, Shift+F7: a regular expression (F3 finds the next), case, bytes in hex
+# (found in the hex dump).
+scripts/test/mkdata.sh
+printf 'alpha word42 beta\nword7 gamma\n' > $L/find.txt
+selected() { grep '^\[selected: ' build/shots/reg-$1-win1.txt | sed 's/^\[selected: //; s/\]$//'; }
+run lre "alt+f wait text:ind escape f3 wait wait shift+f7 wait set:listerFind=word[0-9]+ set:listerFindRegex=on enter wait"
+check "Lister: a regular expression found" "[ \"\$(selected lre)\" = word42 ]"
+run lre2 "alt+f wait text:ind escape f3 wait wait shift+f7 wait set:listerFind=word[0-9]+ set:listerFindRegex=on enter wait f3 wait"
+check "Lister: F3 finds the next match" "[ \"\$(selected lre2)\" = word7 ]"
+run lplain "alt+f wait text:ind escape f3 wait wait shift+f7 wait set:listerFind=GAMMA enter wait"
+check "Lister: a text whatever its case" "[ \"\$(selected lplain)\" = gamma ]"
+run lcase "alt+f wait text:ind escape f3 wait wait shift+f7 wait set:listerFind=GAMMA set:listerFindCase=on enter wait"
+check "Lister: case sensitive, not found" "[ -z \"\$(selected lcase)\" ]"
+run lhex "alt+a wait text:rchive-t escape f3 wait wait 1 wait shift+f7 wait set:listerFind=50_4B_03_04 set:listerFindHex=on enter wait wait"
+check "Lister: bytes in hex found in the hex dump" "[ \"\$(selected lhex)\" = '50 4B 03 04' ]"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

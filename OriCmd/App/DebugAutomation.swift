@@ -531,6 +531,10 @@ enum DebugAutomation {
             if let model = view as? ModelView { result.append("[model: \(model.triangleCount) triangles]") }
             if let text = view as? NSTextView, !text.string.isEmpty {
                 result.append(text.string)
+                let selected = text.selectedRange()
+                if selected.length > 0, selected.upperBound <= (text.string as NSString).length {
+                    result.append("[selected: \((text.string as NSString).substring(with: selected))]")
+                }
                 // How many text colors it shows (syntax highlighting).
                 var colors = Set<NSColor>()
                 text.textStorage?.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: text.textStorage?.length ?? 0)) {

@@ -70,6 +70,17 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
     private var highlighting: Task<Void, Never>?
     /// The text shown is laid out by the formatting (F), not as in the file.
     private var isFormatted = false
+    /// Shift+F7's search (F3 / Shift+F3 repeat it); nil: the find bar's.
+    private var search: Search?
+    /// A search in hex waiting for the hex dump to be shown.
+    private var pendingSearch: (forward: Bool, Void)?
+
+    private struct Search {
+        let text: String
+        let caseSensitive: Bool
+        let isRegex: Bool
+        let isHex: Bool
+    }
 
     /// Shows `url`; N / P step through `siblings` (the other files of its folder).
     /// `title` replaces the path in the window title (for files from servers and archives).
@@ -139,8 +150,9 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         }
         switch (event.specialKey, modifiers) {
         case (.f7?, []): find(.showFindInterface)
-        case (.f3?, []): find(.nextMatch)
-        case (.f3?, [.shift]): find(.previousMatch)
+        case (.f7?, [.shift]): findWithOptions()
+        case (.f3?, []): search == nil ? find(.nextMatch) : findAgain(forward: true)
+        case (.f3?, [.shift]): search == nil ? find(.previousMatch) : findAgain(forward: false)
         default:
             // Plain keys only when the find bar is not being typed into.
             guard modifiers.isEmpty || modifiers == .shift, !(window?.firstResponder is NSTextView
@@ -168,6 +180,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
 
     private func find(_ action: NSTextFinder.Action) {
         guard mode != .preview, mode != .model else { return }
+        if action == .showFindInterface { search = nil }
         // Tables are searched as text, DjVu pages in their text layer.
         if mode == .table { show(.text) }
         if mode == .book, bookFormat == "djvu", !djvuShowsText {
@@ -178,6 +191,139 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
         let item = NSMenuItem()
         item.tag = action.rawValue
         textView.performTextFinderAction(item)
+    }
+
+    // MARK: - Find with options
+
+    /// Shift+F7: a search with Total Commander's options — case, a regular
+    /// expression, or bytes in hex (found in the hex dump).
+    private func findWithOptions() {
+        guard let window, mode != .preview, mode != .model else { return }
+        let field = NSTextField(string: search?.text ?? "")
+        field.widthAnchor.constraint(equalToConstant: 360).isActive = true
+        let caseBox = NSButton(checkboxWithTitle: String(localized: "Case sensitive"), target: nil, action: nil)
+        let regexBox = NSButton(checkboxWithTitle: String(localized: "Regular expression"), target: nil, action: nil)
+        let hexBox = NSButton(checkboxWithTitle: String(localized: "Hex (bytes)"), target: nil, action: nil)
+        caseBox.state = search?.caseSensitive == true ? .on : .off
+        regexBox.state = search?.isRegex == true ? .on : .off
+        hexBox.state = search?.isHex == true ? .on : .off
+        for (view, name) in [(field, "listerFind"), (caseBox, "listerFindCase"), (regexBox, "listerFindRegex"),
+                             (hexBox, "listerFindHex")] as [(NSView, String)] {
+            view.identifier = NSUserInterfaceItemIdentifier(name)
+        }
+        let options = NSStackView(views: [caseBox, regexBox, hexBox])
+        let stack = NSStackView(views: [field, options])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.frame = NSRect(origin: .zero, size: stack.fittingSize)
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Find")
+        alert.informativeText = String(localized: "Bytes in hex as 50 4B 03 04; F3 and Shift+F3 find again.")
+        alert.accessoryView = stack
+        alert.addButton(withTitle: String(localized: "Find"))
+        alert.addCancelButton()
+        alert.window.initialFirstResponder = field
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn, !field.stringValue.isEmpty else { return }
+            search = Search(text: field.stringValue, caseSensitive: caseBox.state == .on,
+                            isRegex: regexBox.state == .on && hexBox.state != .on, isHex: hexBox.state == .on)
+            findAgain(forward: true)
+        }
+    }
+
+    /// The next (or previous) match after the selection, from the other end when
+    /// there is none further on; a beep when there is none at all.
+    private func findAgain(forward: Bool) {
+        guard let search else { return }
+        if search.isHex {
+            guard mode == .hex else {
+                // Found in the hex dump, once it is shown.
+                pendingSearch = (forward, ())
+                show(.hex)
+                return
+            }
+            findBytes(search, forward: forward)
+            return
+        }
+        if mode == .table { show(.text) }
+        let text = textView.string as NSString
+        let selection = textView.selectedRange()
+        let found: NSRange?
+        if search.isRegex {
+            guard let regex = try? NSRegularExpression(pattern: search.text,
+                                                       options: search.caseSensitive ? [] : .caseInsensitive) else {
+                NSSound.beep()
+                return
+            }
+            let matches = regex.matches(in: textView.string, range: NSRange(location: 0, length: text.length)).map(\.range)
+            // Nothing selected yet: a match right at the cursor counts.
+            let skip = selection.length > 0 ? 1 : 0
+            found = forward ? matches.first { $0.location >= selection.location + skip } ?? matches.first
+                : matches.last { $0.location < selection.location } ?? matches.last
+        } else {
+            var options: NSString.CompareOptions = search.caseSensitive ? [] : .caseInsensitive
+            if !forward { options.insert(.backwards) }
+            let from = min(selection.location + (selection.length > 0 ? 1 : 0), text.length)
+            let after = forward ? NSRange(location: from, length: text.length - from)
+                : NSRange(location: 0, length: selection.location)
+            let range = text.range(of: search.text, options: options, range: after)
+            found = range.location != NSNotFound ? range
+                : Optional(text.range(of: search.text, options: options)).flatMap { $0.location == NSNotFound ? nil : $0 }
+        }
+        guard let found, found.length > 0 else {
+            NSSound.beep()
+            return
+        }
+        select(found)
+    }
+
+    /// Bytes looked for in the file (as much of it as the hex dump shows) and
+    /// selected in the dump: 16 bytes a line, each byte 3 characters after the offset.
+    private func findBytes(_ search: Search, forward: Bool) {
+        let digits = search.text.filter { !$0.isWhitespace }
+        guard !digits.isEmpty, digits.count.isMultiple(of: 2) else {
+            NSSound.beep()
+            return
+        }
+        var needle = Data()
+        var index = digits.startIndex
+        while index < digits.endIndex {
+            let next = digits.index(index, offsetBy: 2)
+            guard let byte = UInt8(digits[index..<next], radix: 16) else {
+                NSSound.beep()
+                return
+            }
+            needle.append(byte)
+            index = next
+        }
+        let data = Self.head(of: url, limit: Self.hexLimit).data
+        let lineLength = 76
+        let selection = textView.selectedRange()
+        let current = selection.location
+        let currentByte = current / lineLength * 16 + max(0, (current % lineLength - 10) / 3)
+        let skip = selection.length > 0 ? 1 : 0
+        var offsets: [Int] = []
+        var start = data.startIndex
+        while let range = data.range(of: needle, in: start..<data.endIndex) {
+            offsets.append(range.lowerBound - data.startIndex)
+            start = range.lowerBound + 1
+        }
+        guard let offset = forward ? offsets.first(where: { $0 >= currentByte + skip }) ?? offsets.first
+                : offsets.last(where: { $0 < currentByte }) ?? offsets.last else {
+            NSSound.beep()
+            return
+        }
+        let first = offset / 16 * lineLength + 10 + offset % 16 * 3
+        let lastByte = offset + needle.count - 1
+        let last = lastByte / 16 * lineLength + 10 + lastByte % 16 * 3 + 2
+        select(NSRange(location: first, length: last - first))
+    }
+
+    private func select(_ range: NSRange) {
+        window?.makeFirstResponder(textView)
+        textView.setSelectedRange(range)
+        textView.scrollRangeToVisible(range)
+        textView.showFindIndicator(for: range)
     }
 
     private func toggleWrapping() {
@@ -406,6 +552,10 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
                 }
                 textView.string = text
                 makePlain()
+                if mode == .hex, let pending = pendingSearch, let search {
+                    pendingSearch = nil
+                    findBytes(search, forward: pending.forward)
+                }
                 if let name = content.encoding {
                     encodingName = name
                 }

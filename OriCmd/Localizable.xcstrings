@@ -781,6 +781,16 @@
         }
       }
     },
+    "Bytes in hex as 50 4B 03 04; F3 and Shift+F3 find again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Байты в hex — как 50 4B 03 04; F3 и Shift+F3 ищут снова."
+          }
+        }
+      }
+    },
     "Calculate Folder Sizes": {
       "localizations": {
         "ru": {
@@ -2891,6 +2901,16 @@
         }
       }
     },
+    "Find": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найти"
+          }
+        }
+      }
+    },
     "Find Files": {
       "localizations": {
         "ru": {
@@ -3182,6 +3202,16 @@
       }
     },
     "Hex": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hex (байты)"
+          }
+        }
+      }
+    },
+    "Hex (bytes)": {
       "localizations": {
         "ru": {
           "stringUnit": {
