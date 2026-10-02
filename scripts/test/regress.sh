@@ -963,6 +963,7 @@ defaults write ru.themmag.OriCmd.tests CopyAttributes -bool false
 run climit "alt+b wait text:ig escape speed:5_MB/s f5 wait enter wait wait wait wait"
 part=$(print -l $R/.oricmd-*.part(N) | head -1)
 check "A copy keeps to the speed limit" "[ ! -e $R/big.bin ] && [ -n \"$part\" ] && [ \$(stat -f %z $part) -gt 1000000 ] && [ \$(stat -f %z $part) -lt 36000000 ]"
+check "Both bars of a copy under way show how far it is (the whole too, before the file is done)" "[ \"\$(grep -c '^\[progress: [1-9][0-9]%\]\$' build/shots/reg-climit-sheet.txt)\" = 2 ]"
 rm -f $R/.oricmd-*.part(N)
 rm -f $R/big.bin
 defaults write ru.themmag.OriCmd.tests CopyAttributes -bool false

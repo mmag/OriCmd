@@ -91,11 +91,14 @@ nonisolated final class TransferProgress: Sendable {
         update { $0.isCancelled = true }
     }
 
-    /// Sets the bytes done of the current file; returns how many were added.
+    /// Sets the bytes done of the current file, counting them in the whole too;
+    /// returns how many were added.
     func advanceFile(to bytes: Int64) -> Int64 {
         state.withLock { state in
-            defer { state.fileDoneBytes = bytes }
-            return bytes - state.fileDoneBytes
+            let added = bytes - state.fileDoneBytes
+            state.fileDoneBytes = bytes
+            state.doneBytes += added
+            return added
         }
     }
 
@@ -527,7 +530,8 @@ nonisolated final class TransferEngine {
         let result = copyfile(source, target, state, copyfile_flags_t(flags))
         let failure = errno
         progress.update {
-            $0.doneBytes += size
+            // What the callbacks have not counted yet (all of a clone, which has none).
+            $0.doneBytes += max(size - $0.fileDoneBytes, 0)
             $0.fileDoneBytes = size
         }
         if result != 0 {

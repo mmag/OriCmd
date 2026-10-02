@@ -16,8 +16,8 @@ final class TransferController {
     private let heading = NSTextField(labelWithString: "")
     private let fromLabel = NSTextField(labelWithString: "")
     private let toLabel = NSTextField(labelWithString: "")
-    private let fileBar = NSProgressIndicator()
-    private let totalBar = NSProgressIndicator()
+    private var fileBar = TransferController.makeBar()
+    private var totalBar = TransferController.makeBar()
     private var timer: Timer?
     private let backgroundButton = NSButton(title: String(localized: "Background"), target: nil, action: nil)
     private let pauseButton = NSButton(title: String(localized: "Pause"), target: nil, action: nil)
@@ -114,11 +114,6 @@ final class TransferController {
             label.lineBreakMode = .byTruncatingMiddle
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
-        for bar in [fileBar, totalBar] {
-            bar.isIndeterminate = false
-            bar.minValue = 0
-            bar.maxValue = 100
-        }
         let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancel(_:)))
         cancel.keyEquivalent = "\u{1b}"
 
@@ -153,11 +148,41 @@ final class TransferController {
         }
     }
 
+    private static func makeBar() -> NSProgressIndicator {
+        let bar = NSProgressIndicator()
+        bar.isIndeterminate = false
+        bar.minValue = 0
+        bar.maxValue = 100
+        return bar
+    }
+
+    /// A new determinate bar in the place of `bar`.
+    private func replace(_ bar: NSProgressIndicator) -> NSProgressIndicator {
+        guard let stack = bar.superview as? NSStackView, let index = stack.arrangedSubviews.firstIndex(of: bar) else {
+            return bar
+        }
+        let new = Self.makeBar()
+        bar.stopAnimation(nil)
+        stack.removeArrangedSubview(bar)
+        bar.removeFromSuperview()
+        stack.insertArrangedSubview(new, at: index)
+        new.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true
+        return new
+    }
+
     private func refresh() {
         let state = progress.snapshot
-        for bar in [fileBar, totalBar] where bar.isIndeterminate != (state.totalBytes == 0) {
-            bar.isIndeterminate = state.totalBytes == 0
-            if bar.isIndeterminate { bar.startAnimation(nil) }
+        // Indeterminate until the total is known (while the sources are measured).
+        if state.totalBytes == 0, !fileBar.isIndeterminate {
+            for bar in [fileBar, totalBar] {
+                bar.isIndeterminate = true
+                bar.startAnimation(nil)
+            }
+        } else if state.totalBytes > 0, fileBar.isIndeterminate {
+            // A bar that was indeterminate, made determinate again, empties and
+            // fills with every new value (it swings to and fro): new bars instead.
+            fileBar = replace(fileBar)
+            totalBar = replace(totalBar)
         }
         fromLabel.stringValue = state.source.isEmpty ? "" : String(localized: "From: \(state.source)")
         toLabel.stringValue = state.target.isEmpty ? "" : String(localized: "To: \(state.target)")

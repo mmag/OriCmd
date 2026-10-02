@@ -551,6 +551,11 @@ enum DebugAutomation {
                     }.joined(separator: " | ")
                 }
             }
+            if let bar = view as? NSProgressIndicator, bar.style == .bar, !bar.isHidden {
+                // A progress bar: how full, or that it only shows something goes on.
+                result.append(bar.isIndeterminate ? "[progress: indeterminate]"
+                    : "[progress: \(Int((bar.doubleValue - bar.minValue) / max(bar.maxValue - bar.minValue, 1) * 100))%]")
+            }
             if let pages = view as? DjVuPagesView { result.append("[pages drawn: \(pages.drawnCount)]") }
             if let model = view as? ModelView { result.append("[model: \(model.triangleCount) triangles]") }
             if let text = view as? NSTextView, !text.string.isEmpty {
