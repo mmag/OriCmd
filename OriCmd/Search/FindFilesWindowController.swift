@@ -8,6 +8,12 @@ final class FindFilesWindowController: NSWindowController {
     private let directoryField = NSTextField(string: "")
     private let textField = NSTextField(string: "")
     private let caseSensitiveBox = NSButton(checkboxWithTitle: String(localized: "Case sensitive"), target: nil, action: nil)
+    private let nameRegexBox = NSButton(checkboxWithTitle: String(localized: "Regular expression instead of masks"),
+                                        target: nil, action: nil)
+    private let wholeWordsBox = NSButton(checkboxWithTitle: String(localized: "Whole words"), target: nil, action: nil)
+    private let textRegexBox = NSButton(checkboxWithTitle: String(localized: "Regular expression"), target: nil, action: nil)
+    private let notContainingBox = NSButton(checkboxWithTitle: String(localized: "Not containing it"), target: nil, action: nil)
+    private let encodingPopup = NSPopUpButton()
     /// How deep into subfolders: all, none, 1…9 levels.
     private let depthPopup = NSPopUpButton()
     private let tabs = NSTabView()
@@ -50,6 +56,11 @@ final class FindFilesWindowController: NSWindowController {
         (String(localized: "bytes"), 1), (String(localized: "KB"), 1 << 10), (String(localized: "MB"), 1 << 20),
         (String(localized: "GB"), 1 << 30),
     ]
+    /// The encoding pop-up: one encoding, all of them, or bytes in hex (nil).
+    private static let textEncodings: [(title: String, encodings: [TextEncoding]?)] = {
+        let single: [TextEncoding] = [.utf8, .utf16, .windows1251, .dos866, .koi8r]
+        return single.map { ($0.title, [$0]) } + [(String(localized: "All of them"), single), (String(localized: "Hex"), nil)]
+    }()
     private static let sizeComparisons: [(title: String, comparison: FileSearch.SizeCondition.Comparison)] = [
         ("=", .equal), ("<", .less), (">", .greater),
     ]
@@ -117,16 +128,25 @@ final class FindFilesWindowController: NSWindowController {
         scrollView.borderType = .bezelBorder
 
         depthPopup.addItems(withTitles: [String(localized: "All"), String(localized: "None")] + (1...9).map(String.init))
+        encodingPopup.addItems(withTitles: Self.textEncodings.map(\.title))
+        encodingPopup.target = self
+        encodingPopup.action = #selector(encodingChanged(_:))
+        let textOptions = NSStackView(views: [caseSensitiveBox, wholeWordsBox, textRegexBox, notContainingBox])
+        textOptions.spacing = 12
         let general = NSGridView(views: [
             [NSTextField(labelWithString: String(localized: "Search for:")), maskField],
+            [NSGridCell.emptyContentView, nameRegexBox],
             [NSTextField(labelWithString: String(localized: "Search in:")), directoryField],
             [NSTextField(labelWithString: String(localized: "Subfolder levels:")), depthPopup],
             [NSTextField(labelWithString: String(localized: "Find text:")), textField],
-            [NSGridCell.emptyContentView, caseSensitiveBox],
+            [NSGridCell.emptyContentView, textOptions],
+            [NSTextField(labelWithString: String(localized: "Encoding:")), encodingPopup],
         ])
         general.column(at: 0).xPlacement = .trailing
         general.rowSpacing = 6
-        general.row(at: 2).yPlacement = .center
+        for index in [3, 6] {
+            general.row(at: index).yPlacement = .center
+        }
 
         let generalTab = NSTabViewItem(identifier: "general")
         generalTab.label = String(localized: "General")
@@ -154,6 +174,9 @@ final class FindFilesWindowController: NSWindowController {
 
         // Identifiers for the test harness (`set:findSize=10`).
         for (view, name) in [(maskField, "findMask"), (directoryField, "findIn"), (textField, "findText"),
+                             (nameRegexBox, "findNameRegex"), (caseSensitiveBox, "findCase"),
+                             (wholeWordsBox, "findWholeWords"), (textRegexBox, "findTextRegex"),
+                             (notContainingBox, "findNot"), (encodingPopup, "findEncoding"),
                              (depthPopup, "findDepth"), (betweenBox, "findBetween"), (fromPicker, "findFrom"),
                              (toPicker, "findTo"), (olderBox, "findOlder"), (ageField, "findAge"),
                              (ageUnitPopup, "findAgeUnit"), (sizeBox, "findSizeOn"), (sizeComparisonPopup, "findSizeOp"),
@@ -225,6 +248,14 @@ final class FindFilesWindowController: NSWindowController {
         return grid
     }
 
+    /// Bytes in hex are looked for as they are: no case, words or expressions.
+    @objc private func encodingChanged(_ sender: Any?) {
+        let isHex = Self.textEncodings[encodingPopup.indexOfSelectedItem].encodings == nil
+        for box in [caseSensitiveBox, wholeWordsBox, textRegexBox] {
+            box.isEnabled = !isHex
+        }
+    }
+
     @objc private func advancedChanged(_ sender: Any?) {
         updateAdvanced()
     }
@@ -254,6 +285,15 @@ final class FindFilesWindowController: NSWindowController {
             caseSensitive: caseSensitiveBox.state == .on,
             depth: depthPopup.indexOfSelectedItem == 0 ? nil : depthPopup.indexOfSelectedItem - 1
         )
+        query.nameIsRegex = nameRegexBox.state == .on
+        query.notContaining = notContainingBox.state == .on
+        if let encodings = Self.textEncodings[encodingPopup.indexOfSelectedItem].encodings {
+            query.encodings = encodings
+            query.wholeWords = wholeWordsBox.state == .on
+            query.textIsRegex = textRegexBox.state == .on
+        } else {
+            query.isHex = true
+        }
         let calendar = Calendar.current
         if betweenBox.state == .on {
             let (from, to) = (min(fromPicker.dateValue, toPicker.dateValue), max(fromPicker.dateValue, toPicker.dateValue))
@@ -285,11 +325,18 @@ final class FindFilesWindowController: NSWindowController {
     }
 
     private func wrongNumber(in field: NSTextField) -> FileSearch.Query? {
-        tabs.selectTabViewItem(advancedTab)
+        complain(String(localized: "Enter a whole number."), in: field)
+        return nil
+    }
+
+    /// Shows what is wrong with the field (on its tab), the search not started.
+    private func complain(_ message: String, in field: NSTextField) {
+        if let tab = tabs.tabViewItems.first(where: { $0.view.map(field.isDescendant(of:)) ?? false }) {
+            tabs.selectTabViewItem(tab)
+        }
         window?.makeFirstResponder(field)
         NSSound.beep()
-        statusLabel.stringValue = String(localized: "Enter a whole number.")
-        return nil
+        statusLabel.stringValue = message
     }
 
     @objc private func startOrStop(_ sender: Any?) {
@@ -298,7 +345,17 @@ final class FindFilesWindowController: NSWindowController {
             return
         }
         guard let query = makeQuery() else { return }
-        let search = FileSearch(query: query)
+        let search: FileSearch
+        do {
+            search = try FileSearch(query: query)
+        } catch {
+            switch error {
+            case .nameRegex: complain(String(localized: "The regular expression for the name is not valid."), in: maskField)
+            case .textRegex: complain(String(localized: "The regular expression for the text is not valid."), in: textField)
+            case .hex: complain(String(localized: "Enter the bytes in hex, as 50 4B 03 04."), in: textField)
+            }
+            return
+        }
         self.search = search
         results = []
         resultsTable.reloadData()

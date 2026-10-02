@@ -52,6 +52,16 @@ nonisolated enum TextEncoding: CaseIterable, Sendable {
 }
 
 nonisolated enum TextDecoding {
+    /// `text` as `encoding` writes it (UTF-16 in both byte orders, without a byte
+    /// order mark); none when the encoding has no letters for it.
+    static func encoded(_ text: String, as encoding: TextEncoding) -> [Data] {
+        switch encoding {
+        case .automatic: []
+        case .utf16: [text.data(using: .utf16LittleEndian), text.data(using: .utf16BigEndian)].compactMap { $0 }
+        default: encoding.stringEncoding.flatMap { text.data(using: $0) }.map { [$0] } ?? []
+        }
+    }
+
     /// Decodes UTF-8, falling back to encoding detection (Windows-1251, KOI8-R, …).
     static func string(from data: Data) -> String {
         decode(data, as: .automatic).text

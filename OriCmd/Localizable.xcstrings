@@ -431,6 +431,16 @@
         }
       }
     },
+    "All of them": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все сразу"
+          }
+        }
+      }
+    },
     "Also for people who tell some colors apart with difficulty: marked files and file colors stay distinct.": {
       "localizations": {
         "ru": {
@@ -2031,12 +2041,32 @@
         }
       }
     },
+    "Encoding:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кодировка:"
+          }
+        }
+      }
+    },
     "Enter a whole number.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Введите целое число."
+          }
+        }
+      }
+    },
+    "Enter the bytes in hex, as 50 4B 03 04.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите байты в шестнадцатеричном виде, например 50 4B 03 04."
           }
         }
       }
@@ -2527,6 +2557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Справка"
+          }
+        }
+      }
+    },
+    "Hex": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hex (байты)"
           }
         }
       }
@@ -3267,6 +3307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нет"
+          }
+        }
+      }
+    },
+    "Not containing it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не содержащие его"
           }
         }
       }
@@ -4047,6 +4097,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Обновить"
+          }
+        }
+      }
+    },
+    "Regular expression": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регулярное выражение"
+          }
+        }
+      }
+    },
+    "Regular expression instead of masks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регулярное выражение вместо масок"
           }
         }
       }
@@ -5181,6 +5251,26 @@
         }
       }
     },
+    "The regular expression for the name is not valid.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регулярное выражение для имени записано с ошибкой."
+          }
+        }
+      }
+    },
+    "The regular expression for the text is not valid.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регулярное выражение для текста записано с ошибкой."
+          }
+        }
+      }
+    },
     "The server does not answer. Check the address and the network.": {
       "localizations": {
         "ru": {
@@ -5677,6 +5767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Какая программа открывает, показывает (F3) или редактирует (F4) файлы нужного типа."
+          }
+        }
+      }
+    },
+    "Whole words": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Целые слова"
           }
         }
       }

@@ -21,6 +21,21 @@ nonisolated final class FileSearch: Sendable {
         /// Attributes an item must have (true) or must not have (false); the others
         /// do not matter.
         var attributes: [Attribute: Bool] = [:]
+        /// `masks` is a regular expression for the name (case-insensitive).
+        var nameIsRegex = false
+        /// `text` is a regular expression.
+        var textIsRegex = false
+        var wholeWords = false
+        /// Files without the text instead of with it.
+        var notContaining = false
+        /// The encodings the text is looked for in, any of them.
+        var encodings: [TextEncoding] = [.utf8]
+        /// `text` is bytes in hex ("50 4B 03 04"), looked for as they are.
+        var isHex = false
+    }
+
+    enum QueryError: Error {
+        case nameRegex, textRegex, hex
     }
 
     enum Attribute: Sendable, Hashable, CaseIterable {
@@ -59,10 +74,21 @@ nonisolated final class FileSearch: Sendable {
     private static let textSearchLimit = 256 * 1024 * 1024
 
     let query: Query
+    private let nameRegex: NSRegularExpression?
+    private let text: TextMatcher?
     private let state = OSAllocatedUnfairLock(initialState: State())
 
-    init(query: Query) {
+    init(query: Query) throws(QueryError) {
         self.query = query
+        if query.nameIsRegex {
+            guard let regex = try? NSRegularExpression(pattern: query.masks, options: .caseInsensitive) else {
+                throw .nameRegex
+            }
+            nameRegex = regex
+        } else {
+            nameRegex = nil
+        }
+        text = query.text.isEmpty ? nil : try TextMatcher(query)
     }
 
     var snapshot: State { state.withLock { $0 } }
@@ -96,8 +122,7 @@ nonisolated final class FileSearch: Sendable {
             let isRegular = info.st_mode & S_IFMT == S_IFREG
                 || (isLink && stat(url.path, &target) == 0 && target.st_mode & S_IFMT == S_IFREG)
             let file = isRegular ? (isLink ? target : info) : nil
-            if FileMask.matches(name, query.masks) && matches(name, info, file: file)
-                && (query.text.isEmpty || (isRegular && contains(url))) {
+            if matchesName(name) && matches(name, info, file: file) && matchesText(url, isRegular: isRegular) {
                 state.withLock { $0.found.append(url) }
             }
             state.withLock { $0.scannedCount += 1 }
@@ -105,6 +130,20 @@ nonisolated final class FileSearch: Sendable {
                 walk(url, level: level + 1)
             }
         }
+    }
+
+    private func matchesName(_ name: String) -> Bool {
+        guard let nameRegex else { return FileMask.matches(name, query.masks) }
+        return nameRegex.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil
+    }
+
+    /// Only regular files have a text; one that cannot be read (or is too big)
+    /// neither contains the text nor goes without it.
+    private func matchesText(_ url: URL, isRegular: Bool) -> Bool {
+        guard let text else { return true }
+        guard isRegular, let data = try? Data(contentsOf: url, options: .alwaysMapped),
+              data.count <= Self.textSearchLimit else { return false }
+        return text.matches(data) != query.notContaining
     }
 
     /// The date, size and attribute conditions. `info` is the item itself (a
@@ -129,13 +168,67 @@ nonisolated final class FileSearch: Sendable {
         }
         return true
     }
+}
 
-    private func contains(_ url: URL) -> Bool {
-        guard let data = try? Data(contentsOf: url, options: .alwaysMapped),
-              data.count <= Self.textSearchLimit else { return false }
-        if query.caseSensitive {
-            return data.range(of: Data(query.text.utf8)) != nil
+/// The text looked for in a file's contents. Bytes are looked for as they are
+/// whenever they can be (hex, or a case-sensitive text as each encoding writes it);
+/// otherwise the contents are decoded in each encoding in turn.
+nonisolated private struct TextMatcher: @unchecked Sendable {
+    // @unchecked: NSRegularExpression is immutable and may be used from any thread.
+    private enum Kind {
+        case bytes([Data])
+        case caseInsensitive(String)
+        case regex(NSRegularExpression)
+    }
+
+    private let kind: Kind
+    private let encodings: [TextEncoding]
+
+    init(_ query: FileSearch.Query) throws(FileSearch.QueryError) {
+        encodings = query.encodings
+        if query.isHex {
+            guard let bytes = Self.bytes(hex: query.text) else { throw .hex }
+            kind = .bytes([bytes])
+        } else if query.textIsRegex || query.wholeWords {
+            let pattern = query.textIsRegex ? query.text : NSRegularExpression.escapedPattern(for: query.text)
+            guard let regex = try? NSRegularExpression(pattern: query.wholeWords ? "\\b(?:\(pattern))\\b" : pattern,
+                                                       options: query.caseSensitive ? [] : .caseInsensitive) else {
+                throw .textRegex
+            }
+            kind = .regex(regex)
+        } else if query.caseSensitive {
+            kind = .bytes(query.encodings.flatMap { TextDecoding.encoded(query.text, as: $0) })
+        } else {
+            kind = .caseInsensitive(query.text)
         }
-        return String(decoding: data, as: UTF8.self).range(of: query.text, options: .caseInsensitive) != nil
+    }
+
+    func matches(_ data: Data) -> Bool {
+        switch kind {
+        case .bytes(let sequences):
+            return sequences.contains { data.range(of: $0) != nil }
+        case .caseInsensitive(let text):
+            return encodings.contains { TextDecoding.decode(data, as: $0).text.range(of: text, options: .caseInsensitive) != nil }
+        case .regex(let regex):
+            return encodings.contains { encoding in
+                let text = TextDecoding.decode(data, as: encoding).text
+                return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+            }
+        }
+    }
+
+    /// "50 4B 03 04", "504b0304": spaces between the bytes or none.
+    private static func bytes(hex: String) -> Data? {
+        let digits = hex.filter { !$0.isWhitespace }
+        guard !digits.isEmpty, digits.count.isMultiple(of: 2) else { return nil }
+        var bytes = Data()
+        var index = digits.startIndex
+        while index < digits.endIndex {
+            let next = digits.index(index, offsetBy: 2)
+            guard let byte = UInt8(digits[index..<next], radix: 16) else { return nil }
+            bytes.append(byte)
+            index = next
+        }
+        return bytes
     }
 }

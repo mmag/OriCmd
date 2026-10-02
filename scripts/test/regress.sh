@@ -755,6 +755,40 @@ findfiles fbadsize "click:Advanced set:findSizeOn=on set:findSize=lots"
 check "Find Files: a wrong number is not searched with" "grep -qx 'Enter a whole number.' build/shots/reg-fbadsize-win1.txt && [ -z \"\$(found fbadsize)\" ]"
 chflags nouchg $L/found/sub/locked.dat
 
+# Find Files, text: encodings (one, all of them), case, whole words, regular
+# expressions (for the text and for the name), files not containing the text, hex.
+scripts/test/mkdata.sh
+mkdir -p $L/texts; T=$L/texts
+printf 'Привет, мир!\n' > $T/utf8.txt
+for e in CP1251:cp1251 KOI8-R:koi8 CP866:dos866; do printf 'Привет, мир!\n' | iconv -f UTF-8 -t ${e%%:*} > $T/${e#*:}.txt; done
+{ printf '\xff\xfe'; printf 'Привет, мир!\n' | iconv -f UTF-8 -t UTF-16LE; } > $T/utf16.txt
+echo 'the cat sat' > $T/english.txt; echo 'concatenate' > $T/concat.txt; echo 'word42 here' > $T/words.txt
+cp $L/archive-test.zip $T/packed.zip
+textfind() { run "$1" "alt+f7 wait set:findIn=$PWD/$T $2 click:Start_Search wait wait wait"; }
+textfound() { grep '^\[row\]' build/shots/reg-$1-win1.txt 2>/dev/null | sed 's|.*/texts/||' | tr '\n' ' '; }
+textfind tutf8 "set:findText=привет"
+check "Find Files: a text in UTF-8, whatever the case" "[ \"\$(textfound tutf8)\" = 'utf8.txt ' ]"
+textfind tall "set:findText=привет set:findEncoding=All_of_them"
+check "Find Files: a text in all the encodings" "[ \"\$(textfound tall)\" = 'cp1251.txt dos866.txt koi8.txt utf8.txt utf16.txt ' ]"
+textfind t1251 "set:findText=Привет set:findCase=on set:findEncoding=Windows-1251"
+check "Find Files: a case-sensitive text in Windows-1251" "[ \"\$(textfound t1251)\" = 'cp1251.txt ' ]"
+textfind tsub "set:findText=cat"
+check "Find Files: a text inside a word" "[ \"\$(textfound tsub)\" = 'concat.txt english.txt ' ]"
+textfind twhole "set:findText=cat set:findWholeWords=on"
+check "Find Files: whole words" "[ \"\$(textfound twhole)\" = 'english.txt ' ]"
+textfind tregex "set:findText=word[0-9]+_here set:findTextRegex=on"
+check "Find Files: a regular expression for the text" "[ \"\$(textfound tregex)\" = 'words.txt ' ]"
+textfind tnot "set:findMask=*.txt set:findText=cat set:findNot=on"
+check "Find Files: files not containing the text" "[ \"\$(textfound tnot)\" = 'cp1251.txt dos866.txt koi8.txt utf8.txt utf16.txt words.txt ' ]"
+textfind tname "set:findMask=^(koi|dos) set:findNameRegex=on"
+check "Find Files: a regular expression for the name" "[ \"\$(textfound tname)\" = 'dos866.txt koi8.txt ' ]"
+textfind thex "set:findText=50_4B_03_04 set:findEncoding=Hex"
+check "Find Files: bytes in hex" "[ \"\$(textfound thex)\" = 'packed.zip ' ]"
+textfind tbadregex "set:findText=( set:findTextRegex=on"
+check "Find Files: a wrong regular expression is said so" "grep -qx 'The regular expression for the text is not valid.' build/shots/reg-tbadregex-win1.txt"
+textfind tbadhex "set:findText=5 set:findEncoding=Hex"
+check "Find Files: wrong hex is said so" "grep -qx 'Enter the bytes in hex, as 50 4B 03 04.' build/shots/reg-tbadhex-win1.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.
