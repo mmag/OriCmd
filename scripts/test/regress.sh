@@ -841,6 +841,17 @@ if mdutil -s / 2>/dev/null | grep -q 'Indexing enabled'; then
   check "Find Files: the index by the subfolder levels" "[ \"\$(grep '^\[row\]' build/shots/reg-spotdepth-win1.txt | sed 's|.*/left/||' | tr '\n' ' ')\" = 'spot/spot-a.txt spot/spot-b.txt ' ]"
 fi
 
+# Find Files templates: a search saved, the dialog changed, the search loaded back
+# (the General tab shown) and run; a template deleted.
+scripts/test/mkdata.sh
+mkdir -p $L/tpl; head -c 4000000 /dev/zero > $L/tpl/big.dat; head -c 5000 /dev/zero > $L/tpl/small.dat; touch $L/tpl/big.txt
+tplsave="alt+f7 wait set:findIn=$PWD/$L/tpl set:findMask=*.dat click:Advanced set:findSizeOn=on set:findSize=2 set:findSizeUnit=MB click:Templates click:Save… wait text:bigfiles enter wait"
+run tplload "$tplsave set:findMask=*.txt click:Advanced set:findSizeOn=off click:Templates set:findTemplates=bigfiles click:Load wait click:Start_Search wait wait wait"
+check "Find Files: a saved search loaded back" "[ \"\$(grep '^\[row\]' build/shots/reg-tplload-win1.txt | sed 's|.*/tpl/||' | tr '\n' ' ')\" = 'big.dat ' ] && grep -qx '\*.dat' build/shots/reg-tplload-win1.txt"
+run tplsaved "$tplsave"
+run tpldelete "$tplsave set:findTemplates=bigfiles click:Delete wait"
+check "Find Files: a saved search listed, then deleted" "grep -qx '\[row\] bigfiles' build/shots/reg-tplsaved-win1.txt && ! grep -q '^\[row\] bigfiles' build/shots/reg-tpldelete-win1.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

@@ -14,7 +14,7 @@ import WebKit
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title` (also a tab of a tab view),
 ///   `set:identifier=value` (a control by its identifier: text, a pop-up item's title, `on`/`off`/`mixed`, a
-///   date as `2026-01-31`; `_` stands for a space),
+///   date as `2026-01-31`, a table's row by its text; `_` stands for a space),
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
 ///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
@@ -280,6 +280,13 @@ enum DebugAutomation {
                     guard let control = views(in: topmost(window).contentView)
                         .first(where: { $0.identifier?.rawValue == name }) as? NSControl else { continue }
                     switch control {
+                    case let table as NSTableView:
+                        // The row showing that text in its first column.
+                        let row = (0..<table.numberOfRows).first { row in
+                            table.tableColumns.first.flatMap { table.dataSource?.tableView?(table, objectValueFor: $0, row: row) }
+                                .map { "\($0)" } == value
+                        }
+                        table.selectRowIndexes(row.map { [$0] } ?? [], byExtendingSelection: false)
                     case let popup as NSPopUpButton: popup.selectItem(withTitle: value)
                     case let box as NSButton: box.state = value == "on" ? .on : value == "mixed" ? .mixed : .off
                     case let picker as NSDatePicker:

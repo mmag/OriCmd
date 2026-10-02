@@ -53,6 +53,9 @@ final class FindFilesWindowController: NSWindowController {
     private let feedButton = NSButton(title: String(localized: "Feed to Panel"), target: nil, action: nil)
     private let statusLabel = NSTextField(labelWithString: "")
     private let resultsTable = ResultsTableView()
+    private let generalTab = NSTabViewItem(identifier: "general")
+    private let templatesTable = NSTableView()
+    private var templates = SearchTemplate.saved
 
     private static let ageUnits: [(title: String, component: Calendar.Component)] = [
         (String(localized: "minutes"), .minute), (String(localized: "hours"), .hour), (String(localized: "days"), .day),
@@ -165,12 +168,15 @@ final class FindFilesWindowController: NSWindowController {
             general.row(at: index).yPlacement = .center
         }
 
-        let generalTab = NSTabViewItem(identifier: "general")
         generalTab.label = String(localized: "General")
         generalTab.view = padded(general)
         advancedTab.view = padded(advancedGrid())
         tabs.addTabViewItem(generalTab)
         tabs.addTabViewItem(advancedTab)
+        let templatesTab = NSTabViewItem(identifier: "templates")
+        templatesTab.label = String(localized: "Templates")
+        templatesTab.view = padded(templatesPane())
+        tabs.addTabViewItem(templatesTab)
         updateAdvanced()
 
         let buttons = NSStackView(views: [statusLabel, feedButton, goToButton, startButton])
@@ -200,7 +206,8 @@ final class FindFilesWindowController: NSWindowController {
                              (ageUnitPopup, "findAgeUnit"), (sizeBox, "findSizeOn"), (sizeComparisonPopup, "findSizeOp"),
                              (sizeField, "findSize"), (sizeUnitPopup, "findSizeUnit"),
                              (duplicatesBox, "findDuplicates"), (sameNameBox, "findSameName"),
-                             (sameSizeBox, "findSameSize"), (sameContentsBox, "findSameContents")] as [(NSView, String)] {
+                             (sameSizeBox, "findSameSize"), (sameContentsBox, "findSameContents"),
+                             (templatesTable, "findTemplates")] as [(NSView, String)] {
             view.identifier = NSUserInterfaceItemIdentifier(name)
         }
         for (attribute, box) in attributeBoxes {
@@ -268,6 +275,147 @@ final class FindFilesWindowController: NSWindowController {
             grid.row(at: index).yPlacement = .center
         }
         return grid
+    }
+
+    // MARK: - Templates
+
+    /// The saved searches, with the buttons to load, save and delete them.
+    private func templatesPane() -> NSView {
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
+        column.title = String(localized: "Saved searches")
+        column.resizingMask = .autoresizingMask
+        templatesTable.addTableColumn(column)
+        templatesTable.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        templatesTable.dataSource = self
+        templatesTable.delegate = self
+        templatesTable.target = self
+        templatesTable.doubleAction = #selector(loadTemplate(_:))
+        let scrollView = NSScrollView()
+        scrollView.documentView = templatesTable
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+        scrollView.heightAnchor.constraint(equalToConstant: 170).isActive = true
+
+        let buttons = NSStackView(views: [
+            NSButton(title: String(localized: "Load"), target: self, action: #selector(loadTemplate(_:))),
+            NSButton(title: String(localized: "Save…"), target: self, action: #selector(saveTemplate(_:))),
+            NSButton(title: String(localized: "Delete"), target: self, action: #selector(deleteTemplate(_:))),
+        ])
+        buttons.orientation = .vertical
+        buttons.alignment = .leading
+        buttons.setHuggingPriority(.required, for: .horizontal)
+        for case let button as NSButton in buttons.arrangedSubviews {
+            button.widthAnchor.constraint(equalTo: buttons.widthAnchor).isActive = true
+        }
+        let pane = NSStackView(views: [scrollView, buttons])
+        pane.alignment = .top
+        pane.spacing = 10
+        return pane
+    }
+
+    private var selectedTemplate: SearchTemplate? {
+        templates.indices.contains(templatesTable.selectedRow) ? templates[templatesTable.selectedRow] : nil
+    }
+
+    /// The dialog set as the template has it; the General tab shown.
+    @objc private func loadTemplate(_ sender: Any?) {
+        guard let template = selectedTemplate else {
+            NSSound.beep()
+            return
+        }
+        apply(template)
+        tabs.selectTabViewItem(generalTab)
+        window?.makeFirstResponder(maskField)
+    }
+
+    /// Asks for a name (the selected template's, to replace it); a template of that
+    /// name is replaced.
+    @objc private func saveTemplate(_ sender: Any?) {
+        guard let window else { return }
+        Prompt.text(String(localized: "Save the search"), message: String(localized: "Name:"),
+                    initial: selectedTemplate?.name ?? maskField.stringValue, okTitle: String(localized: "Save"),
+                    in: window) { [weak self] name in
+            guard let self else { return }
+            let name = name.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else {
+                NSSound.beep()
+                return
+            }
+            let template = currentTemplate(named: name)
+            if let index = templates.firstIndex(where: { $0.name == name }) {
+                templates[index] = template
+            } else {
+                templates.append(template)
+            }
+            SearchTemplate.saved = templates
+            templatesTable.reloadData()
+            templatesTable.selectRowIndexes([templates.firstIndex { $0.name == name } ?? 0], byExtendingSelection: false)
+        }
+    }
+
+    @objc private func deleteTemplate(_ sender: Any?) {
+        guard templates.indices.contains(templatesTable.selectedRow) else {
+            NSSound.beep()
+            return
+        }
+        templates.remove(at: templatesTable.selectedRow)
+        SearchTemplate.saved = templates
+        templatesTable.reloadData()
+    }
+
+    private func currentTemplate(named name: String) -> SearchTemplate {
+        SearchTemplate(
+            name: name, masks: maskField.stringValue, nameIsRegex: nameRegexBox.state == .on,
+            depth: depthPopup.indexOfSelectedItem, inArchives: archivesBox.state == .on, usesIndex: indexBox.state == .on,
+            text: textField.stringValue, caseSensitive: caseSensitiveBox.state == .on,
+            wholeWords: wholeWordsBox.state == .on, textIsRegex: textRegexBox.state == .on,
+            notContaining: notContainingBox.state == .on, encoding: encodingPopup.indexOfSelectedItem,
+            between: betweenBox.state == .on, from: fromPicker.dateValue, to: toPicker.dateValue,
+            older: olderBox.state == .on, age: ageField.stringValue, ageUnit: ageUnitPopup.indexOfSelectedItem,
+            size: sizeBox.state == .on, sizeComparison: sizeComparisonPopup.indexOfSelectedItem,
+            sizeValue: sizeField.stringValue, sizeUnit: sizeUnitPopup.indexOfSelectedItem,
+            attributes: Dictionary(uniqueKeysWithValues: attributeBoxes.map { ("\($0.0)", $0.1.state.rawValue) }),
+            duplicates: duplicatesBox.state == .on, sameName: sameNameBox.state == .on,
+            sameSize: sameSizeBox.state == .on, sameContents: sameContentsBox.state == .on
+        )
+    }
+
+    private func apply(_ template: SearchTemplate) {
+        func set(_ box: NSButton, _ on: Bool) { box.state = on ? .on : .off }
+        func select(_ popup: NSPopUpButton, _ index: Int) {
+            popup.selectItem(at: popup.numberOfItems > index && index >= 0 ? index : 0)
+        }
+        maskField.stringValue = template.masks
+        set(nameRegexBox, template.nameIsRegex)
+        select(depthPopup, template.depth)
+        set(archivesBox, template.inArchives)
+        set(indexBox, template.usesIndex)
+        textField.stringValue = template.text
+        set(caseSensitiveBox, template.caseSensitive)
+        set(wholeWordsBox, template.wholeWords)
+        set(textRegexBox, template.textIsRegex)
+        set(notContainingBox, template.notContaining)
+        select(encodingPopup, template.encoding)
+        set(betweenBox, template.between)
+        fromPicker.dateValue = template.from
+        toPicker.dateValue = template.to
+        set(olderBox, template.older)
+        ageField.stringValue = template.age
+        select(ageUnitPopup, template.ageUnit)
+        set(sizeBox, template.size)
+        select(sizeComparisonPopup, template.sizeComparison)
+        sizeField.stringValue = template.sizeValue
+        select(sizeUnitPopup, template.sizeUnit)
+        for (attribute, box) in attributeBoxes {
+            box.state = NSControl.StateValue(rawValue: template.attributes["\(attribute)"] ?? NSControl.StateValue.mixed.rawValue)
+        }
+        set(duplicatesBox, template.duplicates)
+        set(sameNameBox, template.sameName)
+        set(sameSizeBox, template.sameSize)
+        set(sameContentsBox, template.sameContents)
+        encodingChanged(nil)
+        indexChanged(nil)
+        updateAdvanced()
     }
 
     /// The index checkbox with what it means beside it.
@@ -489,11 +637,14 @@ final class FindFilesWindowController: NSWindowController {
 
 extension FindFilesWindowController: NSTableViewDataSource, NSTableViewDelegate {
     func numberOfRows(in tableView: NSTableView) -> Int {
-        rows.count
+        tableView === templatesTable ? templates.count : rows.count
     }
 
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
-        switch rows[row] {
+        if tableView === templatesTable {
+            return templates[row].name
+        }
+        return switch rows[row] {
         case .file(let found): found.path
         case .group(let title): title
         }
@@ -501,7 +652,8 @@ extension FindFilesWindowController: NSTableViewDataSource, NSTableViewDelegate 
 
     /// A group of duplicates is titled by a row of its own.
     func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool {
-        if case .group = rows[row] { true } else { false }
+        guard tableView === resultsTable, case .group = rows[row] else { return false }
+        return true
     }
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {

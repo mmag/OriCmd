@@ -2961,6 +2961,16 @@
         }
       }
     },
+    "Load": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить"
+          }
+        }
+      }
+    },
     "Locked": {
       "localizations": {
         "ru": {
@@ -3227,6 +3237,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Имя"
+          }
+        }
+      }
+    },
+    "Name:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя:"
           }
         }
       }
@@ -4511,6 +4531,16 @@
         }
       }
     },
+    "Save the search": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить поиск"
+          }
+        }
+      }
+    },
     "Save these options as the default": {
       "localizations": {
         "ru": {
@@ -4527,6 +4557,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сохранённые фильтры и примеры (F8)"
+          }
+        }
+      }
+    },
+    "Saved searches": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранённые поиски"
+          }
+        }
+      }
+    },
+    "Save…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить…"
           }
         }
       }
@@ -5177,6 +5227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Теги"
+          }
+        }
+      }
+    },
+    "Templates": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шаблоны"
           }
         }
       }
