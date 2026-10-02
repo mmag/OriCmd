@@ -30,6 +30,10 @@ final class FindFilesWindowController: NSWindowController {
     private let sizeComparisonPopup = NSPopUpButton()
     private let sizeField = NSTextField(string: "")
     private let sizeUnitPopup = NSPopUpButton()
+    private let duplicatesBox = NSButton(checkboxWithTitle: String(localized: "Find duplicates:"), target: nil, action: nil)
+    private let sameNameBox = NSButton(checkboxWithTitle: String(localized: "same name"), target: nil, action: nil)
+    private let sameSizeBox = NSButton(checkboxWithTitle: String(localized: "same size"), target: nil, action: nil)
+    private let sameContentsBox = NSButton(checkboxWithTitle: String(localized: "same contents"), target: nil, action: nil)
     /// Tri-state: on — the item must have it, off — must not, mixed — any.
     private let attributeBoxes: [(FileSearch.Attribute, NSButton)] = [
         (.folder, String(localized: "Folder")), (.hidden, String(localized: "Hidden")),
@@ -65,7 +69,14 @@ final class FindFilesWindowController: NSWindowController {
         ("=", .equal), ("<", .less), (">", .greater),
     ]
 
+    /// The files found, and the rows showing them: duplicates under a title per group.
     private var results: [URL] = []
+    private var rows: [Row] = []
+
+    private enum Row {
+        case file(URL)
+        case group(String)
+    }
     private var search: FileSearch?
     private var timer: Timer?
     private var onGoTo: ((URL) -> Void)?
@@ -119,6 +130,7 @@ final class FindFilesWindowController: NSWindowController {
         resultsTable.addTableColumn(column)
         resultsTable.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
         resultsTable.dataSource = self
+        resultsTable.delegate = self
         resultsTable.target = self
         resultsTable.doubleAction = #selector(goToFile(_:))
         resultsTable.onReturn = { [weak self] in self?.goToFile(nil) }
@@ -180,7 +192,9 @@ final class FindFilesWindowController: NSWindowController {
                              (depthPopup, "findDepth"), (betweenBox, "findBetween"), (fromPicker, "findFrom"),
                              (toPicker, "findTo"), (olderBox, "findOlder"), (ageField, "findAge"),
                              (ageUnitPopup, "findAgeUnit"), (sizeBox, "findSizeOn"), (sizeComparisonPopup, "findSizeOp"),
-                             (sizeField, "findSize"), (sizeUnitPopup, "findSizeUnit")] as [(NSView, String)] {
+                             (sizeField, "findSize"), (sizeUnitPopup, "findSizeUnit"),
+                             (duplicatesBox, "findDuplicates"), (sameNameBox, "findSameName"),
+                             (sameSizeBox, "findSameSize"), (sameContentsBox, "findSameContents")] as [(NSView, String)] {
             view.identifier = NSUserInterfaceItemIdentifier(name)
         }
         for (attribute, box) in attributeBoxes {
@@ -218,7 +232,8 @@ final class FindFilesWindowController: NSWindowController {
             field.widthAnchor.constraint(equalToConstant: 70).isActive = true
             field.alignment = .right
         }
-        for control in [betweenBox, olderBox, sizeBox] + attributeBoxes.map(\.1) {
+        sameContentsBox.state = .on
+        for control in [betweenBox, olderBox, sizeBox, duplicatesBox] + attributeBoxes.map(\.1) {
             control.target = self
             control.action = #selector(advancedChanged(_:))
         }
@@ -239,6 +254,7 @@ final class FindFilesWindowController: NSWindowController {
             [sizeBox, row(sizeComparisonPopup, sizeField, sizeUnitPopup)],
             [NSTextField(labelWithString: String(localized: "Attributes:")), attributes],
             [NSGridCell.emptyContentView, hint],
+            [duplicatesBox, row(sameNameBox, sameSizeBox, sameContentsBox)],
         ])
         grid.rowSpacing = 8
         grid.column(at: 0).xPlacement = .leading
@@ -271,7 +287,10 @@ final class FindFilesWindowController: NSWindowController {
         for control in [sizeComparisonPopup, sizeField, sizeUnitPopup] as [NSControl] {
             control.isEnabled = sizeBox.state == .on
         }
-        let inUse = [betweenBox, olderBox, sizeBox].contains { $0.state == .on }
+        for box in [sameNameBox, sameSizeBox, sameContentsBox] {
+            box.isEnabled = duplicatesBox.state == .on
+        }
+        let inUse = [betweenBox, olderBox, sizeBox, duplicatesBox].contains { $0.state == .on }
             || attributeBoxes.contains { $0.1.state != .mixed }
         advancedTab.label = inUse ? String(localized: "Advanced (in use)") : String(localized: "Advanced")
     }
@@ -321,6 +340,15 @@ final class FindFilesWindowController: NSWindowController {
         for (attribute, box) in attributeBoxes where box.state != .mixed {
             query.attributes[attribute] = box.state == .on
         }
+        if duplicatesBox.state == .on {
+            let duplicates = FileSearch.Duplicates(sameName: sameNameBox.state == .on, sameSize: sameSizeBox.state == .on,
+                                                   sameContents: sameContentsBox.state == .on)
+            guard duplicates.sameName || duplicates.sameSize || duplicates.sameContents else {
+                complain(String(localized: "Choose what the duplicates have in common."), in: sameContentsBox)
+                return nil
+            }
+            query.duplicates = duplicates
+        }
         return query
     }
 
@@ -330,7 +358,7 @@ final class FindFilesWindowController: NSWindowController {
     }
 
     /// Shows what is wrong with the field (on its tab), the search not started.
-    private func complain(_ message: String, in field: NSTextField) {
+    private func complain(_ message: String, in field: NSView) {
         if let tab = tabs.tabViewItems.first(where: { $0.view.map(field.isDescendant(of:)) ?? false }) {
             tabs.selectTabViewItem(tab)
         }
@@ -358,6 +386,7 @@ final class FindFilesWindowController: NSWindowController {
         }
         self.search = search
         results = []
+        rows = []
         resultsTable.reloadData()
         startButton.title = String(localized: "Stop")
         timer?.invalidate()
@@ -375,16 +404,25 @@ final class FindFilesWindowController: NSWindowController {
         let state = search.snapshot
         if state.found.count != results.count {
             results = state.found
+            rows = state.groups.isEmpty ? results.map(Row.file) : state.groups.flatMap { group in
+                [.group(title(of: group, sameSize: search.query.duplicates.map { $0.sameSize || $0.sameContents } ?? false))]
+                    + group.map(Row.file)
+            }
             resultsTable.reloadData()
         }
-        let summary = String(localized: "\(results.count) found, \(state.scannedCount) scanned")
+        let summary = search.query.duplicates == nil
+            ? String(localized: "\(results.count) found, \(state.scannedCount) scanned")
+            : state.isFinished
+            ? String(localized: "\(results.count) duplicates in \(state.groups.count) groups, \(state.scannedCount) scanned")
+            : state.comparedCount > 0 ? String(localized: "comparing the contents of \(state.comparedCount) files")
+            : String(localized: "\(state.scannedCount) scanned")
         if state.isFinished {
             statusLabel.stringValue = state.isCancelled ? String(localized: "Stopped: \(summary)") : String(localized: "Done: \(summary)")
             startButton.title = String(localized: "Start Search")
             timer?.invalidate()
             timer = nil
-            if !results.isEmpty, resultsTable.selectedRow < 0 {
-                resultsTable.selectRowIndexes([0], byExtendingSelection: false)
+            if let first = rows.firstIndex(where: { if case .file = $0 { true } else { false } }), resultsTable.selectedRow < 0 {
+                resultsTable.selectRowIndexes([first], byExtendingSelection: false)
                 window?.makeFirstResponder(resultsTable)
             }
         } else {
@@ -405,19 +443,39 @@ final class FindFilesWindowController: NSWindowController {
 
     @objc private func goToFile(_ sender: Any?) {
         let row = resultsTable.selectedRow
-        guard results.indices.contains(row) else { return }
-        onGoTo?(results[row])
+        guard rows.indices.contains(row), case .file(let url) = rows[row] else { return }
+        onGoTo?(url)
         window?.close()
+    }
+
+    /// "3 files, 2 MB each" (of the same size), or "3 files" (alike by name only).
+    private func title(of group: [URL], sameSize: Bool) -> String {
+        guard sameSize, let size = try? group[0].resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+            return String(localized: "\(group.count) files")
+        }
+        return String(localized: "\(group.count) files, \(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)) each")
     }
 }
 
-extension FindFilesWindowController: NSTableViewDataSource {
+extension FindFilesWindowController: NSTableViewDataSource, NSTableViewDelegate {
     func numberOfRows(in tableView: NSTableView) -> Int {
-        results.count
+        rows.count
     }
 
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
-        results[row].path
+        switch rows[row] {
+        case .file(let url): url.path
+        case .group(let title): title
+        }
+    }
+
+    /// A group of duplicates is titled by a row of its own.
+    func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool {
+        if case .group = rows[row] { true } else { false }
+    }
+
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        !self.tableView(tableView, isGroupRow: row)
     }
 }
 

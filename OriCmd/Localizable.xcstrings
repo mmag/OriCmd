@@ -101,6 +101,36 @@
         }
       }
     },
+    "%lld duplicates in %lld groups, %lld scanned": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "дубликатов: %lld, групп: %lld, просмотрено: %lld"
+          }
+        }
+      }
+    },
+    "%lld files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "файлов: %lld"
+          }
+        }
+      }
+    },
+    "%lld files, %@ each": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "файлов: %lld, по %@"
+          }
+        }
+      }
+    },
     "%lld files/folders": {
       "localizations": {
         "ru": {
@@ -137,6 +167,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "страниц: %lld"
+          }
+        }
+      }
+    },
+    "%lld scanned": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "просмотрено: %lld"
           }
         }
       }
@@ -1057,6 +1097,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выберите wincmd.ini из Total Commander"
+          }
+        }
+      }
+    },
+    "Choose what the duplicates have in common.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите, что общего у дубликатов."
           }
         }
       }
@@ -2327,6 +2377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Поиск файлов…"
+          }
+        }
+      }
+    },
+    "Find duplicates:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Искать дубликаты:"
           }
         }
       }
@@ -5891,6 +5951,16 @@
         }
       }
     },
+    "comparing the contents of %lld files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сравнивается содержимое файлов: %lld"
+          }
+        }
+      }
+    },
     "copy.button": {
       "extractionState": "manual",
       "localizations": {
@@ -6278,6 +6348,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@»"
+          }
+        }
+      }
+    },
+    "same contents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "одинаковое содержимое"
+          }
+        }
+      }
+    },
+    "same name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "одинаковое имя"
+          }
+        }
+      }
+    },
+    "same size": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "одинаковый размер"
           }
         }
       }

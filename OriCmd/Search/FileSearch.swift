@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import os
 
@@ -32,6 +33,14 @@ nonisolated final class FileSearch: Sendable {
         var encodings: [TextEncoding] = [.utf8]
         /// `text` is bytes in hex ("50 4B 03 04"), looked for as they are.
         var isHex = false
+        /// Only files that have the same name, size or contents as another one found.
+        var duplicates: Duplicates?
+    }
+
+    struct Duplicates: Sendable {
+        var sameName = false
+        var sameSize = false
+        var sameContents = false
     }
 
     enum QueryError: Error {
@@ -65,7 +74,12 @@ nonisolated final class FileSearch: Sendable {
 
     struct State {
         var found: [URL] = []
+        /// Duplicates, when looked for: the files alike, in the order found; `found`
+        /// has them all.
+        var groups: [[URL]] = []
         var scannedCount = 0
+        /// Files whose contents were read to compare them.
+        var comparedCount = 0
         var isCancelled = false
         var isFinished = false
     }
@@ -99,14 +113,34 @@ nonisolated final class FileSearch: Sendable {
 
     @concurrent
     func run() async {
-        walk(query.root, level: 0)
+        var candidates: [Candidate] = []
+        walk(query.root, level: 0, candidates: &candidates)
+        if let duplicates = query.duplicates {
+            let groups = duplicateGroups(candidates, duplicates)
+            if !isCancelled {
+                state.withLock {
+                    $0.groups = groups
+                    $0.found = groups.flatMap { $0 }
+                }
+            }
+        }
         state.withLock { $0.isFinished = true }
     }
 
     private var isCancelled: Bool { state.withLock { $0.isCancelled } }
 
-    /// `level`: how many subfolders below the root `directory` is.
-    private func walk(_ directory: URL, level: Int) {
+    /// A regular file found while looking for duplicates.
+    private struct Candidate {
+        let url: URL
+        let name: String
+        let size: Int64
+        let file: [UInt64]
+        let index: Int
+    }
+
+    /// `level`: how many subfolders below the root `directory` is. Looking for
+    /// duplicates, the regular files found go to `candidates` to be compared.
+    private func walk(_ directory: URL, level: Int, candidates: inout [Candidate]) {
         guard !isCancelled, let names = try? DirectoryListing.names(in: directory) else { return }
         for name in names.sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending }) {
             if isCancelled { return }
@@ -123,13 +157,73 @@ nonisolated final class FileSearch: Sendable {
                 || (isLink && stat(url.path, &target) == 0 && target.st_mode & S_IFMT == S_IFREG)
             let file = isRegular ? (isLink ? target : info) : nil
             if matchesName(name) && matches(name, info, file: file) && matchesText(url, isRegular: isRegular) {
-                state.withLock { $0.found.append(url) }
+                if query.duplicates == nil {
+                    state.withLock { $0.found.append(url) }
+                } else if info.st_mode & S_IFMT == S_IFREG {
+                    candidates.append(Candidate(url: url, name: name, size: Int64(info.st_size),
+                                                file: [UInt64(info.st_dev), info.st_ino], index: candidates.count))
+                }
             }
             state.withLock { $0.scannedCount += 1 }
             if isFolder, query.depth.map({ level < $0 }) ?? true {
-                walk(url, level: level + 1)
+                walk(url, level: level + 1, candidates: &candidates)
             }
         }
+    }
+
+    /// The beginning of files compared first: most different files differ there.
+    private static let headSize = 64 * 1024
+
+    /// Groups of two or more files alike. Hard links to one file are that file
+    /// once; empty files are not compared by size or contents.
+    private func duplicateGroups(_ candidates: [Candidate], _ options: Duplicates) -> [[URL]] {
+        var seen = Set<[UInt64]>()
+        var groups = [candidates.filter { seen.insert($0.file).inserted }]
+        if options.sameName {
+            groups = split(groups) { $0.name.precomposedStringWithCanonicalMapping.lowercased() }
+        }
+        if options.sameSize || options.sameContents {
+            groups = split(groups.map { $0.filter { $0.size > 0 } }) { $0.size }
+        }
+        if options.sameContents {
+            groups = split(groups) { digest($0.url, limit: Self.headSize) }
+            // Files alike as far as their beginning: the rest is compared for the bigger ones.
+            groups = split(groups) { $0.size <= Self.headSize ? Data() : digest($0.url, limit: nil) }
+        }
+        return groups.sorted { $0[0].index < $1[0].index }.map { $0.map(\.url) }
+    }
+
+    /// Splits each group by `key` (nil: the file is left out), keeping the groups
+    /// of two or more, each in the order the files were found.
+    private func split<Key: Hashable>(_ groups: [[Candidate]], by key: (Candidate) -> Key?) -> [[Candidate]] {
+        groups.flatMap { group in
+            Dictionary(grouping: group.compactMap { candidate in key(candidate).map { ($0, candidate) } }, by: \.0)
+                .values.map { $0.map(\.1) }
+        }.filter { $0.count > 1 }
+    }
+
+    /// SHA-256 of the file's first `limit` bytes (nil: all of it); nil when it
+    /// cannot be read or the search is stopped.
+    private func digest(_ url: URL, limit: Int?) -> Data? {
+        guard !isCancelled, let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        var remaining = limit ?? Int.max
+        while remaining > 0 {
+            guard !isCancelled else { return nil }
+            let read: Data?
+            do {
+                read = try handle.read(upToCount: min(1 << 20, remaining))
+            } catch {
+                return nil
+            }
+            // No data (nil) at the end of the file.
+            guard let chunk = read, !chunk.isEmpty else { break }
+            hasher.update(data: chunk)
+            remaining -= chunk.count
+        }
+        state.withLock { $0.comparedCount += 1 }
+        return Data(hasher.finalize())
     }
 
     private func matchesName(_ name: String) -> Bool {

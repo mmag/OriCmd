@@ -789,6 +789,26 @@ check "Find Files: a wrong regular expression is said so" "grep -qx 'The regular
 textfind tbadhex "set:findText=5 set:findEncoding=Hex"
 check "Find Files: wrong hex is said so" "grep -qx 'Enter the bytes in hex, as 50 4B 03 04.' build/shots/reg-tbadhex-win1.txt"
 
+# Find Files, duplicates: by contents (the beginning, then the rest), name, size;
+# a hard link is the file once, empty files are not compared.
+scripts/test/mkdata.sh
+D=$L/dups; mkdir -p $D/a $D/b $D/c $D/d
+head -c 100000 /dev/urandom > $D/a/photo.jpg; cp $D/a/photo.jpg $D/b/photo.jpg; cp $D/a/photo.jpg $D/c/copy.bin
+head -c 100000 /dev/urandom > $D/d/photo.jpg; ln $D/a/photo.jpg $D/hard.jpg; touch $D/e1.txt $D/e2.txt
+head -c 150000 /dev/urandom > $D/big1.dat; cp $D/big1.dat $D/big2.dat; printf 'x' >> $D/big1.dat; printf 'y' >> $D/big2.dat
+dupfind() { run "$1" "alt+f7 wait set:findIn=$PWD/$D click:Advanced set:findDuplicates=on $2 click:Start_Search wait wait wait"; }
+dupfound() { grep '^\[row\]' build/shots/reg-$1-win1.txt 2>/dev/null | sed 's|^\[row\] ||; s|.*/dups/||' | tr '\n' '/'; }
+dupfind dupcontents ""
+check "Find Files: duplicates by contents" "[ \"\$(dupfound dupcontents)\" = '3 files, 100 KB each/a/photo.jpg/b/photo.jpg/c/copy.bin/' ]"
+dupfind dupname "set:findSameName=on set:findSameContents=off"
+check "Find Files: duplicates by name" "[ \"\$(dupfound dupname)\" = '3 files/a/photo.jpg/b/photo.jpg/d/photo.jpg/' ]"
+dupfind dupsize "set:findSameSize=on set:findSameContents=off"
+check "Find Files: duplicates by size" "[ \"\$(dupfound dupsize)\" = '4 files, 100 KB each/a/photo.jpg/b/photo.jpg/c/copy.bin/d/photo.jpg/2 files, 150 KB each/big1.dat/big2.dat/' ]"
+dupfind dupboth "set:findSameName=on"
+check "Find Files: duplicates by name and contents" "[ \"\$(dupfound dupboth)\" = '2 files, 100 KB each/a/photo.jpg/b/photo.jpg/' ]"
+dupfind dupnone "set:findSameContents=off"
+check "Find Files: duplicates need something in common" "grep -qx 'Choose what the duplicates have in common.' build/shots/reg-dupnone-win1.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.
