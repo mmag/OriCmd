@@ -1053,6 +1053,14 @@ check "Horizontal Panels: one above the other" "grep -qx 'arrangement: one above
 run horizback "cmd:cm_HorizontalPanels wait cmd:cm_HorizontalPanels wait wait"
 check "...and side by side again" "grep -qx 'arrangement: side by side' build/shots/reg-horizback-panels.txt"
 
+# The ignore list: a mask, a name and a full path left out of the panels, shown
+# again when it is switched off.
+scripts/test/mkdata.sh
+run ignore "menuitem:Ignore_List… wait set:ignoreList=*.csv\\nalpha\\n$PWD/$L/beta click:OK wait wait"
+check "The ignore list leaves out a mask, a name, a path" "! grep '^left items: ' build/shots/reg-ignore-panels.txt | grep -qE 'data.csv|alpha|beta' && grep -q '^left items: .*many' build/shots/reg-ignore-panels.txt"
+run ignoreoff "menuitem:Ignore_List… wait set:ignoreList=*.csv\\nalpha click:OK wait cmd:cm_SwitchIgnoreList wait wait"
+check "...and shows them again when switched off" "grep '^left items: ' build/shots/reg-ignoreoff-panels.txt | grep -q 'alpha'"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

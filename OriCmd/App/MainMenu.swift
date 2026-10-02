@@ -57,8 +57,9 @@ enum MainMenu {
             [.srcAllFiles, .srcUserSpec, .showOnlySelected, .quickFilter, .branchView],
             [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .unsorted, .reverseOrder],
-            [.switchHidSys],
+            [.switchHidSys, .switchIgnoreList],
         ], extra: [
+            item(String(localized: "Ignore List…"), #selector(MainViewController.editIgnoreList(_:))),
             .separator(),
             item(String(localized: "Show Toolbar"), #selector(NSWindow.toggleToolbarShown(_:)), "t", [.command, .option]),
             item(String(localized: "Customize Toolbar…"), #selector(NSWindow.runToolbarCustomizationPalette(_:))),

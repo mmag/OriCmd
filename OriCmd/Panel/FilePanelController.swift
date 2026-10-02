@@ -321,6 +321,7 @@ final class FilePanelController: NSViewController {
             terminal.font = TerminalPane.font
         }
         listView.settingsDidChange()
+        refreshList(selecting: listView.currentItem?.name, fallback: listView.cursor)
         panelView.pathBar.needsDisplay = true
         panelView.headerView.needsDisplay = true
     }
@@ -1799,6 +1800,13 @@ final class FilePanelController: NSViewController {
             }
         }
         var items = showsHidden ? entries : entries.filter { !$0.isHidden }
+        // The ignore list hides local entries only (a server's and an archive's stay).
+        if Settings.usesIgnoreList, remote == nil, archive == nil {
+            let list = Settings.ignoreList
+            if !list.isEmpty {
+                items = items.filter { !Settings.ignores(name: $0.name, path: $0.url.path, in: list) }
+            }
+        }
         if let filterMask {
             items = items.filter { $0.isFolder || FileMask.matches($0.name, filterMask) }
         }

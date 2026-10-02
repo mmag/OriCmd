@@ -209,6 +209,42 @@ final class MainViewController: NSViewController {
     var separateTreeForTests: DirectoryTreePanel? { separateTree }
     #endif
 
+    /// Show → Use the Ignore List (cm_SwitchIgnoreList).
+    @objc(cm_SwitchIgnoreList:)
+    func switchIgnoreList(_ sender: Any?) {
+        Settings.usesIgnoreList.toggle()
+    }
+
+    /// Show → Ignore List…: the names, masks and paths to leave out, a line each;
+    /// saving it turns it on.
+    @objc func editIgnoreList(_ sender: Any?) {
+        guard let window = view.window else { return }
+        let text = NSTextView(frame: NSRect(x: 0, y: 0, width: 420, height: 220))
+        text.string = Settings.ignoreList.joined(separator: "\n")
+        text.font = Theme.panelFont
+        text.isRichText = false
+        text.isAutomaticQuoteSubstitutionEnabled = false
+        text.isAutomaticDashSubstitutionEnabled = false
+        text.identifier = NSUserInterfaceItemIdentifier("ignoreList")
+        let scroll = NSScrollView(frame: text.frame)
+        scroll.documentView = text
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Ignore List")
+        alert.informativeText = String(localized:
+            "Entries the panels leave out: a name, a mask (*.bak) or a full path (~/Library) per line.")
+        alert.accessoryView = scroll
+        alert.addButton(withTitle: String(localized: "OK"))
+        alert.addCancelButton()
+        alert.window.initialFirstResponder = text
+        alert.beginSheetModal(for: window) { response in
+            guard response == .alertFirstButtonReturn else { return }
+            Settings.ignoreList = text.string.components(separatedBy: .newlines)
+            Settings.usesIgnoreList = true
+        }
+    }
+
     /// Show → Horizontal Panels (cm_HorizontalPanels): the panels one above the other.
     @objc(cm_HorizontalPanels:)
     func horizontalPanels(_ sender: Any?) {
@@ -1327,6 +1363,8 @@ extension MainViewController: NSMenuItemValidation {
             menuItem.state = quickView == nil ? .off : .on
         } else if menuItem.action == #selector(ejectVolume(_:)) {
             return ejectableVolume != nil
+        } else if menuItem.action == Command.switchIgnoreList.selector {
+            menuItem.state = Settings.usesIgnoreList ? .on : .off
         } else if menuItem.action == Command.horizontalPanels.selector {
             menuItem.state = splitView.isVertical ? .off : .on
         } else if menuItem.action == Command.toggleSeparateTree1.selector {

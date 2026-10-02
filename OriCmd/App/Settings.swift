@@ -32,6 +32,8 @@ enum Settings {
         static let rightButton = "RightMouseButton"
         static let separateTree = "SeparateTree"
         static let horizontalPanels = "HorizontalPanels"
+        static let ignoreList = "IgnoreList"
+        static let usesIgnoreList = "UsesIgnoreList"
     }
 
     static let defaultFontSize: CGFloat = 12
@@ -85,6 +87,28 @@ enum Settings {
     static var showsFunctionKeys: Bool {
         get { bool(Key.functionKeys, default: true) }
         set { set(newValue, Key.functionKeys) }
+    }
+
+    /// Total Commander's ignore list: names, masks (`*.bak`) or full paths of
+    /// entries the panels leave out while it is used, one per line.
+    static var ignoreList: [String] {
+        get { (AppDefaults.store.string(forKey: Key.ignoreList) ?? "").split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+        set { set(newValue.joined(separator: "\n"), Key.ignoreList) }
+    }
+
+    static var usesIgnoreList: Bool {
+        get { bool(Key.usesIgnoreList, default: false) }
+        set { set(newValue, Key.usesIgnoreList) }
+    }
+
+    /// Whether the ignore list hides the entry `name` at `path`.
+    static func ignores(name: String, path: String, in list: [String]) -> Bool {
+        list.contains { entry in
+            entry.hasPrefix("/") || entry.hasPrefix("~")
+                ? (entry as NSString).expandingTildeInPath == path
+                : FileMask.matches(name, entry)
+        }
     }
 
     /// Show → Horizontal Panels: the left panel above the right one.

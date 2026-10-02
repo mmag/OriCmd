@@ -2481,6 +2481,16 @@
         }
       }
     },
+    "Entries the panels leave out: a name, a mask (*.bak) or a full path (~/Library) per line.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что панели не показывают: имя, маска (*.bak) или полный путь (~/Library), по одному в строке."
+          }
+        }
+      }
+    },
     "Entries with the same names will be replaced.": {
       "localizations": {
         "ru": {
@@ -3077,6 +3087,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Если файл существует:"
+          }
+        }
+      }
+    },
+    "Ignore List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список игнорируемых"
+          }
+        }
+      }
+    },
+    "Ignore List…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список игнорируемых…"
           }
         }
       }
@@ -6647,6 +6677,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "В папках:"
+          }
+        }
+      }
+    },
+    "Use the Ignore List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Использовать список игнорируемых"
           }
         }
       }

@@ -100,6 +100,7 @@ enum Command: String, CaseIterable {
     case reverseOrder = "cm_SrcNegOrder"
     case unsorted = "cm_SrcUnsorted"
     case switchHidSys = "cm_SwitchHidSys"
+    case switchIgnoreList = "cm_SwitchIgnoreList"
 
     // The terminal of a server under the panel (OriCmd's own)
     case serverTerminal = "cm_ServerTerminal"
@@ -201,6 +202,7 @@ enum Command: String, CaseIterable {
         case .reverseOrder: String(localized: "Reverse Order")
         case .unsorted: String(localized: "Unsorted")
         case .switchHidSys: String(localized: "Show Hidden Files")
+        case .switchIgnoreList: String(localized: "Use the Ignore List")
         case .serverTerminal: String(localized: "Server Terminal")
         case .terminalChangeDir: String(localized: "Terminal: Go to Panel Folder")
         }
