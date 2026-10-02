@@ -177,7 +177,7 @@ shortcuts in parentheses.
 | `Shift+F5` | Copy within the same folder under another name |
 | `F6` | Move / rename |
 | `Shift+F6`, `F2` | Rename in place (the name is selected; `F2` again selects the extension, then the whole name) |
-| `Ctrl+M` | Multi-Rename Tool: masks `[N]`, `[N2-5]`, `[E]`, `[C]`, `[P]`, `[YMD]`, `[hms]`, search and replace (including regular expressions), case, preview and undo |
+| `Ctrl+M` | Multi-Rename Tool: masks `[N]`, `[N2-5]`, `[E]`, `[C]`, `[P]`, `[YMD]`, `[hms]`, search and replace (including regular expressions), case, preview and undo; rules saved under a name; the new names given one by one — edited as a list (Edit Names…) or read from a text file, a line per file |
 | `F7` (`⇧⌘N`) | New folder (`a/b/c` creates nested ones) |
 | `F8`, `Del` (`⌘⌫`) | Move to the Trash |
 | `Shift+F8`, `Shift+Del`, `Shift+⌫`, `⇧⌘⌫`, `⌥⌘⌫` | Delete permanently, past the Trash (in the context menu, Delete becomes Delete Permanently while Shift is held) |

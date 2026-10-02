@@ -346,8 +346,13 @@ enum DebugAutomation {
                     // user, its action sent.
                     let name = String(token[token.index(token.startIndex, offsetBy: 4)..<equals])
                     let value = String(token[token.index(after: equals)...]).replacingOccurrences(of: "_", with: " ")
-                    guard let control = views(in: topmost(window).contentView)
-                        .first(where: { $0.identifier?.rawValue == name }) as? NSControl else { continue }
+                    let found = views(in: topmost(window).contentView).first { $0.identifier?.rawValue == name }
+                    if let text = found as? NSTextView {
+                        // A text view's whole text (`\n`: a line break).
+                        text.string = value.replacingOccurrences(of: "\\n", with: "\n")
+                        continue
+                    }
+                    guard let control = found as? NSControl else { continue }
                     switch control {
                     case let table as NSTableView:
                         // The row showing that text in its first column.
@@ -370,7 +375,8 @@ enum DebugAutomation {
                 } else if token.hasPrefix("cmd:") {
                     perform(Selector(String(token.dropFirst(4)) + ":"), in: window)
                 } else if token.hasPrefix("text:") {
-                    type(String(token.dropFirst(5)), in: window)
+                    // `\n` in it is a line break (for a text view).
+                    type(String(token.dropFirst(5)).replacingOccurrences(of: "\\n", with: "\n"), in: window)
                 } else if let stroke = KeyStroke(token) {
                     play(stroke, in: window)
                 } else {

@@ -18,6 +18,12 @@ final class MultiRenameWindowController: NSWindowController {
     private let statusLabel = NSTextField(labelWithString: "")
     private let renameButton = NSButton(title: String(localized: "Rename"), target: nil, action: nil)
     private let undoButton = NSButton(title: String(localized: "Undo"), target: nil, action: nil)
+    private let templatePopUp = NSPopUpButton(frame: .zero, pullsDown: true)
+    private let masksButton = NSButton(title: String(localized: "Use the Masks"), target: nil, action: nil)
+    /// New names given one by one (edited, or from a file) instead of the masks.
+    private var explicitNames: [String]?
+    /// The template loaded last (offered for deleting).
+    private var loadedTemplate: String?
 
     private var items: [FileItem] = []
     private var newNames: [String] = []
@@ -69,6 +75,17 @@ final class MultiRenameWindowController: NSWindowController {
         ])
         casePopUp.target = self
         casePopUp.action = #selector(optionChanged(_:))
+        templatePopUp.target = self
+        templatePopUp.action = #selector(templateChosen(_:))
+        updateTemplates()
+        masksButton.target = self
+        masksButton.action = #selector(useMasks(_:))
+        masksButton.isEnabled = false
+        let editNames = NSButton(title: String(localized: "Edit Names…"), target: self, action: #selector(editNames(_:)))
+        let namesFromFile = NSButton(title: String(localized: "Names from File…"), target: self,
+                                     action: #selector(namesFromFile(_:)))
+        templatePopUp.identifier = NSUserInterfaceItemIdentifier("renameTemplates")
+        nameMaskField.identifier = NSUserInterfaceItemIdentifier("renameMask")
         renameButton.target = self
         renameButton.action = #selector(rename(_:))
         renameButton.keyEquivalent = "\r"
@@ -89,6 +106,7 @@ final class MultiRenameWindowController: NSWindowController {
             NSTextField(labelWithString: String(localized: "digits")), counterDigitsField,
         ])
         let grid = NSGridView(views: [
+            [NSTextField(labelWithString: String(localized: "Template:")), templatePopUp],
             [NSTextField(labelWithString: String(localized: "Rename mask:")), nameMaskField],
             [NSTextField(labelWithString: String(localized: "Extension:")), extensionMaskField],
             [NSGridCell.emptyContentView, help],
@@ -117,7 +135,7 @@ final class MultiRenameWindowController: NSWindowController {
 
         statusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         statusLabel.lineBreakMode = .byTruncatingTail
-        let buttons = NSStackView(views: [statusLabel, undoButton, renameButton])
+        let buttons = NSStackView(views: [editNames, namesFromFile, masksButton, statusLabel, undoButton, renameButton])
 
         let stack = NSStackView(views: [grid, scrollView, buttons])
         stack.orientation = .vertical
@@ -152,6 +170,9 @@ final class MultiRenameWindowController: NSWindowController {
         let rule = rule
         var error: Error?
         newNames = items.enumerated().map { index, item in
+            if let explicitNames {
+                return index < explicitNames.count && !explicitNames[index].isEmpty ? explicitNames[index] : item.name
+            }
             do {
                 return try rule.newName(for: item, at: index)
             } catch let failure {
@@ -159,6 +180,7 @@ final class MultiRenameWindowController: NSWindowController {
                 return item.name
             }
         }
+        masksButton.isEnabled = explicitNames != nil
         // Names are compared within their own folder (files may come from several).
         func key(_ name: String, in folder: URL) -> String {
             folder.standardizedFileURL.path + "/" + name.lowercased()
@@ -181,6 +203,8 @@ final class MultiRenameWindowController: NSWindowController {
         let changed = zip(items, newNames).count { $0.name != $1 }
         if let error {
             statusLabel.stringValue = error.localizedDescription
+        } else if let explicitNames, explicitNames.count != items.count {
+            statusLabel.stringValue = String(localized: "\(explicitNames.count) names for \(items.count) files")
         } else if !conflicts.isEmpty {
             statusLabel.stringValue = String(localized: "\(conflicts.count) conflicting names")
         } else {
@@ -190,6 +214,140 @@ final class MultiRenameWindowController: NSWindowController {
     }
 
     @objc private func optionChanged(_ sender: Any?) {
+        explicitNames = nil
+        updatePreview()
+    }
+
+    // MARK: - Templates
+
+    /// The pull-down: the saved rules, Save…, and Delete for the one loaded.
+    private func updateTemplates() {
+        templatePopUp.removeAllItems()
+        templatePopUp.addItem(withTitle: loadedTemplate ?? String(localized: "Saved rules"))
+        let templates = MultiRenameRule.templates
+        for template in templates {
+            templatePopUp.addItem(withTitle: template.name)
+            templatePopUp.lastItem?.representedObject = template.name
+        }
+        if !templates.isEmpty { templatePopUp.menu?.addItem(.separator()) }
+        templatePopUp.addItem(withTitle: String(localized: "Save the Rule…"))
+        templatePopUp.lastItem?.tag = 1
+        if let loadedTemplate, templates.contains(where: { $0.name == loadedTemplate }) {
+            templatePopUp.addItem(withTitle: String(localized: "Delete \u{201C}\(loadedTemplate)\u{201D}"))
+            templatePopUp.lastItem?.tag = 2
+        }
+    }
+
+    @objc private func templateChosen(_ sender: Any?) {
+        guard let item = templatePopUp.selectedItem else { return }
+        if let name = item.representedObject as? String, let template = MultiRenameRule.templates.first(where: { $0.name == name }) {
+            apply(template.rule)
+            loadedTemplate = name
+            updateTemplates()
+        } else if item.tag == 1 {
+            saveTemplate()
+        } else if item.tag == 2, let loadedTemplate {
+            MultiRenameRule.templates.removeAll { $0.name == loadedTemplate }
+            self.loadedTemplate = nil
+            updateTemplates()
+        }
+    }
+
+    private func saveTemplate() {
+        guard let window else { return }
+        Prompt.text(String(localized: "Save the rule"), message: String(localized: "Name:"),
+                    initial: loadedTemplate ?? nameMaskField.stringValue, okTitle: String(localized: "Save"), in: window) {
+            [weak self] text in
+            guard let self else { return }
+            let name = text.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { return }
+            var templates = MultiRenameRule.templates.filter { $0.name != name }
+            templates.append((name, rule))
+            MultiRenameRule.templates = templates
+            loadedTemplate = name
+            updateTemplates()
+        }
+    }
+
+    private func apply(_ rule: MultiRenameRule) {
+        nameMaskField.stringValue = rule.nameMask
+        extensionMaskField.stringValue = rule.extensionMask
+        searchField.stringValue = rule.search
+        replaceField.stringValue = rule.replacement
+        regexBox.state = rule.usesRegularExpression ? .on : .off
+        caseSensitiveBox.state = rule.isCaseSensitive ? .on : .off
+        casePopUp.selectItem(at: rule.caseMode.rawValue)
+        counterStartField.stringValue = String(rule.counterStart)
+        counterStepField.stringValue = String(rule.counterStep)
+        counterDigitsField.stringValue = String(rule.counterDigits)
+        explicitNames = nil
+        updatePreview()
+    }
+
+    // MARK: - Names one by one
+
+    /// The new names as a text, a line per file, to change by hand.
+    @objc private func editNames(_ sender: Any?) {
+        guard let window else { return }
+        let text = NSTextView(frame: NSRect(x: 0, y: 0, width: 460, height: 260))
+        text.string = newNames.joined(separator: "\n")
+        text.font = Theme.panelFont
+        text.isRichText = false
+        text.isAutomaticQuoteSubstitutionEnabled = false
+        text.isAutomaticDashSubstitutionEnabled = false
+        text.isAutomaticTextReplacementEnabled = false
+        text.identifier = NSUserInterfaceItemIdentifier("renameNames")
+        let scroll = NSScrollView(frame: text.frame)
+        scroll.documentView = text
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Edit Names")
+        alert.informativeText = String(localized: "A new name per line, in the order of the files.")
+        alert.accessoryView = scroll
+        alert.addButton(withTitle: String(localized: "OK"))
+        alert.addCancelButton()
+        alert.window.initialFirstResponder = text
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            self?.useNames(text.string)
+        }
+    }
+
+    /// New names from a text file, a line per file.
+    @objc private func namesFromFile(_ sender: Any?) {
+        #if DEBUG
+        if let path = DebugAutomation.takeChosenFile() {
+            readNames(from: URL(filePath: path))
+            return
+        }
+        #endif
+        guard let window else { return }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = items.first?.url.deletingLastPathComponent()
+        panel.beginSheetModal(for: window) { [weak self] response in
+            if response == .OK, let url = panel.url { self?.readNames(from: url) }
+        }
+    }
+
+    private func readNames(from url: URL) {
+        do {
+            useNames(try String(contentsOf: url, encoding: .utf8))
+        } catch {
+            Prompt.error(String(localized: "Cannot read the names"), error, in: window)
+        }
+    }
+
+    private func useNames(_ text: String) {
+        var lines = text.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
+        while lines.last?.isEmpty == true { lines.removeLast() }
+        explicitNames = lines
+        updatePreview()
+    }
+
+    @objc private func useMasks(_ sender: Any?) {
+        explicitNames = nil
         updatePreview()
     }
 
@@ -226,7 +384,9 @@ final class MultiRenameWindowController: NSWindowController {
 }
 
 extension MultiRenameWindowController: NSTextFieldDelegate {
+    /// Changing a mask goes back to the masks from names given one by one.
     func controlTextDidChange(_ notification: Notification) {
+        explicitNames = nil
         updatePreview()
     }
 }

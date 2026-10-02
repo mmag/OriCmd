@@ -18,6 +18,42 @@ nonisolated struct MultiRenameRule {
     var counterStep = 1
     var counterDigits = 1
 
+    /// For saving as a template.
+    var dictionary: [String: Any] {
+        ["nameMask": nameMask, "extensionMask": extensionMask, "search": search, "replacement": replacement,
+         "regex": usesRegularExpression, "caseSensitive": isCaseSensitive, "case": caseMode.rawValue,
+         "counterStart": counterStart, "counterStep": counterStep, "counterDigits": counterDigits]
+    }
+
+    init() {}
+
+    init(_ dictionary: [String: Any]) {
+        nameMask = dictionary["nameMask"] as? String ?? nameMask
+        extensionMask = dictionary["extensionMask"] as? String ?? extensionMask
+        search = dictionary["search"] as? String ?? ""
+        replacement = dictionary["replacement"] as? String ?? ""
+        usesRegularExpression = dictionary["regex"] as? Bool ?? false
+        isCaseSensitive = dictionary["caseSensitive"] as? Bool ?? false
+        caseMode = CaseMode(rawValue: dictionary["case"] as? Int ?? 0) ?? .unchanged
+        counterStart = dictionary["counterStart"] as? Int ?? 1
+        counterStep = dictionary["counterStep"] as? Int ?? 1
+        counterDigits = dictionary["counterDigits"] as? Int ?? 1
+    }
+
+    private static let templatesKey = "MultiRenameTemplates"
+
+    /// Rules saved under names (Total Commander's "Save settings"), in the order saved.
+    @MainActor static var templates: [(name: String, rule: MultiRenameRule)] {
+        get {
+            (AppDefaults.store.array(forKey: templatesKey) as? [[String: Any]] ?? []).compactMap { entry in
+                (entry["name"] as? String).map { ($0, MultiRenameRule(entry)) }
+            }
+        }
+        set {
+            AppDefaults.store.set(newValue.map { $0.rule.dictionary.merging(["name": $0.name]) { $1 } }, forKey: templatesKey)
+        }
+    }
+
     /// The new name of `item`, the `index`-th file in the list.
     func newName(for item: FileItem, at index: Int) throws -> String {
         let counter = counterStart + index * counterStep

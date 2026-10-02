@@ -181,6 +181,16 @@
         }
       }
     },
+    "%lld names for %lld files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "имён: %lld, файлов: %lld"
+          }
+        }
+      }
+    },
     "%lld of %lld files will be renamed": {
       "localizations": {
         "ru": {
@@ -337,6 +347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "В терминале ещё работает полноэкранная программа"
+          }
+        }
+      }
+    },
+    "A new name per line, in the order of the files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По новому имени в строке, в порядке файлов."
           }
         }
       }
@@ -947,6 +967,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся прочитать буфер обмена."
+          }
+        }
+      }
+    },
+    "Cannot read the names": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся прочитать имена"
           }
         }
       }
@@ -1991,6 +2021,16 @@
         }
       }
     },
+    "Delete “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить «%@»"
+          }
+        }
+      }
+    },
     "Delete:": {
       "localizations": {
         "ru": {
@@ -2227,6 +2267,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Правка (F4):"
+          }
+        }
+      }
+    },
+    "Edit Names": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка имён"
+          }
+        }
+      }
+    },
+    "Edit Names…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Править имена…"
           }
         }
       }
@@ -3547,6 +3607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Имя:"
+          }
+        }
+      }
+    },
+    "Names from File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имена из файла…"
           }
         }
       }
@@ -4971,6 +5041,26 @@
         }
       }
     },
+    "Save the Rule…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить правило…"
+          }
+        }
+      }
+    },
+    "Save the rule": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить правило"
+          }
+        }
+      }
+    },
     "Save the search": {
       "localizations": {
         "ru": {
@@ -5007,6 +5097,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сохранённые фильтры и примеры (F8)"
+          }
+        }
+      }
+    },
+    "Saved rules": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранённые правила"
           }
         }
       }
@@ -5711,6 +5811,16 @@
         }
       }
     },
+    "Template:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шаблон:"
+          }
+        }
+      }
+    },
     "Templates": {
       "localizations": {
         "ru": {
@@ -6387,6 +6497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "В папках:"
+          }
+        }
+      }
+    },
+    "Use the Masks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По маскам"
           }
         }
       }

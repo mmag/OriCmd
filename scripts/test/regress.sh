@@ -995,6 +995,21 @@ scripts/test/mkdata.sh
 run streepick "cmd:cm_ToggleSeparateTree1 wait tree:$PWD/$L/beta wait wait tab wait tree:$PWD/$L/alpha wait wait"
 check "The separate tree shows its folder in the active panel" "panels streepick | grep -q '^left: .*/left/beta |' && panels streepick | grep -q '^right\*: .*/left/alpha |'"
 
+# Multi-Rename Tool: a rule saved and loaded back, new names from a file (and
+# renamed so), new names edited one by one.
+scripts/test/mkdata.sh
+printf 'one.txt\ntwo.txt\nthree.txt\n' > $L/names.lst
+rows() { grep '^\[row\]' build/shots/reg-$1-win1.txt | tr '\n' ';'; }
+run rtpl "plus wait cmd+a text:file*.txt enter wait ctrl+m wait wait set:renameMask=doc-[C] wait set:renameTemplates=Save_the_Rule… wait text:docs enter wait set:renameMask=[N]-x wait set:renameTemplates=docs wait"
+check "Multi-Rename: a saved rule loaded back" "[ \"\$(rows rtpl)\" = '[row] file2.txt | doc-1.txt;[row] file10.txt | doc-2.txt;' ]"
+run rfile "plus wait cmd+a text:file*.txt enter wait ctrl+m wait wait file:$PWD/$L/names.lst click:Names_from_File… wait"
+check "Multi-Rename: names from a file (more lines than files)" "[ \"\$(rows rfile)\" = '[row] file2.txt | one.txt;[row] file10.txt | two.txt;' ] && grep -qx '3 names for 2 files' build/shots/reg-rfile-win1.txt"
+run rfiledo "plus wait cmd+a text:file*.txt enter wait ctrl+m wait wait file:$PWD/$L/names.lst click:Names_from_File… wait enter wait wait"
+check "Multi-Rename: renamed by the names from a file" "[ -e $L/one.txt ] && [ -e $L/two.txt ] && [ ! -e $L/file2.txt ]"
+scripts/test/mkdata.sh
+run redit 'plus wait cmd+a text:file*.txt enter wait ctrl+m wait wait click:Edit_Names… wait set:renameNames=first.txt\nsecond.txt click:OK wait'
+check "Multi-Rename: names edited one by one" "[ \"\$(rows redit)\" = '[row] file2.txt | first.txt;[row] file10.txt | second.txt;' ]"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.
