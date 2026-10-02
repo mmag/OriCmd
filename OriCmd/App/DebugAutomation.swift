@@ -10,7 +10,7 @@ import WebKit
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
-///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `file:/path` (the file the next save or open sheet chooses), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title` (also a tab of a tab view),
 ///   `set:identifier=value` (a control by its identifier: text, a pop-up item's title, `on`/`off`/`mixed`, a
@@ -153,6 +153,57 @@ enum DebugAutomation {
                             .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                    atomically: true, encoding: .utf8)
                     }
+                } else if token.hasPrefix("tabmenu:"), let main = window.contentViewController as? MainViewController {
+                    // `tabmenu:N` / `tabmenu:N|Item_Title`: the context menu of the active panel's
+                    // tab N, written to <snapshot>-menu.txt (✓ before items turned on), or that item chosen.
+                    let parts = token.dropFirst(8).split(separator: "|", maxSplits: 1).map(String.init)
+                    let bar = main.activePanel.panelView.tabBar
+                    guard let tab = Int(parts[0]), let center = bar.center(ofTab: tab),
+                          let event = NSEvent.mouseEvent(
+                            with: .rightMouseDown, location: bar.convert(center, to: nil), modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                            context: nil, eventNumber: harnessEventNumber, clickCount: 1, pressure: 1),
+                          let menu = bar.menu(for: event) else { continue }
+                    if parts.count == 2 {
+                        let title = parts[1].replacingOccurrences(of: "_", with: " ")
+                        if let index = menu.items.firstIndex(where: { $0.title.hasPrefix(title) && $0.isEnabled }) {
+                            menu.performActionForItem(at: index)
+                        }
+                    } else if let snapshot {
+                        try? menu.items.map { $0.isSeparatorItem ? "---" : ($0.state == .on ? "✓" : "") + $0.title }
+                            .joined(separator: "\n")
+                            .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
+                                   atomically: true, encoding: .utf8)
+                    }
+                } else if token.hasPrefix("file:") {
+                    // The file the next save or open sheet would have chosen.
+                    chosenFile = String(token.dropFirst(5))
+                } else if token.hasPrefix("menuitem:") {
+                    // `menuitem:Title` or `menuitem:Submenu>Title`: the first enabled item of the main
+                    // menu so titled (menus made when opened are made first) is chosen.
+                    let path = token.dropFirst(9).replacingOccurrences(of: "_", with: " ").split(separator: ">").map(String.init)
+                    @MainActor func choose(_ path: [String], in menu: NSMenu) -> Bool {
+                        menu.delegate?.menuNeedsUpdate?(menu)
+                        for (index, item) in menu.items.enumerated() {
+                            if path.count == 1, item.title == path[0], item.submenu == nil {
+                                // A test run is in the background, with no key window for
+                                // the responder chain: an item without a target is sent the
+                                // way `cmd:` sends commands.
+                                if item.target == nil, let action = item.action {
+                                    _ = perform(action, in: window, from: item)
+                                } else {
+                                    menu.performActionForItem(at: index)
+                                }
+                                return true
+                            }
+                            if let submenu = item.submenu,
+                               choose(item.title == path[0] && path.count > 1 ? Array(path.dropFirst()) : path, in: submenu) {
+                                return true
+                            }
+                        }
+                        return false
+                    }
+                    if let menu = NSApp.mainMenu { _ = choose(path, in: menu) }
                 } else if token.hasPrefix("droptab:"), let main = window.contentViewController as? MainViewController {
                     // `droptab:left:1:right:0`: the left panel's second tab dropped before the
                     // right panel's first (as a finished drag).
@@ -318,6 +369,11 @@ enum DebugAutomation {
                         "\(side)\(panel === main.activePanel ? "*" : ""): \(panel.panelView.pathBar.path)"
                             + " | cursor: \(panel.listView.currentItem?.name ?? "")"
                             + " | tabs: \(panel.panelView.tabBar.titles.joined(separator: ", "))"
+                    } + zip(["left", "right"], main.panels).map { side, panel in
+                        // The entries listed (the first 30), the marked ones with *.
+                        "\(side) items: " + panel.listView.items.filter { !$0.isParent }.prefix(30).map { item in
+                            (panel.listView.marked.contains(item.name) ? "*" : "") + item.name
+                        }.joined(separator: ", ")
                     }
                     try? lines.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-panels.txt"),
                                                             atomically: true, encoding: .utf8)
@@ -371,6 +427,15 @@ enum DebugAutomation {
     /// Set in a test run: other event monitors (Esc) leave real input alone too; the
     /// harness hands them its own keys itself.
     private(set) static var ignoresRealInput = false
+
+    /// The file given with `file:/path` for the next save or open sheet.
+    private static var chosenFile: String?
+
+    /// Takes the file given with `file:` (once), instead of asking in a sheet.
+    static func takeChosenFile() -> String? {
+        defer { chosenFile = nil }
+        return chosenFile
+    }
 
     /// Mouse events the harness makes carry this number (real ones count from 0).
     private static let harnessEventNumber = 0x0C1D_0000
@@ -518,19 +583,19 @@ enum DebugAutomation {
 
     /// Sends a command (e.g. `cm_SyncDirs:`) along the window's responder chain.
     @discardableResult
-    private static func perform(_ action: Selector, in window: NSWindow) -> Bool {
+    private static func perform(_ action: Selector, in window: NSWindow, from sender: Any? = nil) -> Bool {
         var responder = topmost(window).firstResponder
         while let current = responder {
             if current.responds(to: action) {
-                return NSApp.sendAction(action, to: current, from: nil)
+                return NSApp.sendAction(action, to: current, from: sender)
             }
-            if let supplemental = current.supplementalTarget(forAction: action, sender: nil) {
-                return NSApp.sendAction(action, to: supplemental, from: nil)
+            if let supplemental = current.supplementalTarget(forAction: action, sender: sender) {
+                return NSApp.sendAction(action, to: supplemental, from: sender)
             }
             responder = current.nextResponder
         }
         if let delegate = NSApp.delegate, delegate.responds(to: action) {
-            return NSApp.sendAction(action, to: delegate, from: nil)
+            return NSApp.sendAction(action, to: delegate, from: sender)
         }
         NSLog("No target for \(action)")
         return false

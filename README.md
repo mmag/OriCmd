@@ -119,6 +119,8 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `Ctrl+\` | Root of the volume |
 | `⌘T` / `⌘W` | New tab (or a double click on the empty part of the tab bar) / close tab (or a click on it with the mouse wheel) |
 | Dragging a tab | To another place of its bar, or onto the other panel's tabs: it moves there, with its server and terminal (a panel's only tab is copied) |
+| Commands → Lock Tab / Lock Tab, Allow Folder Changes (also in the tab's context menu) | A locked tab (marked `*`) keeps its folder: going elsewhere opens a new tab beside it; one locked with folder changes allowed comes back to its folder when chosen again. Locks and names given in the tab menu (Rename Tab…) are kept between launches |
+| Commands → Favorite Tabs | The tabs of both panels saved under a name and shown again (locks and names too) |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` (`⇧⌘]` / `⇧⌘[`) | Next / previous tab |
 | `Ctrl+↑` (`⌥⌘↑`) | Open the folder under the cursor in a new tab |
 | `Ctrl+D` (`⌘D`) | Directory hotlist: go, add or remove the current folder |
@@ -153,9 +155,12 @@ shortcuts in parentheses.
 | `+` / `−` | Mark / unmark a group by mask (`*.txt;*.md`) |
 | `*` | Invert the marking of files |
 | `Num /` | Restore the previous selection |
+| Mark → Copy Names with Details / Copy Full Paths with Details | The name (or full path), size, date and permissions, tab-separated, a line per file |
+| Mark → Save Selection to File… / Load Selection from File… / Load Selection from Clipboard | The marked names, one per line (paths of this folder's files are taken too) |
 | `⌘A` / `⌥⌘A` | Mark all / unmark all |
 | `⌥+` / `⌥−` | Mark / unmark files with the extension of the one under the cursor |
 | Show → Filter… | Show only files matching a mask (the mask is shown in the path bar) |
+| Show → Only Selected Files | Only the marked files stay in the panel (`[selected only]` after the path) until All Files or another folder |
 | `Ctrl+B` (`⌘B`) | Branch view: all files of the folder and its subfolders in one list |
 | `Ctrl+S` | Quick filter: only names containing the typed text stay; `Enter` keeps the filter, `Esc` removes it |
 

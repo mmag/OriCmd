@@ -96,13 +96,29 @@ final class FilePanelController: NSViewController {
         var remote: RemoteLocation?
         var terminal: ShellTerminalView?
         var showsTerminal = false
+        var lock = Lock.none
+        /// The folder a locked tab keeps (or comes back to).
+        var lockedDirectory: URL?
+        /// A name given to the tab, shown instead of its folder's.
+        var name: String?
 
+        /// Total Commander's locked tabs: one that keeps its folder (going elsewhere
+        /// opens a new tab), or one that comes back to it when chosen again.
+        enum Lock: Int {
+            case none, locked, allowsChanges
+        }
+
+        /// The folder's name (or the server folder's), or the tab's own; a locked tab
+        /// is marked with *, as in Total Commander.
         var title: String {
+            let folder: String
             if let remote {
                 let name = (remote.path as NSString).lastPathComponent
-                return name.isEmpty || name == "/" ? remote.fileSystem.displayName : name
+                folder = name.isEmpty || name == "/" ? remote.fileSystem.displayName : name
+            } else {
+                folder = directory.path == "/" ? "/" : directory.lastPathComponent
             }
-            return directory.path == "/" ? "/" : directory.lastPathComponent
+            return (lock == .none ? "" : "*") + (name ?? folder)
         }
     }
 
@@ -194,11 +210,22 @@ final class FilePanelController: NSViewController {
         }
     }
 
+    /// cm_ShowOnlySelected: only these names are listed, until another folder is
+    /// shown or All Files is chosen.
+    private var onlyNames: Set<String>? {
+        didSet {
+            guard onlyNames != oldValue else { return }
+            updatePathMask()
+            refreshList(selecting: listView.currentItem?.name)
+        }
+    }
+
     /// Whether the quick search box currently edits the quick filter.
     private var quickSearchFilters = false
 
     private func updatePathMask() {
-        panelView.pathBar.mask = quickFilter.map { "*\($0)*" } ?? filterMask ?? "*.*"
+        let mask = quickFilter.map { "*\($0)*" } ?? filterMask ?? "*.*"
+        panelView.pathBar.mask = onlyNames == nil ? mask : mask + " " + String(localized: "[selected only]")
     }
 
     var listView: FileListView { panelView.listView }
@@ -214,11 +241,15 @@ final class FilePanelController: NSViewController {
     }
 
     /// Creates a panel with a tab for each directory.
-    init(tabDirectories: [URL], activeTab: Int = 0) {
-        let directories = tabDirectories.isEmpty ? [FileManager.default.homeDirectoryForCurrentUser] : tabDirectories
-        let active = min(max(activeTab, 0), directories.count - 1)
-        directory = directories[active]
-        tabs = directories.map { Tab(directory: $0, sortOrder: SortOrder()) }
+    convenience init(tabDirectories: [URL], activeTab: Int = 0) {
+        self.init(tabs: tabDirectories.map { Tab(directory: $0, sortOrder: SortOrder()) }, activeTab: activeTab)
+    }
+
+    init(tabs: [Tab], activeTab: Int = 0) {
+        let tabs = tabs.isEmpty ? [Tab(directory: FileManager.default.homeDirectoryForCurrentUser, sortOrder: SortOrder())] : tabs
+        let active = min(max(activeTab, 0), tabs.count - 1)
+        directory = tabs[active].directory
+        self.tabs = tabs
         activeTabIndex = active
         super.init(nibName: nil, bundle: nil)
 
@@ -304,6 +335,7 @@ final class FilePanelController: NSViewController {
             return
         }
         let directory = directory.standardizedFileURL
+        leaveLockedTab(for: directory)
         if directory != self.directory {
             isBranchView = false
         }
@@ -390,6 +422,7 @@ final class FilePanelController: NSViewController {
         if isNewDirectory {
             listView.folderSizes = [:]
             quickFilter = nil
+            onlyNames = nil
             if recordingHistory {
                 backHistory.append(HistoryEntry(directory: self.directory, selectedName: listView.currentItem?.name))
                 backHistory = Array(backHistory.suffix(Self.historyLimit))
@@ -414,6 +447,7 @@ final class FilePanelController: NSViewController {
 
     /// Connects to a server and shows its first folder in this panel.
     func openRemote(_ fileSystem: any RemoteFileSystem, leftServer: Bool = false, onConnected: (() -> Void)? = nil) {
+        leaveLockedTab(for: nil)
         if remote != nil {
             // Another server in this tab: the terminal of the one shown ends first.
             leaveServer { [weak self] in self?.openRemote(fileSystem, leftServer: true, onConnected: onConnected) }
@@ -912,6 +946,7 @@ final class FilePanelController: NSViewController {
     /// Shows found files (named relative to `root` where possible) as the panel's
     /// listing; everything works on the real files, [..] returns to `root`.
     func showSearchResults(_ urls: [URL], root: URL, title: String, selecting name: String? = nil) {
+        leaveLockedTab(for: nil)
         loadGeneration += 1
         loadTask?.cancel()
         loadTask = nil
@@ -949,6 +984,7 @@ final class FilePanelController: NSViewController {
     /// none, nothing happens.
     func openArchive(_ url: URL, inside outer: OuterArchive? = nil, folder: String = "", selecting name: String? = nil,
                      quietly: Bool = false) {
+        if archive == nil { leaveLockedTab(for: nil) }
         loadGeneration += 1
         let generation = loadGeneration
         // A folder still loading is dropped, with its indicator; Esc stops this one.
@@ -1229,9 +1265,136 @@ final class FilePanelController: NSViewController {
 
     // MARK: - Tabs
 
-    /// Tab directories and the active tab, for saving the panel between launches.
-    var tabState: (directories: [String], active: Int) {
-        (tabs.map(\.directory.path), activeTabIndex)
+    /// The tabs as saved between launches: their folders (a locked tab's own one),
+    /// locks and names, and the active tab.
+    var tabState: SavedTabs {
+        tabs[activeTabIndex] = currentTab()
+        return SavedTabs(directories: tabs.map { ($0.lockedDirectory ?? $0.directory).path },
+                         locks: tabs.map(\.lock.rawValue), names: tabs.map { $0.name ?? "" }, active: activeTabIndex)
+    }
+
+    /// Tabs of a panel kept in the defaults (between launches, or as favorites).
+    struct SavedTabs {
+        var directories: [String]
+        var locks: [Int]
+        var names: [String]
+        var active: Int
+
+        var dictionary: [String: Any] {
+            ["tabs": directories, "locks": locks, "names": names, "active": active]
+        }
+
+        init(directories: [String], locks: [Int], names: [String], active: Int) {
+            (self.directories, self.locks, self.names, self.active) = (directories, locks, names, active)
+        }
+
+        init(_ dictionary: [String: Any]?) {
+            directories = dictionary?["tabs"] as? [String] ?? []
+            locks = dictionary?["locks"] as? [Int] ?? []
+            names = dictionary?["names"] as? [String] ?? []
+            active = dictionary?["active"] as? Int ?? 0
+        }
+
+        /// The tabs whose folders still exist (the active one kept active if it does).
+        func tabs(sortOrder: SortOrder) -> (tabs: [Tab], active: Int) {
+            var tabs: [Tab] = []
+            var activeIndex = 0
+            for (index, path) in directories.enumerated() where FileManager.default.fileExists(atPath: path) {
+                if index == active { activeIndex = tabs.count }
+                var tab = Tab(directory: URL(filePath: path), sortOrder: sortOrder)
+                tab.lock = locks.indices.contains(index) ? Tab.Lock(rawValue: locks[index]) ?? .none : .none
+                tab.lockedDirectory = tab.lock == .none ? nil : tab.directory
+                tab.name = names.indices.contains(index) && !names[index].isEmpty ? names[index] : nil
+                tabs.append(tab)
+            }
+            return (tabs, activeIndex)
+        }
+    }
+
+    /// Shows `saved` tabs instead of the panel's (asking first when a program still
+    /// runs in a server terminal of a tab closed); none existing: nothing changes.
+    func replaceTabs(with saved: SavedTabs) {
+        let (newTabs, active) = saved.tabs(sortOrder: sortOrder)
+        guard !newTabs.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        confirmClosing(terminals(ofTabs: Array(tabs.indices))) { [weak self] in
+            guard let self else { return }
+            if panelView.terminalPane.hasFocus { focus() }
+            terminals(ofTabs: Array(tabs.indices)).forEach(panelView.terminalPane.close)
+            tabs = newTabs
+            activateTab(at: active)
+        }
+    }
+
+    /// A locked tab keeps its folder: before going to `target` (or anywhere else
+    /// when nil, as into an archive or a server) a new tab opens beside it, and
+    /// it goes there instead. A tab locked with folder changes allowed goes, except
+    /// to a server.
+    private func leaveLockedTab(for target: URL?) {
+        let tab = tabs[activeTabIndex]
+        guard tab.lock == .locked || (tab.lock == .allowsChanges && target == nil) else { return }
+        if let target, target.standardizedFileURL == tab.lockedDirectory { return }
+        tabs[activeTabIndex] = currentTab()
+        var opened = Tab(directory: directory, sortOrder: sortOrder)
+        opened.backHistory = backHistory
+        opened.forwardHistory = forwardHistory
+        tabs.insert(opened, at: activeTabIndex + 1)
+        activeTabIndex += 1
+        updateTabBar()
+    }
+
+    /// Locks the tab to its folder, or unlocks it.
+    @objc(cm_ToggleLockCurrentTab:)
+    func toggleLockCurrentTab(_ sender: Any?) {
+        toggleLock(.locked, of: activeTabIndex)
+    }
+
+    /// cm_ToggleLockDcaCurrentTab: locked, but the folder may change; the tab comes
+    /// back to its folder when chosen again.
+    @objc(cm_ToggleLockDcaCurrentTab:)
+    func toggleLockDcaCurrentTab(_ sender: Any?) {
+        toggleLock(.allowsChanges, of: activeTabIndex)
+    }
+
+    /// Only a local folder (not a server, an archive or found files) is locked.
+    private func toggleLock(_ lock: Tab.Lock, of index: Int) {
+        guard tabs.indices.contains(index) else { return }
+        if index == activeTabIndex { tabs[index] = currentTab() }
+        if tabs[index].lock == lock {
+            tabs[index].lock = .none
+            tabs[index].lockedDirectory = nil
+        } else {
+            guard canLock(index) else {
+                NSSound.beep()
+                return
+            }
+            tabs[index].lock = lock
+            tabs[index].lockedDirectory = tabs[index].lockedDirectory ?? tabs[index].directory.standardizedFileURL
+        }
+        updateTabBar()
+    }
+
+    private func canLock(_ index: Int) -> Bool {
+        index == activeTabIndex ? remote == nil && archive == nil && searchResults == nil : tabs[index].remote == nil
+    }
+
+    /// Asks for the tab's own name; an empty one shows the folder's again.
+    private func renameTab(_ index: Int) {
+        guard tabs.indices.contains(index), let window = view.window else { return }
+        let id = tabs[index].id
+        let shown = index == activeTabIndex ? currentTab() : tabs[index]
+        var unnamed = shown
+        unnamed.name = nil
+        unnamed.lock = .none
+        Prompt.text(String(localized: "Rename Tab"), message: String(localized: "The tab's name (empty: the folder's):"),
+                    initial: shown.name ?? unnamed.title, okTitle: String(localized: "Rename"), in: window) { [weak self] text in
+            guard let self, let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+            let name = text.trimmingCharacters(in: .whitespaces)
+            tabs[index].name = name.isEmpty ? nil : name
+            updateTabBar()
+        }
     }
 
     /// Opens a tab for the local `directory` (a server is never in two tabs: from a
@@ -1277,17 +1440,49 @@ final class FilePanelController: NSViewController {
 
     private func tabMenu(for index: Int) -> NSMenu {
         let menu = NSMenu()
+        let lock = tabs[index].lock
         for (title, action) in [(String(localized: "Close Tab"), #selector(closeTabFromMenu(_:))),
                                 (String(localized: "Close Other Tabs"), #selector(closeOtherTabs(_:))),
-                                (String(localized: "Duplicate Tab"), #selector(duplicateTab(_:)))] {
+                                (String(localized: "Duplicate Tab"), #selector(duplicateTab(_:))),
+                                ("-", nil),
+                                (Command.toggleLockCurrentTab.title, #selector(lockTabFromMenu(_:))),
+                                (Command.toggleLockDcaCurrentTab.title, #selector(lockTabAllowingChangesFromMenu(_:))),
+                                (String(localized: "Rename Tab…"), #selector(renameTabFromMenu(_:)))] as [(String, Selector?)] {
+            guard let action else {
+                menu.addItem(.separator())
+                continue
+            }
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
             item.tag = index
-            item.isEnabled = action == #selector(duplicateTab(_:)) ? !isServerTab(index) : tabs.count > 1
+            switch action {
+            case #selector(duplicateTab(_:)):
+                item.isEnabled = !isServerTab(index)
+            case #selector(lockTabFromMenu(_:)), #selector(lockTabAllowingChangesFromMenu(_:)):
+                let mine: Tab.Lock = action == #selector(lockTabFromMenu(_:)) ? .locked : .allowsChanges
+                item.state = lock == mine ? .on : .off
+                item.isEnabled = lock == mine || canLock(index)
+            case #selector(renameTabFromMenu(_:)):
+                item.isEnabled = true
+            default:
+                item.isEnabled = tabs.count > 1
+            }
             menu.addItem(item)
         }
         menu.autoenablesItems = false
         return menu
+    }
+
+    @objc private func lockTabFromMenu(_ sender: NSMenuItem) {
+        toggleLock(.locked, of: sender.tag)
+    }
+
+    @objc private func lockTabAllowingChangesFromMenu(_ sender: NSMenuItem) {
+        toggleLock(.allowsChanges, of: sender.tag)
+    }
+
+    @objc private func renameTabFromMenu(_ sender: NSMenuItem) {
+        renameTab(sender.tag)
     }
 
     @objc private func closeTabFromMenu(_ sender: NSMenuItem) {
@@ -1360,6 +1555,7 @@ final class FilePanelController: NSViewController {
             searchResults = nil
             isBranchView = false
             quickFilter = nil
+            onlyNames = nil
             watcher = nil
             listView.folderSizes = [:]
             remote = server
@@ -1375,7 +1571,12 @@ final class FilePanelController: NSViewController {
             }
         } else {
             clearRemote()
-            load(tab.directory, selecting: tab.selectedName, recordingHistory: false)
+            // A tab locked with folder changes allowed comes back to its folder.
+            if tab.lock == .allowsChanges, let locked = tab.lockedDirectory, locked != tab.directory.standardizedFileURL {
+                load(locked, recordingHistory: false)
+            } else {
+                load(tab.directory, selecting: tab.selectedName, recordingHistory: false)
+            }
         }
         updateTabBar()
         delegate?.filePanelDidChangeDirectory(self)
@@ -1591,6 +1792,9 @@ final class FilePanelController: NSViewController {
         }
         if let quickFilter {
             items = items.filter { $0.name.localizedCaseInsensitiveContains(quickFilter) }
+        }
+        if let onlyNames {
+            items = items.filter { onlyNames.contains($0.name) }
         }
         if archive != nil || searchResults != nil || remote != nil || directory.path != "/" {
             items.insert(.parent(of: directory), at: 0)
@@ -2042,10 +2246,26 @@ extension FilePanelController: NSMenuItemValidation {
         }
     }
 
-    /// Show → All Files: removes the filter.
+    /// Show → All Files: removes the filter (and Only Selected Files).
     @objc(cm_SrcAllFiles:)
     func srcAllFiles(_ sender: Any?) {
+        onlyNames = nil
         filterMask = nil
+    }
+
+    /// Show → Only Selected Files: the others are hidden (again: all are shown).
+    @objc(cm_ShowOnlySelected:)
+    func showOnlySelected(_ sender: Any?) {
+        if onlyNames != nil {
+            onlyNames = nil
+            return
+        }
+        let names = selectedItems.map(\.name)
+        guard !names.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        onlyNames = Set(names)
     }
 
     // MARK: - Clipboard
@@ -2260,6 +2480,117 @@ extension FilePanelController: NSMenuItemValidation {
     func copyFullNamesToClip(_ sender: Any?) {
         let prefix = archive.map { $0.displayPath + "/" }
         copyToClipboard(selectedItems.map { item in prefix.map { $0 + item.name } ?? item.url.path })
+    }
+
+    /// The names (or full paths) with the size, the modification date and the
+    /// permissions, tab-separated, one entry per line (a folder's size when calculated).
+    @objc(cm_CopyDetailsToClip:)
+    func copyDetailsToClip(_ sender: Any?) {
+        copyToClipboard(selectedItems.map { details(of: $0, fullPath: false) })
+    }
+
+    @objc(cm_CopyFullDetailsToClip:)
+    func copyFullDetailsToClip(_ sender: Any?) {
+        copyToClipboard(selectedItems.map { details(of: $0, fullPath: true) })
+    }
+
+    private static let detailsDateFormat: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }()
+
+    private func details(of item: FileItem, fullPath: Bool) -> String {
+        let name = fullPath ? archive.map { $0.displayPath + "/" + item.name } ?? item.url.path : item.name
+        let size = item.isFolder ? listView.folderSizes[item.name].map(String.init) ?? "" : String(item.size)
+        let kind = item.isSymlink ? "l" : item.isDirectory ? "d" : "-"
+        return [name, size, Self.detailsDateFormat.string(from: item.modified), kind + item.permissions]
+            .joined(separator: "\t")
+    }
+
+    /// The names of the selected entries saved in a text file, one per line.
+    @objc(cm_SaveSelectionToFile:)
+    func saveSelectionToFile(_ sender: Any?) {
+        let names = selectedItems.map(\.name)
+        guard !names.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        chooseFile(saving: String(localized: "selection.txt")) { [weak self] url in
+            do {
+                try (names.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                Prompt.error(String(localized: "Cannot save the selection"), error, in: self?.view.window)
+            }
+        }
+    }
+
+    /// Selects the entries named in a text file (names, or paths of this folder's entries).
+    @objc(cm_LoadSelectionFromFile:)
+    func loadSelectionFromFile(_ sender: Any?) {
+        chooseFile(saving: nil) { [weak self] url in
+            do {
+                self?.select(lines: try String(contentsOf: url, encoding: .utf8))
+            } catch {
+                Prompt.error(String(localized: "Cannot read the selection"), error, in: self?.view.window)
+            }
+        }
+    }
+
+    /// Selects the entries named on the clipboard, one per line.
+    @objc(cm_LoadSelectionFromClip:)
+    func loadSelectionFromClip(_ sender: Any?) {
+        guard let text = AppDefaults.pasteboard.string(forType: .string) else {
+            NSSound.beep()
+            return
+        }
+        select(lines: text)
+    }
+
+    /// Marks the entries shown whose names (or paths in this folder) are lines of `text`.
+    private func select(lines text: String) {
+        let folder = directory.standardizedFileURL.path
+        let names = Set(text.split(whereSeparator: \.isNewline).compactMap { line -> String? in
+            let line = line.trimmingCharacters(in: .whitespaces)
+            guard line.hasPrefix("/") else { return line.isEmpty ? nil : line }
+            let url = URL(filePath: line).standardizedFileURL
+            return url.deletingLastPathComponent().path == folder ? url.lastPathComponent : nil
+        })
+        let shown = listView.items.filter { !$0.isParent && names.contains($0.name) }.map(\.name)
+        guard !shown.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        listView.setMarked(Set(shown))
+        updateStatus()
+    }
+
+    /// A file to save to (with a suggested name) or to open, chosen in a sheet;
+    /// a test run gives it with `file:/path`.
+    private func chooseFile(saving name: String?, then use: @escaping (URL) -> Void) {
+        #if DEBUG
+        if let path = DebugAutomation.takeChosenFile() {
+            use(URL(filePath: path))
+            return
+        }
+        #endif
+        guard let window = view.window else { return }
+        let panel: NSSavePanel
+        if let name {
+            panel = NSSavePanel()
+            panel.nameFieldStringValue = name
+            panel.allowedContentTypes = [.plainText]
+        } else {
+            let open = NSOpenPanel()
+            open.allowsMultipleSelection = false
+            open.canChooseDirectories = false
+            panel = open
+        }
+        panel.directoryURL = remote == nil && archive == nil ? directory : nil
+        panel.beginSheetModal(for: window) { response in
+            if response == .OK, let url = panel.url { use(url) }
+        }
     }
 
     private func copyToClipboard(_ lines: [String]) {
@@ -2768,7 +3099,10 @@ extension FilePanelController: NSMenuItemValidation {
         } else if command == .branchView {
             menuItem.state = isBranchView ? .on : .off
         } else if command == .srcAllFiles || command == .srcUserSpec {
-            menuItem.state = (filterMask == nil) == (command == .srcAllFiles) ? .on : .off
+            menuItem.state = (filterMask == nil && (command == .srcUserSpec || onlyNames == nil)) == (command == .srcAllFiles)
+                ? .on : .off
+        } else if command == .showOnlySelected {
+            menuItem.state = onlyNames == nil ? .off : .on
         } else if command == .srcShort || command == .srcLong || command == .srcThumbs {
             let mode: FileListView.ViewMode = command == .srcShort ? .brief : (command == .srcLong ? .full : .thumbnails)
             menuItem.state = viewMode == mode ? .on : .off

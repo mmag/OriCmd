@@ -152,24 +152,15 @@ final class MainViewController: NSViewController {
         }
         let state = AppDefaults.store.dictionary(forKey: key)
         let viewMode = (state?["view"] as? String).flatMap(FileListView.ViewMode.init(rawValue:)) ?? .full
-        let paths = state?["tabs"] as? [String] ?? []
-        let active = state?["active"] as? Int ?? 0
-        var directories: [URL] = []
-        var activeIndex = 0
-        for (index, path) in paths.enumerated() where FileManager.default.fileExists(atPath: path) {
-            if index == active { activeIndex = directories.count }
-            directories.append(URL(filePath: path))
-        }
-        let panel = FilePanelController(tabDirectories: directories, activeTab: activeIndex)
+        let (tabs, active) = FilePanelController.SavedTabs(state).tabs(sortOrder: SortOrder())
+        let panel = FilePanelController(tabs: tabs, activeTab: active)
         panel.viewMode = viewMode
         return panel
     }
 
     private func savePanels() {
         for (panel, key) in [(leftPanel, Self.leftPanelKey), (rightPanel, Self.rightPanelKey)] {
-            let state = panel.tabState
-            AppDefaults.store.set(["tabs": state.directories, "active": state.active,
-                                   "view": panel.viewMode.rawValue], forKey: key)
+            AppDefaults.store.set(panel.tabState.dictionary.merging(["view": panel.viewMode.rawValue]) { $1 }, forKey: key)
         }
     }
 
@@ -411,6 +402,44 @@ extension MainViewController: NSMenuItemValidation {
                 }
             }
         }
+    }
+
+    // MARK: - Favorite tabs
+
+    /// Shows the favorite tabs chosen in the menu in both panels.
+    @objc func showFavoriteTabs(_ sender: Any?) {
+        guard let name = (sender as? NSMenuItem)?.representedObject as? String,
+              let favorite = FavoriteTabs.saved.first(where: { $0.name == name }) else { return }
+        leftPanel.replaceTabs(with: favorite.left)
+        rightPanel.replaceTabs(with: favorite.right)
+    }
+
+    /// Saves the tabs of both panels under a name (one of the same name is replaced).
+    @objc func saveFavoriteTabs(_ sender: Any?) {
+        guard let window = view.window else { return }
+        Prompt.text(String(localized: "Save the tabs"), message: String(localized: "The tabs of both panels, saved as:"),
+                    initial: activePanel.directory.lastPathComponent, okTitle: String(localized: "Save"), in: window) {
+            [weak self] text in
+            guard let self else { return }
+            let name = text.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else {
+                NSSound.beep()
+                return
+            }
+            var favorites = FavoriteTabs.saved
+            let favorite = FavoriteTabs(name: name, left: leftPanel.tabState, right: rightPanel.tabState)
+            if let index = favorites.firstIndex(where: { $0.name == name }) {
+                favorites[index] = favorite
+            } else {
+                favorites.append(favorite)
+            }
+            FavoriteTabs.saved = favorites
+        }
+    }
+
+    @objc func removeFavoriteTabs(_ sender: Any?) {
+        guard let name = (sender as? NSMenuItem)?.representedObject as? String else { return }
+        FavoriteTabs.saved.removeAll { $0.name == name }
     }
 
     /// Alt+Shift+F9: reads the selected archives through (or the one shown), so

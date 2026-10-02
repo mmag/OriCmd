@@ -931,6 +931,16 @@
         }
       }
     },
+    "Cannot read the selection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся прочитать выделение"
+          }
+        }
+      }
+    },
     "Cannot read “%@”": {
       "localizations": {
         "ru": {
@@ -967,6 +977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся запустить «%@»"
+          }
+        }
+      }
+    },
+    "Cannot save the selection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся сохранить выделение"
           }
         }
       }
@@ -1521,12 +1541,32 @@
         }
       }
     },
+    "Copy Full Paths with Details": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать полные пути с подробностями"
+          }
+        }
+      }
+    },
     "Copy Names": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Копировать имена"
+          }
+        }
+      }
+    },
+    "Copy Names with Details": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать имена с подробностями"
           }
         }
       }
@@ -2331,6 +2371,16 @@
         }
       }
     },
+    "Favorite Tabs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Избранные вкладки"
+          }
+        }
+      }
+    },
     "Feed to Panel": {
       "localizations": {
         "ru": {
@@ -3071,6 +3121,46 @@
         }
       }
     },
+    "Load Selection from Clipboard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить выделение из буфера обмена"
+          }
+        }
+      }
+    },
+    "Load Selection from File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить выделение из файла…"
+          }
+        }
+      }
+    },
+    "Lock Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заблокировать вкладку"
+          }
+        }
+      }
+    },
+    "Lock Tab, Allow Folder Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заблокировать вкладку, разрешив смену папки"
+          }
+        }
+      }
+    },
     "Locked": {
       "localizations": {
         "ru": {
@@ -3617,6 +3707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отдельный архив для каждого файла или папки"
+          }
+        }
+      }
+    },
+    "Only Selected Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только выделенные файлы"
           }
         }
       }
@@ -4451,6 +4551,26 @@
         }
       }
     },
+    "Rename Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать вкладку"
+          }
+        }
+      }
+    },
+    "Rename Tab…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать вкладку…"
+          }
+        }
+      }
+    },
     "Rename mask:": {
       "localizations": {
         "ru": {
@@ -4691,6 +4811,26 @@
         }
       }
     },
+    "Save Current Tabs…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить текущие вкладки…"
+          }
+        }
+      }
+    },
+    "Save Selection to File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить выделение в файл…"
+          }
+        }
+      }
+    },
     "Save as default": {
       "localizations": {
         "ru": {
@@ -4707,6 +4847,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сохранить поиск"
+          }
+        }
+      }
+    },
+    "Save the tabs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить вкладки"
           }
         }
       }
@@ -5681,6 +5831,26 @@
         }
       }
     },
+    "The tab's name (empty: the folder's):": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя вкладки (пустое — имя папки):"
+          }
+        }
+      }
+    },
+    "The tabs of both panels, saved as:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вкладки обеих панелей сохранить как:"
+          }
+        }
+      }
+    },
     "Theme": {
       "localizations": {
         "ru": {
@@ -6251,6 +6421,16 @@
         }
       }
     },
+    "[selected only]": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[только выделенные]"
+          }
+        }
+      }
+    },
     "[… showing the first %@ of %@ bytes]": {
       "localizations": {
         "ru": {
@@ -6748,6 +6928,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "одинаковый размер"
+          }
+        }
+      }
+    },
+    "selection.txt": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "выделение.txt"
           }
         }
       }

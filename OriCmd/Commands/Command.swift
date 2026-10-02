@@ -43,6 +43,11 @@ enum Command: String, CaseIterable {
     case copyNamesToClip = "cm_CopyNamesToClip"
     case copyFullNamesToClip = "cm_CopyFullNamesToClip"
     case exchangeSelection = "cm_ExchangeSelection"
+    case copyDetailsToClip = "cm_CopyDetailsToClip"
+    case copyFullDetailsToClip = "cm_CopyFullDetailsToClip"
+    case saveSelectionToFile = "cm_SaveSelectionToFile"
+    case loadSelectionFromFile = "cm_LoadSelectionFromFile"
+    case loadSelectionFromClip = "cm_LoadSelectionFromClip"
 
     // Commands
     case rereadSource = "cm_RereadSource"
@@ -66,6 +71,8 @@ enum Command: String, CaseIterable {
     case closeCurrentTab = "cm_CloseCurrentTab"
     case switchToNextTab = "cm_SwitchToNextTab"
     case switchToPreviousTab = "cm_SwitchToPreviousTab"
+    case toggleLockCurrentTab = "cm_ToggleLockCurrentTab"
+    case toggleLockDcaCurrentTab = "cm_ToggleLockDcaCurrentTab"
     case directoryHotlist = "cm_DirectoryHotlist"
     case searchFor = "cm_SearchFor"
     case compareDirs = "cm_CompareDirs"
@@ -77,6 +84,7 @@ enum Command: String, CaseIterable {
     case quickFilter = "cm_QuickFilter"
     case srcAllFiles = "cm_SrcAllFiles"
     case srcUserSpec = "cm_SrcUserSpec"
+    case showOnlySelected = "cm_ShowOnlySelected"
     case srcShort = "cm_SrcShort"
     case srcLong = "cm_SrcLong"
     case srcThumbs = "cm_SrcThumbs"
@@ -135,6 +143,11 @@ enum Command: String, CaseIterable {
         case .unselectCurrentExtension: String(localized: "Unselect Same Extension  (⌥−)")
         case .copyNamesToClip: String(localized: "Copy Names")
         case .copyFullNamesToClip: String(localized: "Copy Full Paths")
+        case .copyDetailsToClip: String(localized: "Copy Names with Details")
+        case .copyFullDetailsToClip: String(localized: "Copy Full Paths with Details")
+        case .saveSelectionToFile: String(localized: "Save Selection to File…")
+        case .loadSelectionFromFile: String(localized: "Load Selection from File…")
+        case .loadSelectionFromClip: String(localized: "Load Selection from Clipboard")
         case .exchangeSelection: String(localized: "Invert Selection  (*)")
         case .rereadSource: String(localized: "Refresh")
         case .exchange: String(localized: "Swap Panels")
@@ -157,6 +170,8 @@ enum Command: String, CaseIterable {
         case .closeCurrentTab: String(localized: "Close Tab")
         case .switchToNextTab: String(localized: "Next Tab")
         case .switchToPreviousTab: String(localized: "Previous Tab")
+        case .toggleLockCurrentTab: String(localized: "Lock Tab")
+        case .toggleLockDcaCurrentTab: String(localized: "Lock Tab, Allow Folder Changes")
         case .directoryHotlist: String(localized: "Directory Hotlist…")
         case .searchFor: String(localized: "Find Files…")
         case .compareDirs: String(localized: "Compare Directories")
@@ -166,6 +181,7 @@ enum Command: String, CaseIterable {
         case .quickFilter: String(localized: "Quick Filter…")
         case .srcAllFiles: String(localized: "All Files")
         case .srcUserSpec: String(localized: "Filter…")
+        case .showOnlySelected: String(localized: "Only Selected Files")
         case .srcShort: String(localized: "Brief")
         case .srcLong: String(localized: "Full")
         case .srcThumbs: String(localized: "Thumbnails")

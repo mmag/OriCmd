@@ -905,6 +905,55 @@ check "Alt+Shift+F9: a damaged archive and its file" "grep -q '^“bad.zip”: �
 run tenc "alt+t wait text:ests enter wait alt+c wait text:rypto escape alt+shift+f9 wait text:secret enter wait wait wait"
 check "Alt+Shift+F9: an encrypted archive with its password" "grep -qx '“crypto.zip” was read through: its contents are intact.' build/shots/reg-tenc-sheet.txt"
 
+# Locked tabs: one keeps its folder (going elsewhere opens a new tab), one locked
+# with folder changes allowed comes back to its folder; a tab renamed; the tab
+# menu shows the lock.
+scripts/test/mkdata.sh
+run lock "cmd:cm_ToggleLockCurrentTab alt+a wait text:lpha enter wait wait"
+check "A locked tab keeps its folder, a new tab opens" "panels lock | grep -q '^left\*: .*/left/alpha | cursor: .. | tabs: \*left, alpha$'"
+run lockback "cmd:cm_ToggleLockCurrentTab alt+a wait text:lpha enter wait wait ctrl+shift+tab wait wait"
+check "Back in the locked tab, as it was" "panels lockback | grep -q '^left\*: .*/left | cursor: alpha | tabs: \*left, alpha$'"
+run dcastay "cmd:cm_ToggleLockDcaCurrentTab alt+a wait text:lpha enter wait wait"
+check "A tab locked with changes allowed changes its folder" "panels dcastay | grep -q '^left\*: .*/left/alpha |.*tabs: \*alpha$'"
+run dca "cmd:cm_ToggleLockDcaCurrentTab alt+a wait text:lpha enter wait wait cmd+t wait ctrl+shift+tab wait wait"
+check "...and comes back to its folder when chosen again" "panels dca | grep -q '^left\*: .*/left |.*tabs: \*left, alpha$'"
+run tabrename "cmd+t wait tabmenu:0|Rename_Tab wait text:Work enter wait"
+check "A tab renamed" "panels tabrename | grep -q 'tabs: Work, left$'"
+run lockmenu "cmd+t wait tabmenu:0|Lock_Tab, wait tabmenu:0"
+check "The tab menu shows the lock" "grep -qx '✓Lock Tab, Allow Folder Changes' build/shots/reg-lockmenu-menu.txt && grep -qx 'Lock Tab' build/shots/reg-lockmenu-menu.txt"
+
+# Favorite tabs: both panels' tabs saved under a name (a lock too) and shown
+# again; a favorite removed.
+scripts/test/mkdata.sh
+run favload "cmd+t wait alt+a wait text:lpha enter wait wait cmd:cm_ToggleLockCurrentTab menuitem:Save_Current_Tabs… wait text:proj enter wait cmd:cm_ToggleLockCurrentTab ctrl+shift+tab wait cmd+w wait wait menuitem:proj wait wait wait"
+check "Favorite tabs shown again, the lock too" "panels favload | grep -q '^left\*: .*/left/alpha |.*tabs: left, \*alpha$' && panels favload | grep -q '^right: .*tabs: right$'"
+run favkeep "cmd+t wait menuitem:Save_Current_Tabs… wait text:proj enter wait wait cmd+w wait wait menuitem:proj wait wait"
+check "Favorite tabs bring back a closed tab" "panels favkeep | grep -q 'tabs: left, left$'"
+run favremove "cmd+t wait menuitem:Save_Current_Tabs… wait text:proj enter wait wait menuitem:Remove>proj wait cmd+w wait wait menuitem:proj wait wait"
+check "Favorite tabs removed" "panels favremove | grep -q '^left\*: .*tabs: left$'"
+
+# Selection: only the selected files shown (until All Files or another folder),
+# names with details copied, the selection saved to a file and loaded from one
+# (names, or paths of this folder's files) and from the clipboard.
+scripts/test/mkdata.sh
+items() { grep "^$2 items: " build/shots/reg-$1-panels.txt 2>/dev/null | sed "s/^$2 items: //"; }
+testclip() { osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSPasteboard.pasteboardWithName("ru.themmag.OriCmd.tests").stringForType($.NSPasteboardTypeString).js'; }
+run onlysel "alt+r wait text:eadme escape space alt+n wait text:otes escape space cmd:cm_ShowOnlySelected wait"
+check "Only the selected files shown" "[ \"\$(items onlysel left)\" = '*notes.md, *readme.txt' ]"
+run onlyoff "alt+r wait text:eadme escape space cmd:cm_ShowOnlySelected wait cmd:cm_SrcAllFiles wait"
+check "All Files shows them all again" "items onlyoff left | grep -q 'beta'"
+run onlyleave "alt+a wait text:lpha escape space cmd:cm_ShowOnlySelected wait alt+a wait text:lpha enter wait backspace wait wait"
+check "Another folder shows them all again" "panels onlyleave | grep -q '^left\*: .*/left |' && items onlyleave left | grep -q 'beta'"
+run details "alt+r wait text:eadme escape space cmd:cm_CopyDetailsToClip wait"
+check "Names copied with size, date and permissions" "testclip | grep -qE \"^readme.txt	\$(stat -f %z $L/readme.txt)	[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8}	-rw-r--r--\$\""
+printf 'readme.txt\nnotes.md\n%s/data.csv\n/elsewhere/file2.txt\nmissing.txt\n' "$PWD/$L" > $L/sel.txt
+run selload "file:$PWD/$L/sel.txt cmd:cm_LoadSelectionFromFile wait"
+check "A selection loaded from a file" "[ \"\$(items selload left | tr ',' '\n' | grep -c '\*')\" = 3 ] && items selload left | grep -q '\*data.csv' && ! items selload left | grep -q '\*file2.txt'"
+run selsave "alt+r wait text:eadme escape space alt+n wait text:otes escape space file:$PWD/$R/saved.txt cmd:cm_SaveSelectionToFile wait"
+check "A selection saved to a file" "[ \"\$(cat $R/saved.txt)\" = \"\$(printf 'notes.md\nreadme.txt')\" ]"
+run selclip "alt+r wait text:eadme escape space alt+n wait text:otes escape space cmd:cm_CopyNamesToClip cmd:cm_ClearAll wait cmd:cm_LoadSelectionFromClip wait"
+check "A selection loaded from the clipboard" "[ \"\$(items selclip left | tr ',' '\n' | grep -c '\*')\" = 2 ]"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

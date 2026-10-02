@@ -25,12 +25,19 @@ enum MainMenu {
         let commands = commandMenu(String(localized: "Commands"), [
             [.rereadSource, .exchange, .leftEqualRight, .rightEqualLeft],
             [.openNewTab, .openDirInNewTab, .closeCurrentTab, .switchToNextTab, .switchToPreviousTab],
+            [.toggleLockCurrentTab, .toggleLockDcaCurrentTab],
             [.searchFor, .directoryHotlist],
             [.compareDirs, .syncDirs, .syncChangeDir],
             [.goToPrevDir, .goToNextDir, .directoryHistory, .goToParent, .goToRoot],
             [.transferLeft, .transferRight, .leftOpenDrives, .rightOpenDrives],
             [.executeDOS],
         ])
+        let favorites = NSMenu(title: String(localized: "Favorite Tabs"))
+        favorites.delegate = FavoriteTabsMenu.shared
+        let favoritesItem = container(for: favorites)
+        if let lock = commands.items.firstIndex(where: { $0.action == Command.toggleLockDcaCurrentTab.selector }) {
+            commands.insertItem(favoritesItem, at: lock + 1)
+        }
         mainMenu.addItem(container(for: commands))
 
         mainMenu.addItem(container(for: startMenu()))
@@ -46,7 +53,7 @@ enum MainMenu {
         mainMenu.addItem(container(for: net))
         mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcThumbs, .srcTree, .srcQuickView],
-            [.srcAllFiles, .srcUserSpec, .quickFilter, .branchView],
+            [.srcAllFiles, .srcUserSpec, .showOnlySelected, .quickFilter, .branchView],
             [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
             [.switchHidSys],
@@ -133,6 +140,12 @@ enum MainMenu {
             .separator(),
             item(Command.copyNamesToClip.title, Command.copyNamesToClip.selector),
             commandItem(.copyFullNamesToClip),
+            commandItem(.copyDetailsToClip),
+            commandItem(.copyFullDetailsToClip),
+            .separator(),
+            commandItem(.saveSelectionToFile),
+            commandItem(.loadSelectionFromFile),
+            commandItem(.loadSelectionFromClip),
         ]
     }
 
