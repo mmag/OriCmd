@@ -639,9 +639,14 @@ extension MainViewController: NSMenuItemValidation {
     /// Alt+F7: find files; the chosen result is shown in the active panel.
     @objc(cm_SearchFor:)
     func searchFor(_ sender: Any?) {
-        FindFilesWindowController.show(searchingIn: activePanel.directory, goTo: { [weak self] url in
+        FindFilesWindowController.show(searchingIn: activePanel.directory, goTo: { [weak self] found in
             guard let self else { return }
-            activePanel.load(url.deletingLastPathComponent(), selecting: url.lastPathComponent)
+            if let entry = found.entry {
+                activePanel.openArchive(found.url, folder: (entry as NSString).deletingLastPathComponent,
+                                        selecting: (entry as NSString).lastPathComponent)
+            } else {
+                activePanel.load(found.url.deletingLastPathComponent(), selecting: found.url.lastPathComponent)
+            }
             view.window?.makeKeyAndOrderFront(nil)
             activePanel.focus()
         }, feed: { [weak self] results, root, title in

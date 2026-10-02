@@ -14,6 +14,7 @@ final class FindFilesWindowController: NSWindowController {
     private let textRegexBox = NSButton(checkboxWithTitle: String(localized: "Regular expression"), target: nil, action: nil)
     private let notContainingBox = NSButton(checkboxWithTitle: String(localized: "Not containing it"), target: nil, action: nil)
     private let encodingPopup = NSPopUpButton()
+    private let archivesBox = NSButton(checkboxWithTitle: String(localized: "Search in archives"), target: nil, action: nil)
     /// How deep into subfolders: all, none, 1…9 levels.
     private let depthPopup = NSPopUpButton()
     private let tabs = NSTabView()
@@ -70,20 +71,21 @@ final class FindFilesWindowController: NSWindowController {
     ]
 
     /// The files found, and the rows showing them: duplicates under a title per group.
-    private var results: [URL] = []
+    private var results: [FileSearch.Found] = []
     private var rows: [Row] = []
 
     private enum Row {
-        case file(URL)
+        case file(FileSearch.Found)
         case group(String)
     }
     private var search: FileSearch?
     private var timer: Timer?
-    private var onGoTo: ((URL) -> Void)?
+    private var onGoTo: ((FileSearch.Found) -> Void)?
     private var onFeed: ((_ results: [URL], _ root: URL, _ title: String) -> Void)?
 
-    /// Shows the dialog searching in `directory`; `goTo` receives the chosen result.
-    static func show(searchingIn directory: URL, goTo: @escaping (URL) -> Void,
+    /// Shows the dialog searching in `directory`; `goTo` receives the chosen result,
+    /// `feed` the files found (for those found in archives, the archives).
+    static func show(searchingIn directory: URL, goTo: @escaping (FileSearch.Found) -> Void,
                      feed: @escaping (_ results: [URL], _ root: URL, _ title: String) -> Void) {
         let controller = shared ?? FindFilesWindowController()
         shared = controller
@@ -150,13 +152,14 @@ final class FindFilesWindowController: NSWindowController {
             [NSGridCell.emptyContentView, nameRegexBox],
             [NSTextField(labelWithString: String(localized: "Search in:")), directoryField],
             [NSTextField(labelWithString: String(localized: "Subfolder levels:")), depthPopup],
+            [NSGridCell.emptyContentView, archivesBox],
             [NSTextField(labelWithString: String(localized: "Find text:")), textField],
             [NSGridCell.emptyContentView, textOptions],
             [NSTextField(labelWithString: String(localized: "Encoding:")), encodingPopup],
         ])
         general.column(at: 0).xPlacement = .trailing
         general.rowSpacing = 6
-        for index in [3, 6] {
+        for index in [3, 7] {
             general.row(at: index).yPlacement = .center
         }
 
@@ -188,7 +191,7 @@ final class FindFilesWindowController: NSWindowController {
         for (view, name) in [(maskField, "findMask"), (directoryField, "findIn"), (textField, "findText"),
                              (nameRegexBox, "findNameRegex"), (caseSensitiveBox, "findCase"),
                              (wholeWordsBox, "findWholeWords"), (textRegexBox, "findTextRegex"),
-                             (notContainingBox, "findNot"), (encodingPopup, "findEncoding"),
+                             (notContainingBox, "findNot"), (encodingPopup, "findEncoding"), (archivesBox, "findArchives"),
                              (depthPopup, "findDepth"), (betweenBox, "findBetween"), (fromPicker, "findFrom"),
                              (toPicker, "findTo"), (olderBox, "findOlder"), (ageField, "findAge"),
                              (ageUnitPopup, "findAgeUnit"), (sizeBox, "findSizeOn"), (sizeComparisonPopup, "findSizeOp"),
@@ -305,6 +308,7 @@ final class FindFilesWindowController: NSWindowController {
             depth: depthPopup.indexOfSelectedItem == 0 ? nil : depthPopup.indexOfSelectedItem - 1
         )
         query.nameIsRegex = nameRegexBox.state == .on
+        query.inArchives = archivesBox.state == .on
         query.notContaining = notContainingBox.state == .on
         if let encodings = Self.textEncodings[encodingPopup.indexOfSelectedItem].encodings {
             query.encodings = encodings
@@ -437,20 +441,21 @@ final class FindFilesWindowController: NSWindowController {
             return
         }
         let title = String(localized: "Search results: \(search.query.masks) in \(search.query.root.path)")
-        onFeed?(results, search.query.root, title)
+        var seen = Set<URL>()
+        onFeed?(results.map(\.url).filter { seen.insert($0).inserted }, search.query.root, title)
         window?.close()
     }
 
     @objc private func goToFile(_ sender: Any?) {
         let row = resultsTable.selectedRow
-        guard rows.indices.contains(row), case .file(let url) = rows[row] else { return }
-        onGoTo?(url)
+        guard rows.indices.contains(row), case .file(let found) = rows[row] else { return }
+        onGoTo?(found)
         window?.close()
     }
 
     /// "3 files, 2 MB each" (of the same size), or "3 files" (alike by name only).
-    private func title(of group: [URL], sameSize: Bool) -> String {
-        guard sameSize, let size = try? group[0].resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+    private func title(of group: [FileSearch.Found], sameSize: Bool) -> String {
+        guard sameSize, let size = try? group[0].url.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
             return String(localized: "\(group.count) files")
         }
         return String(localized: "\(group.count) files, \(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)) each")
@@ -464,7 +469,7 @@ extension FindFilesWindowController: NSTableViewDataSource, NSTableViewDelegate 
 
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
         switch rows[row] {
-        case .file(let url): url.path
+        case .file(let found): found.path
         case .group(let title): title
         }
     }

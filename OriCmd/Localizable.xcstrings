@@ -4561,6 +4561,16 @@
         }
       }
     },
+    "Search in archives": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Искать в архивах"
+          }
+        }
+      }
+    },
     "Search in:": {
       "localizations": {
         "ru": {

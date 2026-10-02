@@ -8,6 +8,7 @@ nonisolated struct ArchiveEntry: Sendable {
     let size: Int64
     let modified: Date
     let mode: mode_t
+    var isSymbolicLink = false
 }
 
 nonisolated struct ArchiveError: LocalizedError {
@@ -75,6 +76,51 @@ nonisolated enum ArchiveReader {
             archive_read_data_skip(archive)
         }
         return result
+    }
+
+    /// Goes through the entries in their order. The data of an entry `wantsData`
+    /// asks for is unpacked, up to `dataLimit` bytes (a bigger one gets nil, as one
+    /// that cannot be unpacked); `visit` returns false to stop.
+    static func scan(_ url: URL, dataLimit: Int, wantsData: (ArchiveEntry) -> Bool,
+                     visit: (ArchiveEntry, Data?) -> Bool) throws {
+        let archive = try open(url)
+        defer { archive_read_free(archive) }
+        var entry: OpaquePointer?
+        while true {
+            let status = archive_read_next_header(archive, &entry)
+            if status == ARCHIVE_EOF { return }
+            guard status >= ARCHIVE_WARN, let entry else { throw ArchiveError(archive, url.path) }
+            let name = pathname(of: entry)
+            guard let path = normalize(name), !path.isEmpty else {
+                archive_read_data_skip(archive)
+                continue
+            }
+            let type = archive_entry_filetype(entry) & S_IFMT
+            let item = ArchiveEntry(
+                path: path, isDirectory: type == S_IFDIR || name.hasSuffix("/"), size: archive_entry_size(entry),
+                modified: Date(timeIntervalSince1970: TimeInterval(archive_entry_mtime(entry))),
+                mode: archive_entry_perm(entry), isSymbolicLink: type == S_IFLNK
+            )
+            let data = !item.isDirectory && item.size <= dataLimit && wantsData(item) ? data(of: archive, limit: dataLimit) : nil
+            archive_read_data_skip(archive)
+            guard visit(item, data) else { return }
+        }
+    }
+
+    /// The current entry's data; nil if it is bigger than `limit` or cannot be read.
+    private static func data(of archive: OpaquePointer, limit: Int) -> Data? {
+        var data = Data()
+        var buffer: UnsafeRawPointer?
+        var length = 0
+        var offset: Int64 = 0
+        while true {
+            let result = archive_read_data_block(archive, &buffer, &length, &offset)
+            if result == ARCHIVE_EOF { return data }
+            guard result >= ARCHIVE_WARN, data.count + length <= limit else { return nil }
+            if let buffer, length > 0 {
+                data.append(buffer.assumingMemoryBound(to: UInt8.self), count: length)
+            }
+        }
     }
 
     /// Extracts the entries at `paths` (and everything inside them; all entries if

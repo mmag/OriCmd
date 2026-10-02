@@ -35,6 +35,18 @@ nonisolated final class FileSearch: Sendable {
         var isHex = false
         /// Only files that have the same name, size or contents as another one found.
         var duplicates: Duplicates?
+        /// Also inside archives (by their names: zip, tar.gz, 7z…); not when looking
+        /// for duplicates.
+        var inArchives = false
+    }
+
+    /// A file or folder found: on disk, or inside the archive `url` at `entry`.
+    struct Found: Sendable, Hashable {
+        let url: URL
+        var entry: String?
+
+        /// "…/archive.zip/folder/file.txt" for an entry.
+        var path: String { entry.map { url.path + "/" + $0 } ?? url.path }
     }
 
     struct Duplicates: Sendable {
@@ -73,10 +85,10 @@ nonisolated final class FileSearch: Sendable {
     }
 
     struct State {
-        var found: [URL] = []
+        var found: [Found] = []
         /// Duplicates, when looked for: the files alike, in the order found; `found`
         /// has them all.
-        var groups: [[URL]] = []
+        var groups: [[Found]] = []
         var scannedCount = 0
         /// Files whose contents were read to compare them.
         var comparedCount = 0
@@ -86,6 +98,8 @@ nonisolated final class FileSearch: Sendable {
 
     /// Larger files are not searched for text.
     private static let textSearchLimit = 256 * 1024 * 1024
+    /// Larger files in archives are not searched for text (they are unpacked in memory).
+    private static let archivedTextSearchLimit = 64 * 1024 * 1024
 
     let query: Query
     private let nameRegex: NSRegularExpression?
@@ -156,19 +170,41 @@ nonisolated final class FileSearch: Sendable {
             let isRegular = info.st_mode & S_IFMT == S_IFREG
                 || (isLink && stat(url.path, &target) == 0 && target.st_mode & S_IFMT == S_IFREG)
             let file = isRegular ? (isLink ? target : info) : nil
-            if matchesName(name) && matches(name, info, file: file) && matchesText(url, isRegular: isRegular) {
+            if matches(Item(name: name, info, file: file)) && matchesText(url, isRegular: isRegular) {
                 if query.duplicates == nil {
-                    state.withLock { $0.found.append(url) }
+                    state.withLock { $0.found.append(Found(url: url)) }
                 } else if info.st_mode & S_IFMT == S_IFREG {
                     candidates.append(Candidate(url: url, name: name, size: Int64(info.st_size),
                                                 file: [UInt64(info.st_dev), info.st_ino], index: candidates.count))
                 }
             }
             state.withLock { $0.scannedCount += 1 }
+            if query.inArchives, query.duplicates == nil, info.st_mode & S_IFMT == S_IFREG, ArchiveReader.isArchive(name) {
+                searchArchive(url)
+            }
             if isFolder, query.depth.map({ level < $0 }) ?? true {
                 walk(url, level: level + 1, candidates: &candidates)
             }
         }
+    }
+
+    /// The entries of an archive, by the same conditions; the data of an entry is
+    /// unpacked only when the text is to be looked for in it. An archive that
+    /// cannot be read (damaged, encrypted) is passed over.
+    private func searchArchive(_ url: URL) {
+        try? ArchiveReader.scan(url, dataLimit: Self.archivedTextSearchLimit, wantsData: { entry in
+            text != nil && matches(Item(entry))
+        }, visit: { entry, data in
+            if isCancelled { return false }
+            let found = matches(Item(entry)) && (text.map { text in
+                !entry.isDirectory && data.map { text.matches($0) != query.notContaining } ?? false
+            } ?? true)
+            state.withLock {
+                if found { $0.found.append(Found(url: url, entry: entry.path)) }
+                $0.scannedCount += 1
+            }
+            return true
+        })
     }
 
     /// The beginning of files compared first: most different files differ there.
@@ -176,7 +212,7 @@ nonisolated final class FileSearch: Sendable {
 
     /// Groups of two or more files alike. Hard links to one file are that file
     /// once; empty files are not compared by size or contents.
-    private func duplicateGroups(_ candidates: [Candidate], _ options: Duplicates) -> [[URL]] {
+    private func duplicateGroups(_ candidates: [Candidate], _ options: Duplicates) -> [[Found]] {
         var seen = Set<[UInt64]>()
         var groups = [candidates.filter { seen.insert($0.file).inserted }]
         if options.sameName {
@@ -190,7 +226,7 @@ nonisolated final class FileSearch: Sendable {
             // Files alike as far as their beginning: the rest is compared for the bigger ones.
             groups = split(groups) { $0.size <= Self.headSize ? Data() : digest($0.url, limit: nil) }
         }
-        return groups.sorted { $0[0].index < $1[0].index }.map { $0.map(\.url) }
+        return groups.sorted { $0[0].index < $1[0].index }.map { $0.map { Found(url: $0.url) } }
     }
 
     /// Splits each group by `key` (nil: the file is left out), keeping the groups
@@ -226,6 +262,62 @@ nonisolated final class FileSearch: Sendable {
         return Data(hasher.finalize())
     }
 
+    /// What the conditions look at, of a file or folder on disk or in an archive.
+    private struct Item {
+        let name: String
+        let modified: Date
+        /// Of files only (a symbolic link: of its target).
+        let size: Int64?
+        let attributes: Set<Attribute>
+
+        /// `info`: the item itself (a symbolic link is not followed); `file`: the
+        /// regular file it is or points to.
+        init(name: String, _ info: stat, file: stat?) {
+            self.name = name
+            modified = Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)
+                + TimeInterval(info.st_mtimespec.tv_nsec) / 1_000_000_000)
+            size = file.map { Int64($0.st_size) }
+            attributes = Set(Attribute.allCases.filter { attribute in
+                switch attribute {
+                case .folder: info.st_mode & S_IFMT == S_IFDIR
+                case .hidden: name.hasPrefix(".") || info.st_flags & UInt32(UF_HIDDEN) != 0
+                case .locked: info.st_flags & UInt32(UF_IMMUTABLE) != 0
+                case .symbolicLink: info.st_mode & S_IFMT == S_IFLNK
+                case .executable: file.map { $0.st_mode & 0o111 != 0 } ?? false
+                }
+            })
+        }
+
+        /// An entry of an archive: never locked, hidden by its name only.
+        init(_ entry: ArchiveEntry) {
+            let name = (entry.path as NSString).lastPathComponent
+            self.name = name
+            modified = entry.modified
+            let isFile = !entry.isDirectory && !entry.isSymbolicLink
+            size = isFile ? entry.size : nil
+            attributes = Set(Attribute.allCases.filter { attribute in
+                switch attribute {
+                case .folder: entry.isDirectory
+                case .hidden: name.hasPrefix(".")
+                case .locked: false
+                case .symbolicLink: entry.isSymbolicLink
+                case .executable: isFile && entry.mode & 0o111 != 0
+                }
+            })
+        }
+    }
+
+    /// The name, date, size and attribute conditions.
+    private func matches(_ item: Item) -> Bool {
+        guard matchesName(item.name) else { return false }
+        if let after = query.modifiedAfter, item.modified < after { return false }
+        if let before = query.modifiedBefore, item.modified >= before { return false }
+        if let size = query.size {
+            guard let itemSize = item.size, size.matches(itemSize) else { return false }
+        }
+        return query.attributes.allSatisfy { attribute, required in item.attributes.contains(attribute) == required }
+    }
+
     private func matchesName(_ name: String) -> Bool {
         guard let nameRegex else { return FileMask.matches(name, query.masks) }
         return nameRegex.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil
@@ -238,29 +330,6 @@ nonisolated final class FileSearch: Sendable {
         guard isRegular, let data = try? Data(contentsOf: url, options: .alwaysMapped),
               data.count <= Self.textSearchLimit else { return false }
         return text.matches(data) != query.notContaining
-    }
-
-    /// The date, size and attribute conditions. `info` is the item itself (a
-    /// symbolic link is not followed), `file` the regular file it is or points to.
-    private func matches(_ name: String, _ info: stat, file: stat?) -> Bool {
-        let modified = Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)
-            + TimeInterval(info.st_mtimespec.tv_nsec) / 1_000_000_000)
-        if let after = query.modifiedAfter, modified < after { return false }
-        if let before = query.modifiedBefore, modified >= before { return false }
-        if let size = query.size {
-            guard let file, size.matches(Int64(file.st_size)) else { return false }
-        }
-        for (attribute, required) in query.attributes {
-            let has = switch attribute {
-            case .folder: info.st_mode & S_IFMT == S_IFDIR
-            case .hidden: name.hasPrefix(".") || info.st_flags & UInt32(UF_HIDDEN) != 0
-            case .locked: info.st_flags & UInt32(UF_IMMUTABLE) != 0
-            case .symbolicLink: info.st_mode & S_IFMT == S_IFLNK
-            case .executable: file.map { $0.st_mode & 0o111 != 0 } ?? false
-            }
-            if has != required { return false }
-        }
-        return true
     }
 }
 

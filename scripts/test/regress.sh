@@ -763,7 +763,8 @@ printf 'Привет, мир!\n' > $T/utf8.txt
 for e in CP1251:cp1251 KOI8-R:koi8 CP866:dos866; do printf 'Привет, мир!\n' | iconv -f UTF-8 -t ${e%%:*} > $T/${e#*:}.txt; done
 { printf '\xff\xfe'; printf 'Привет, мир!\n' | iconv -f UTF-8 -t UTF-16LE; } > $T/utf16.txt
 echo 'the cat sat' > $T/english.txt; echo 'concatenate' > $T/concat.txt; echo 'word42 here' > $T/words.txt
-cp $L/archive-test.zip $T/packed.zip
+# A zip of known contents (random bytes could hold the words looked for).
+printf 'zzzz' > $L/z.txt; (cd $L && zip -q texts/packed.zip z.txt)
 textfind() { run "$1" "alt+f7 wait set:findIn=$PWD/$T $2 click:Start_Search wait wait wait"; }
 textfound() { grep '^\[row\]' build/shots/reg-$1-win1.txt 2>/dev/null | sed 's|.*/texts/||' | tr '\n' ' '; }
 textfind tutf8 "set:findText=привет"
@@ -808,6 +809,25 @@ dupfind dupboth "set:findSameName=on"
 check "Find Files: duplicates by name and contents" "[ \"\$(dupfound dupboth)\" = '2 files, 100 KB each/a/photo.jpg/b/photo.jpg/' ]"
 dupfind dupnone "set:findSameContents=off"
 check "Find Files: duplicates need something in common" "grep -qx 'Choose what the duplicates have in common.' build/shots/reg-dupnone-win1.txt"
+
+# Find Files in archives: names and text inside zip and tar.gz (a damaged archive
+# is passed over); Go to File opens the archive at the entry.
+scripts/test/mkdata.sh
+A=$L/arch; mkdir -p $A; cp $L/archive-test.zip $L/bundle.tar.gz $A/; echo 'hello from disk' > $A/inside.txt
+head -c 3000 /dev/urandom > $A/broken.zip
+archfind() { run "$1" "alt+f7 wait set:findIn=$PWD/$A $2 click:Start_Search wait wait wait $3"; }
+archfound() { grep '^\[row\]' build/shots/reg-$1-win1.txt 2>/dev/null | sed 's|.*/arch/||' | tr '\n' ' '; }
+archfind aname "set:findMask=inside.txt set:findArchives=on"
+check "Find Files: names in archives" "[ \"\$(archfound aname)\" = 'archive-test.zip/alpha/inside.txt bundle.tar.gz/alpha/inside.txt inside.txt ' ]"
+archfind anoarch "set:findMask=inside.txt"
+check "Find Files: archives are not looked into unless asked" "[ \"\$(archfound anoarch)\" = 'inside.txt ' ]"
+archfind atext "set:findText=hello_from_alpha set:findArchives=on"
+# (The zip keeps so short a text unpacked: the zip itself has it too.)
+check "Find Files: a text in archives" "[ \"\$(archfound atext)\" = 'archive-test.zip archive-test.zip/alpha/inside.txt bundle.tar.gz/alpha/inside.txt ' ]"
+archfind afolder "set:findMask=deeper set:findArchives=on click:Advanced set:findAttr-folder=on"
+check "Find Files: a folder in an archive" "[ \"\$(archfound afolder)\" = 'archive-test.zip/beta/deep/deeper ' ]"
+archfind agoto "set:findMask=inside.txt set:findArchives=on" "click:Go_to_File wait wait wait"
+check "Find Files: Go to File opens the archive at the entry" "panels agoto | grep -q '^left\*: .*/arch/archive-test.zip/alpha | cursor: inside.txt'"
 
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
