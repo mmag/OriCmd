@@ -25,6 +25,7 @@ enum Command: String, CaseIterable {
     case properties = "cm_Properties"
     case compareFilesByContent = "cm_CompareFilesByContent"
     case createSymlink = "cm_CreateSymlink"
+    case commentFiles = "cm_CommentFiles"
     case crcCreate = "cm_CRCcreate"
     case crcCheck = "cm_CRCcheck"
     case internalAssociate = "cm_InternalAssociate"
@@ -129,6 +130,7 @@ enum Command: String, CaseIterable {
         case .properties: String(localized: "Get Info")
         case .compareFilesByContent: String(localized: "Compare by Content")
         case .createSymlink: String(localized: "Create Symbolic Link…")
+        case .commentFiles: String(localized: "Edit Comment…")
         case .crcCreate: String(localized: "Create Checksum File…")
         case .crcCheck: String(localized: "Verify Checksums")
         case .internalAssociate: String(localized: "Internal Associations…")
@@ -225,6 +227,7 @@ enum Command: String, CaseIterable {
         case .setAttrib: .cmd("i")
         case .properties: Shortcut("\r", [.option])
         case .createSymlink: .f(5, [.control, .shift])
+        case .commentFiles: .ctrl("z")
         case .packFiles: .f(5, .option)
         case .unpackFiles: .f(9, .option)
         case .testArchive: .f(9, [.option, .shift])

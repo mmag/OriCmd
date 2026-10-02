@@ -1027,6 +1027,16 @@ check "Compare: CRLF line breaks kept, lines removed" "cmp -s $L/w2.txt <(printf
 cprep; run cclose "$(compare 'c?.txt') click:Copy_to_Right_→ wait escape wait"
 check "Compare: closing with changes asks first" "grep -qx 'Save the changes?' build/shots/reg-cclose-win1-sheet.txt && grep -qx \"\\[button\\] Don't Save\" build/shots/reg-cclose-win1-sheet.txt && [ \"\$(cat $L/c2.txt)\" = \"\$(printf 'a\nB\nc')\" ]"
 
+# Ctrl+Z: a file's Finder comment written, shown again for editing, removed.
+scripts/test/mkdata.sh
+comment() { xattr -px com.apple.metadata:kMDItemFinderComment $1 2>/dev/null | xxd -r -p | plutil -p - 2>/dev/null | tr -d '"'; }
+run cmt "alt+r wait text:eadme escape ctrl+z wait text:my-note enter wait"
+check "Ctrl+Z: a Finder comment written" "[ \"\$(comment $L/readme.txt)\" = my-note ]"
+run cmtread "alt+r wait text:eadme escape ctrl+z wait"
+check "Ctrl+Z: the comment shown for editing" "grep -qx 'my-note' build/shots/reg-cmtread-sheet.txt"
+run cmtclear "alt+r wait text:eadme escape ctrl+z wait backspace enter wait"
+check "Ctrl+Z: an empty comment removes it" "[ -z \"\$(comment $L/readme.txt)\" ] && ! xattr $L/readme.txt | grep -q FinderComment"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

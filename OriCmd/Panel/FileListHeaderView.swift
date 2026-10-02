@@ -8,6 +8,7 @@ final class FileListHeaderView: NSView {
         .date: String(localized: "Date"), .attr: String(localized: "Attr"), .kind: String(localized: "Kind"),
         .created: String(localized: "Created"), .dimensions: String(localized: "Dimensions"),
         .duration: String(localized: "Duration"), .tags: String(localized: "Tags"),
+        .comment: String(localized: "Comment"),
     ]
 
     /// The columns after Name, and the column set they come from ("" the Default view).

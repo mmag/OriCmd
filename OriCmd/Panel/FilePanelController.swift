@@ -2513,6 +2513,28 @@ extension FilePanelController: NSMenuItemValidation {
         copyToClipboard(selectedItems.map { item in prefix.map { $0 + item.name } ?? item.url.path })
     }
 
+    /// Ctrl+Z: the Finder comment of the file under the cursor, changed (empty:
+    /// removed); the Comment column shows it.
+    @objc(cm_CommentFiles:)
+    func commentFiles(_ sender: Any?) {
+        guard archive == nil, remote == nil, let item = listView.currentItem, !item.isParent,
+              let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        Prompt.text(String(localized: "Comment"), message: String(localized: "The comment of \u{201C}\(item.name)\u{201D}:"),
+                    initial: FinderComment.read(item.url) ?? "", okTitle: String(localized: "OK"), in: window) {
+            [weak self] text in
+            do {
+                try FinderComment.write(text.trimmingCharacters(in: .whitespacesAndNewlines), to: item.url)
+                MetadataCache.shared.forget(item.url)
+                self?.listView.needsDisplay = true
+            } catch {
+                Prompt.error(String(localized: "Cannot change the comment"), error, in: window)
+            }
+        }
+    }
+
     /// The names (or full paths) with the size, the modification date and the
     /// permissions, tab-separated, one entry per line (a folder's size when calculated).
     @objc(cm_CopyDetailsToClip:)

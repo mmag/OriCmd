@@ -31,6 +31,7 @@ struct ColumnLayout {
             case .dimensions: (column, width("99999 × 99999"))
             case .duration: (column, width("99:59:59"))
             case .tags: (column, 110)
+            case .comment: (column, 160)
             case .name: (column, 0)
             }
         }

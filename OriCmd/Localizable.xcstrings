@@ -811,6 +811,16 @@
         }
       }
     },
+    "Cannot change the comment": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся изменить комментарий"
+          }
+        }
+      }
+    },
     "Cannot check for updates": {
       "localizations": {
         "ru": {
@@ -1447,6 +1457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Команды"
+          }
+        }
+      }
+    },
+    "Comment": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Комментарий"
           }
         }
       }
@@ -2307,6 +2327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Правка (F4):"
+          }
+        }
+      }
+    },
+    "Edit Comment…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить комментарий…"
           }
         }
       }
@@ -5977,6 +6007,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Цвет выделенных файлов и цвета файлов по маскам будут заменены."
+          }
+        }
+      }
+    },
+    "The comment of “%@”:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Комментарий к «%@»:"
           }
         }
       }

@@ -62,6 +62,15 @@ nonisolated final class MetadataCache: Sendable {
         Key(path: item.url.path, modified: item.modified, column: column)
     }
 
+    /// Forgets what was read about the file at `url` (its comment changed: the
+    /// modification date the values are kept by stays the same).
+    func forget(_ url: URL) {
+        let path = url.path
+        state.withLock { state in
+            state.values = state.values.filter { $0.key.path != path }
+        }
+    }
+
     /// The value, reading it now if it is not cached (used for sorting).
     func value(for item: FileItem, column: SortColumn) -> MetadataValue {
         let key = key(item, column)
@@ -133,8 +142,39 @@ nonisolated final class MetadataCache: Sendable {
                 ? String(format: "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60)
                 : String(format: "%d:%02d", total / 60, total % 60)
             return .number(seconds, display: display)
+        case .comment:
+            return FinderComment.read(url).map(MetadataValue.text) ?? .none
         default:
             return .none
         }
+    }
+}
+
+/// The Finder comment kept with a file (Get Info's Comments, found by Spotlight):
+/// a property list string in an extended attribute.
+nonisolated enum FinderComment {
+    private static let attribute = "com.apple.metadata:kMDItemFinderComment"
+
+    static func read(_ url: URL) -> String? {
+        let size = getxattr(url.path, attribute, nil, 0, 0, XATTR_NOFOLLOW)
+        guard size > 0 else { return nil }
+        var data = Data(count: size)
+        let read = data.withUnsafeMutableBytes { getxattr(url.path, attribute, $0.baseAddress, size, 0, XATTR_NOFOLLOW) }
+        guard read == size else { return nil }
+        let value = try? PropertyListSerialization.propertyList(from: data, format: nil)
+        return (value as? String).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// Sets the comment (empty: removes it).
+    static func write(_ comment: String, to url: URL) throws {
+        let result: Int32
+        if comment.isEmpty {
+            result = removexattr(url.path, attribute, XATTR_NOFOLLOW)
+            if result != 0 && errno == ENOATTR { return }
+        } else {
+            let data = try PropertyListSerialization.data(fromPropertyList: comment, format: .binary, options: 0)
+            result = data.withUnsafeBytes { setxattr(url.path, attribute, $0.baseAddress, data.count, 0, XATTR_NOFOLLOW) }
+        }
+        guard result == 0 else { throw TransferError.posix(url.path) }
     }
 }

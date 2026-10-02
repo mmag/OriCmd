@@ -3,17 +3,17 @@ import Foundation
 nonisolated enum SortColumn: String, CaseIterable, Sendable {
     case name, ext, size, date, attr
     // Optional columns from file metadata (Show → header context menu).
-    case kind, created, dimensions, duration, tags
+    case kind, created, dimensions, duration, tags, comment
 
     /// Sorting by it reads every file's metadata (Spotlight, image headers).
     var needsMetadata: Bool {
         switch self {
-        case .kind, .created, .dimensions, .duration, .tags: true
+        case .kind, .created, .dimensions, .duration, .tags, .comment: true
         default: false
         }
     }
 
-    static let extras: [SortColumn] = [.kind, .created, .dimensions, .duration, .tags]
+    static let extras: [SortColumn] = [.kind, .created, .dimensions, .duration, .tags, .comment]
     /// The columns after Name, in the order Full view shows them.
     static let optional: [SortColumn] = [.ext, .size, .date] + extras + [.attr]
 }
@@ -52,7 +52,7 @@ nonisolated struct SortOrder: Equatable, Sendable {
             return a.modified == b.modified ? .orderedSame : (a.modified < b.modified ? .orderedAscending : .orderedDescending)
         case .attr:
             return a.permissions.compare(b.permissions)
-        case .kind, .created, .dimensions, .duration, .tags:
+        case .kind, .created, .dimensions, .duration, .tags, .comment:
             let first = MetadataCache.shared.value(for: a, column: column)
             let second = MetadataCache.shared.value(for: b, column: column)
             return first.compare(second)

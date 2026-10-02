@@ -128,7 +128,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `Alt+F7` (`⌘F`) | Find files by name, text, date, size and attributes, duplicates too (see [Find Files](#find-files-altf7)); "Feed to Panel" shows the results as a list in the panel, where all commands work on them, `[..]` returns to the search folder |
 | `Ctrl+F1` / `Ctrl+F2` (`⌘1` / `⌘2`) | Brief / Full view |
 | `Ctrl+Shift+F1` (`⌘4`) | Thumbnails (Quick Look previews) |
-| Right-click on the column headers | The columns of the set shown: Ext, Size, Date, Attr and the optional ones — kind, date created, picture dimensions, duration, Finder tags (sortable like the others) |
+| Right-click on the column headers | The columns of the set shown: Ext, Size, Date, Attr and the optional ones — kind, date created, picture dimensions, duration, Finder tags, Finder comment (sortable like the others) |
 | Show → Columns | Column sets: the Default columns or a set of your own for the panel; Column Sets… makes them, and a set can be used by itself in folders matching masks (`~/Pictures*;*/Photos`) |
 | `Ctrl+F8` (`⌘3`) | Directory tree; the other panel shows the chosen folder |
 | Show → Separate Tree | A folder tree left of both panels: a folder chosen there opens in the active panel, and the tree follows the active panel |
@@ -183,6 +183,7 @@ shortcuts in parentheses.
 | `Shift+F8`, `Shift+Del`, `Shift+⌫`, `⇧⌘⌫`, `⌥⌘⌫` | Delete permanently, past the Trash (in the context menu, Delete becomes Delete Permanently while Shift is held) |
 | `Ctrl+Shift+F5` | Create a symbolic link (in the other panel by default) |
 | Files → Compare by Content | Two marked files, or the files under the cursors of both panels. The compare window aligns the lines: changed ones are yellow (with the differing part highlighted), removed ones red, added ones green; `N`/`P` (`⌥↓`/`⌥↑`) — next/previous difference, "Ignore whitespace"; text files can be edited: "Copy to Right →" / "← Copy to Left" puts a difference on the other side, "Edit Line…" (or a double click) changes both lines of a row, `⌘S` saves in the file's own encoding and line breaks (closing with changes asks first); binary files are compared byte by byte in hex |
+| `Ctrl+Z` | Edit the Finder comment of the file under the cursor (kept with the file, found by Spotlight); the Comment column shows it |
 | `⌘I` | Change attributes: rwx permissions, hidden, locked, modification date (also recursively) |
 | `Alt+Enter` (`⌥↩`) | Get Info: the Finder's info windows of the selected files (of the folder shown on `[..]`) |
 | `Ctrl+Q` | Quick View in the other panel |
