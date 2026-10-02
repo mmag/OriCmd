@@ -1136,6 +1136,14 @@ for e in b64 uue xxe; do
   check "Decode: $e back to the file" "cmp -s $R/blob.dat $L/orig.dat"
 done
 
+# Import wincmd.ini: keys, colors (a filter by mask, marked files, the cursor) and
+# the hotlist folders of this Mac; an unknown command, a filter by search template
+# and a Windows path are skipped.
+scripts/test/mkdata.sh
+printf '[Shortcuts]\nCS+F5=cm_CopyNamesToClip\nA+X=cm_NoSuchCommand\n[Colors]\nMarkColor=255\nCursorColor=16711680\nColorFilter1=*.zip;*.rar\nColorFilter1Color=32768\nColorFilter2=>Archives\nColorFilter2Color=255\n[DirMenu]\nmenu1=Test\ncmd1=cd %s\nmenu2=Windows\ncmd2=cd C:\\Windows\n' "$PWD/$L/alpha" > $L/wincmd.ini
+run tcimport "keybindings wait file:$PWD/$L/wincmd.ini click:Import_wincmd.ini… wait"
+check "wincmd.ini: keys, colors and hotlist folders taken over" "grep -qx 'Imported 1 keys, 3 colors, 1 hotlist folders; skipped 3' build/shots/reg-tcimport-win1.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

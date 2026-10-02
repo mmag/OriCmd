@@ -130,18 +130,30 @@ final class KeyBindingsWindowController: NSWindowController {
     @objc private func importIni(_ sender: Any?) {
         guard let window else { return }
         let panel = NSOpenPanel()
-        panel.message = String(localized: "Choose Total Commander's wincmd.ini")
+        panel.message = String(localized: "Choose Total Commander's wincmd.ini: its keys, colors and hotlist folders are taken over")
         panel.allowedContentTypes = [UTType(filenameExtension: "ini") ?? .plainText]
+        #if DEBUG
+        if let path = DebugAutomation.takeChosenFile() {
+            importSettings(from: URL(filePath: path))
+            return
+        }
+        #endif
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .OK, let url = panel.url else { return }
-            do {
-                let result = try KeyBindings.importTotalCommanderShortcuts(from: url)
-                statusLabel.stringValue = String(localized:
-                    "Imported \(result.imported) keys, skipped \(result.skipped.count)")
-                reload()
-            } catch {
-                Prompt.error(String(localized: "Cannot read \u{201C}\(url.lastPathComponent)\u{201D}"), error, in: window)
-            }
+            importSettings(from: url)
+        }
+    }
+
+    private func importSettings(from url: URL) {
+        guard let window else { return }
+        do {
+            // The colors and the hotlist come along with the keys.
+            let result = try TotalCommanderImport.importSettings(from: url)
+            statusLabel.stringValue = String(localized:
+                "Imported \(result.keys) keys, \(result.fileColors + result.panelColors) colors, \(result.folders) hotlist folders; skipped \(result.skipped)")
+            reload()
+        } catch {
+            Prompt.error(String(localized: "Cannot read \u{201C}\(url.lastPathComponent)\u{201D}"), error, in: window)
         }
     }
 }

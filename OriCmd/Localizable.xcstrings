@@ -1311,6 +1311,16 @@
         }
       }
     },
+    "Choose Total Commander's wincmd.ini: its keys, colors and hotlist folders are taken over": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите wincmd.ini от Total Commander: из него переносятся клавиши, цвета и папки избранного"
+          }
+        }
+      }
+    },
     "Choose the first piece (a name ending in .001) or the .crc file.": {
       "localizations": {
         "ru": {
@@ -3407,6 +3417,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Импорт wincmd.ini…"
+          }
+        }
+      }
+    },
+    "Imported %lld keys, %lld colors, %lld hotlist folders; skipped %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенесено клавиш: %lld, цветов: %lld, папок избранного: %lld; пропущено: %lld"
           }
         }
       }

@@ -454,7 +454,9 @@ those stripes away again (not ones you turned on yourself).
 Settings → Keyboard → Keyboard Shortcuts…: any `cm_*` command can get its own
 shortcut (double-click a row and press the keys). The "Import wincmd.ini…"
 button takes the assignments from the `[Shortcuts]` section of a `wincmd.ini`
-file — they are added to the standard keys.
+file — they are added to the standard keys — and also the colors (`[Colors]`: file
+colors by mask, marked files, the cursor) and the hotlist entries whose folders exist
+on this Mac (`[DirMenu]`, `cd /path` or `cd ~/path`).
 
 ## Start menu
 
