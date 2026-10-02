@@ -221,6 +221,16 @@
         }
       }
     },
+    "%lld servers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "серверов: %lld"
+          }
+        }
+      }
+    },
     "%lld → , %lld ← , %lld ≠ , %lld files compared; %@ to copy": {
       "localizations": {
         "ru": {
@@ -1761,6 +1771,16 @@
         }
       }
     },
+    "Connect…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключиться…"
+          }
+        }
+      }
+    },
     "Contents": {
       "localizations": {
         "ru": {
@@ -3071,6 +3091,16 @@
         }
       }
     },
+    "Finding the address of “%@”…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск адреса «%@»…"
+          }
+        }
+      }
+    },
     "First Letter Of Each Word": {
       "localizations": {
         "ru": {
@@ -3797,6 +3827,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Защищённый"
+          }
+        }
+      }
+    },
+    "Looking for servers…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск серверов…"
           }
         }
       }
@@ -5837,6 +5877,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Адрес сервера (smb://, afp://, nfs://, https:// для WebDAV):"
+          }
+        }
+      }
+    },
+    "Servers on the Network": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серверы в сети"
+          }
+        }
+      }
+    },
+    "Servers on the Network…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серверы в сети…"
           }
         }
       }
@@ -8035,6 +8095,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» как текст для почты:"
+          }
+        }
+      }
+    },
+    "“%@” does not answer.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» не отвечает."
           }
         }
       }

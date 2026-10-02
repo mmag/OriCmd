@@ -1370,11 +1370,23 @@ extension MainViewController: NSMenuItemValidation {
     /// ⌘K: connects to a server (SFTP, FTP) or mounts a network share, and shows it in
     /// the active panel. The recent servers are listed under the address.
     @objc func connectToServer(_ sender: Any?) {
+        askToConnect(initial: AppDefaults.store.string(forKey: "LastServerAddress") ?? "smb://")
+    }
+
+    /// Net → Servers on the Network…: a server found through Bonjour, its address
+    /// put into Connect to Server (where a user name can be added).
+    @objc func browseNetwork(_ sender: Any?) {
+        NetworkBrowserWindowController.show { [weak self] address in
+            self?.view.window?.makeKeyAndOrderFront(nil)
+            self?.askToConnect(initial: address)
+        }
+    }
+
+    private func askToConnect(initial: String) {
         guard let window = view.window else { return }
-        let key = "LastServerAddress"
         ServerAddressSheet.show(String(localized: "Connect to Server"),
                                 message: String(localized: "Server address (sftp://, ftp://, ftps://, smb://, afp://, nfs://, https:// for WebDAV):"),
-                                initial: AppDefaults.store.string(forKey: key) ?? "smb://",
+                                initial: initial,
                                 recent: Self.recentServers,
                                 okTitle: String(localized: "Connect"), in: window,
                                 onRemove: { address in Self.recentServers.removeAll { $0 == address } }) { [weak self] address in

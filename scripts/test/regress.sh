@@ -1170,6 +1170,17 @@ run dl404 "tab wait menuitem:Download_from_URL… wait set:downloadURLs=http://1
 check "Download from URL: a missing file is said so" "grep -q '404' build/shots/reg-dl404-sheet.txt && [ ! -e $R/nothing.txt ] && [ -z \"\$(print -l $R/.oricmd-*.part(N))\" ]"
 kill $httpd
 
+# Net → Servers on the Network: a Bonjour service (registered here with dns-sd) is
+# listed, and choosing it fills Connect to Server with its host name and port.
+dns-sd -R "OriTest FTP" _ftp._tcp local 2121 >/dev/null 2>&1 &
+dnssd=$!
+sleep 1
+run netlist "menuitem:Servers_on_the_Network… wait wait wait"
+check "Servers on the Network: a Bonjour service listed" "grep -qx '\[row\] OriTest FTP | FTP' build/shots/reg-netlist-win1.txt"
+run netconnect "menuitem:Servers_on_the_Network… wait wait wait set:networkServers=OriTest_FTP click:Connect… wait wait wait"
+check "Servers on the Network: its address put in Connect to Server" "grep -qx \"ftp://\$(scutil --get LocalHostName).local:2121/\" build/shots/reg-netconnect-sheet.txt"
+kill $dnssd
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.
