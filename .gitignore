@@ -12,3 +12,6 @@ xcuserdata/
 # SwiftPM
 .build/
 .swiftpm/
+
+# Python
+__pycache__/
