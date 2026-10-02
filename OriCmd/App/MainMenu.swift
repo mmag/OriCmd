@@ -16,7 +16,7 @@ enum MainMenu {
             [.setAttrib, .properties, .createSymlink, .createHardLink, .commentFiles, .compareFilesByContent],
             [.packFiles, .unpackFiles, .testArchive],
             [.crcCreate, .crcCheck],
-            [.fileSpliter, .fileCombine],
+            [.fileSpliter, .fileCombine, .uuEncode, .uuDecode],
             [.printDir, .printDirSub, .printFile],
             [.internalAssociate],
         ])))

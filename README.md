@@ -205,6 +205,7 @@ shortcuts in parentheses.
 | `Alt+Shift+F9` | Test the selected archives (or the one shown): they are read through, their checksums checked, and the damaged files named |
 | Files → Create Checksum File… | MD5 / SHA-1 / SHA-256 / SHA-512 for the selection (`shasum`/`md5sum` format) |
 | Files → Print File List… / with Subfolders… / Print File… | The entries shown (or marked) with sizes and dates, the files inside the folders too, or the text of the file under the cursor; `⌘P` in the Lister prints what it shows |
+| Files → Encode File… / Decode File… | A file as text for mail — MIME (Base64, with headers), UUE or XXE — and such a text back to the file it holds, under its name |
 | Files → Split File… / Combine Files… | A file cut into pieces of a size chosen (`name.001`, `name.002`… and `name.crc` with its name, size and CRC32, as Total Commander makes them); the pieces put together again from `name.001` or `name.crc`, checked against the .crc file |
 | Files → Verify Checksums | Check the `.md5`/`.sha1`/`.sha256`/`.sha512` file under the cursor |
 

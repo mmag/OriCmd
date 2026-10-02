@@ -931,6 +931,16 @@
         }
       }
     },
+    "Cannot decode “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся декодировать «%@»"
+          }
+        }
+      }
+    },
     "Cannot delete": {
       "localizations": {
         "ru": {
@@ -947,6 +957,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся извлечь «%@»"
+          }
+        }
+      }
+    },
+    "Cannot encode “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся закодировать «%@»"
           }
         }
       }
@@ -2141,6 +2161,36 @@
         }
       }
     },
+    "Decode": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Декодировать"
+          }
+        }
+      }
+    },
+    "Decode File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Декодировать файл"
+          }
+        }
+      }
+    },
+    "Decode File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Декодировать файл…"
+          }
+        }
+      }
+    },
     "Default": {
       "localizations": {
         "ru": {
@@ -2557,6 +2607,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Извлечь «%@»"
+          }
+        }
+      }
+    },
+    "Encode": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закодировать"
+          }
+        }
+      }
+    },
+    "Encode File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закодировать файл"
+          }
+        }
+      }
+    },
+    "Encode File (MIME, UUE, XXE)…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закодировать файл (MIME, UUE, XXE)…"
           }
         }
       }
@@ -3031,6 +3111,16 @@
         }
       }
     },
+    "Format:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Формат:"
+          }
+        }
+      }
+    },
     "Forward": {
       "localizations": {
         "ru": {
@@ -3407,6 +3497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Инвертировать выделение  (*)"
+          }
+        }
+      }
+    },
+    "It holds no MIME (Base64), UUE or XXE encoded file.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В нём нет файла, закодированного в MIME (Base64), UUE или XXE."
           }
         }
       }
@@ -4817,6 +4917,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Собрать части «%@» в:"
+          }
+        }
+      }
+    },
+    "Put “%@” in:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поместить «%@» в:"
           }
         }
       }
@@ -7855,6 +7965,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» уже существует."
+          }
+        }
+      }
+    },
+    "“%@” as text for mail:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» как текст для почты:"
           }
         }
       }

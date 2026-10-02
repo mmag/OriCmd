@@ -1123,6 +1123,89 @@ extension MainViewController: NSMenuItemValidation {
         }
     }
 
+    /// Files → Encode File (cm_UUEncode): the file under the cursor as text for
+    /// mail — MIME, UUE or XXE — by default in the other panel.
+    @objc(cm_UUEncode:)
+    func uuEncode(_ sender: Any?) {
+        guard let item = activePanel.listView.currentItem, !item.isParent, !item.isDirectory,
+              activePanel.archive == nil, activePanel.remote == nil, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        let folderField = NSTextField(string: Self.folderText(inactivePanel.archive == nil && inactivePanel.remote == nil
+            ? inactivePanel.directory : activePanel.directory))
+        folderField.widthAnchor.constraint(equalToConstant: 380).isActive = true
+        let formatPopup = NSPopUpButton()
+        formatPopup.addItems(withTitles: MailEncoding.allCases.map(\.title))
+        formatPopup.selectItem(at: AppDefaults.store.integer(forKey: "EncodeFormat"))
+        folderField.identifier = NSUserInterfaceItemIdentifier("encodeFolder")
+        formatPopup.identifier = NSUserInterfaceItemIdentifier("encodeFormat")
+        let grid = NSGridView(views: [[NSTextField(labelWithString: String(localized: "Into:")), folderField],
+                                      [NSTextField(labelWithString: String(localized: "Format:")), formatPopup]])
+        grid.rowSpacing = 6
+        grid.column(at: 0).xPlacement = .trailing
+        grid.frame = NSRect(origin: .zero, size: grid.fittingSize)
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Encode File")
+        alert.informativeText = String(localized: "\u{201C}\(item.name)\u{201D} as text for mail:")
+        alert.accessoryView = grid
+        alert.addButton(withTitle: String(localized: "Encode"))
+        alert.addCancelButton()
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            let format = MailEncoding(rawValue: formatPopup.indexOfSelectedItem) ?? .mime
+            AppDefaults.store.set(format.rawValue, forKey: "EncodeFormat")
+            let folder = Self.resolveFolder(folderField.stringValue, base: activePanel.directory)
+            let target = folder.appending(path: (item.name as NSString).deletingPathExtension + "." + format.fileExtension)
+            confirmOverwriting([target.lastPathComponent], in: folder) { [self] in
+                do {
+                    let data = try Data(contentsOf: item.url)
+                    try format.encode(data, name: item.name).write(to: target, atomically: true, encoding: .utf8)
+                } catch {
+                    Prompt.error(String(localized: "Cannot encode \u{201C}\(item.name)\u{201D}"), error, in: window)
+                }
+                leftPanel.reread()
+                rightPanel.reread()
+            }
+        }
+    }
+
+    /// Files → Decode File (cm_UUDecode): the file a MIME, UUE or XXE text holds,
+    /// under the name it gives, by default in the other panel.
+    @objc(cm_UUDecode:)
+    func uuDecode(_ sender: Any?) {
+        guard let item = activePanel.listView.currentItem, !item.isParent, !item.isDirectory,
+              activePanel.archive == nil, activePanel.remote == nil, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        guard let text = (try? String(contentsOf: item.url, encoding: .utf8))
+                ?? (try? String(contentsOf: item.url, encoding: .isoLatin1)),
+              let decoded = MailEncoding.decode(text) else {
+            Prompt.info(String(localized: "Cannot decode \u{201C}\(item.name)\u{201D}"),
+                        message: String(localized: "It holds no MIME (Base64), UUE or XXE encoded file."), in: window)
+            return
+        }
+        let name = decoded.name.flatMap { $0.isEmpty || $0.contains("/") ? nil : $0 }
+            ?? (item.name as NSString).deletingPathExtension
+        Prompt.text(String(localized: "Decode File"), message: String(localized: "Put \u{201C}\(name)\u{201D} in:"),
+                    initial: Self.folderText(inactivePanel.archive == nil && inactivePanel.remote == nil
+                        ? inactivePanel.directory : activePanel.directory),
+                    okTitle: String(localized: "Decode"), in: window) { [weak self] text in
+            guard let self, !text.isEmpty else { return }
+            let folder = Self.resolveFolder(text, base: activePanel.directory)
+            confirmOverwriting([name], in: folder) { [self] in
+                do {
+                    try decoded.data.write(to: folder.appending(path: name), options: .atomic)
+                } catch {
+                    Prompt.error(String(localized: "Cannot decode \u{201C}\(item.name)\u{201D}"), error, in: window)
+                }
+                leftPanel.reread()
+                rightPanel.reread()
+            }
+        }
+    }
+
     /// Files → Combine Files… (cm_FileCombine): the pieces of the one under the
     /// cursor (`name.001`, or `name.crc`) put together, by default in the other panel.
     @objc(cm_FileCombine:)

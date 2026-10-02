@@ -1121,6 +1121,21 @@ check "Print File: a text in its encoding" "printed pfile | grep -q 'Приве�
 run plister "alt+f wait text:ind escape f3 wait wait cmd+p wait"
 check "Lister: ⌘P prints what is shown" "printed plister | grep -qx 'alpha word42 beta'"
 
+# Encode File / Decode File: MIME (Python's base64 reads it), UUE (binascii reads
+# it), XXE; each decoded back to the same file under the name it gives.
+scripts/test/mkdata.sh
+head -c 3000 /dev/urandom > $L/blob.dat; cp $L/blob.dat $L/orig.dat
+for f in 'MIME_(Base64):b64' 'UUE:uue' 'XXE:xxe'; do
+  run enc${f#*:} "alt+b wait text:lob escape cmd:cm_UUEncode wait set:encodeFormat=${f%%:*} enter wait"
+done
+check "Encode: MIME as base64 with headers" "python3 -c \"import base64,sys; b=open('$R/blob.b64','rb').read().split(b'\\r\\n\\r\\n',1); sys.exit(0 if b'filename=\\\"blob.dat\\\"' in b[0] and base64.b64decode(b[1])==open('$L/blob.dat','rb').read() else 1)\""
+check "Encode: UUE" "python3 -c \"import binascii,sys; u=open('$R/blob.uue').read().splitlines(); sys.exit(0 if u[0]=='begin 644 blob.dat' and b''.join(binascii.a2b_uu(l) for l in u[1:] if l not in ('end','\\x60'))==open('$L/blob.dat','rb').read() else 1)\""
+rm $L/blob.dat; for e in b64 uue xxe; do cp $R/blob.$e $L/in.$e; done
+for e in b64 uue xxe; do
+  rm -f $R/blob.dat; run dec$e "alt+i wait text:n.$e escape cmd:cm_UUDecode wait enter wait"
+  check "Decode: $e back to the file" "cmp -s $R/blob.dat $L/orig.dat"
+done
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.
