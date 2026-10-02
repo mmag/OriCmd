@@ -12,7 +12,9 @@ import WebKit
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
 ///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
-///   does: a placeholder written only when read through file coordination), `click:Button_Title`,
+///   does: a placeholder written only when read through file coordination), `click:Button_Title` (also a tab of a tab view),
+///   `set:identifier=value` (a control by its identifier: text, a pop-up item's title, `on`/`off`/`mixed`, a
+///   date as `2026-01-31`; `_` stands for a space),
 ///   `dropapp:/path/App.app` (onto the toolbar), `clickapp:App_Name`, `rightclickapp:App_Name|Menu_Item`.
 ///   Only played when both panel directories are given, so a test run never touches real files.
 /// - `ORICMD_SNAPSHOT`: PNG path; the window (and an open sheet, as
@@ -263,7 +265,32 @@ enum DebugAutomation {
                         if let button = view as? NSButton, button.title == title { return button }
                         return view.subviews.lazy.compactMap(find).first
                     }
-                    find(topmost(window).contentView)?.performClick(nil)
+                    if let button = find(topmost(window).contentView) {
+                        button.performClick(nil)
+                    } else if let tabs = views(in: topmost(window).contentView).compactMap({ $0 as? NSTabView }).first(where: {
+                        $0.tabViewItems.contains { $0.label == title }
+                    }) {
+                        tabs.selectTabViewItem(tabs.tabViewItems.first { $0.label == title })
+                    }
+                } else if token.hasPrefix("set:"), let equals = token.firstIndex(of: "=") {
+                    // `set:identifier=value`: a control of the topmost window set as by the
+                    // user, its action sent.
+                    let name = String(token[token.index(token.startIndex, offsetBy: 4)..<equals])
+                    let value = String(token[token.index(after: equals)...]).replacingOccurrences(of: "_", with: " ")
+                    guard let control = views(in: topmost(window).contentView)
+                        .first(where: { $0.identifier?.rawValue == name }) as? NSControl else { continue }
+                    switch control {
+                    case let popup as NSPopUpButton: popup.selectItem(withTitle: value)
+                    case let box as NSButton: box.state = value == "on" ? .on : value == "mixed" ? .mixed : .off
+                    case let picker as NSDatePicker:
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "yyyy-MM-dd"
+                        if let date = formatter.date(from: value) { picker.dateValue = date }
+                    default: control.stringValue = value
+                    }
+                    if let action = control.action {
+                        NSApp.sendAction(action, to: control.target, from: control)
+                    }
                 } else if token.hasPrefix("cmd:") {
                     perform(Selector(String(token.dropFirst(4)) + ":"), in: window)
                 } else if token.hasPrefix("text:") {
@@ -358,11 +385,28 @@ enum DebugAutomation {
         }
     }
 
-    /// Writes the texts `window` shows (its title, labels, fields, text views), one per line.
+    /// `view` and everything inside it, the views of a tab view's hidden tabs too.
+    private static func views(in view: NSView?) -> [NSView] {
+        guard let view else { return [] }
+        let hidden = (view as? NSTabView)?.tabViewItems.filter { $0 !== ($0.tabView?.selectedTabViewItem) }
+            .compactMap(\.view) ?? []
+        return [view] + (view.subviews + hidden).flatMap(views(in:))
+    }
+
+    /// Writes the texts `window` shows (its title, labels, fields, text views, the
+    /// rows of a table drawn by cells), one per line.
     private static func saveTexts(of window: NSWindow, to path: String) {
         func texts(in view: NSView) -> [String] {
             var result: [String] = []
             if let field = view as? NSTextField, !field.stringValue.isEmpty { result.append(field.stringValue) }
+            if let table = view as? NSTableView, let source = table.dataSource,
+               !(table.delegate?.responds(to: #selector(NSTableViewDelegate.tableView(_:viewFor:row:))) ?? false) {
+                result += (0..<(source.numberOfRows?(in: table) ?? 0)).map { row in
+                    "[row] " + table.tableColumns.map { column in
+                        source.tableView?(table, objectValueFor: column, row: row).map { "\($0)" } ?? ""
+                    }.joined(separator: " | ")
+                }
+            }
             if let pages = view as? DjVuPagesView { result.append("[pages drawn: \(pages.drawnCount)]") }
             if let model = view as? ModelView { result.append("[model: \(model.triangleCount) triangles]") }
             if let text = view as? NSTextView, !text.string.isEmpty {

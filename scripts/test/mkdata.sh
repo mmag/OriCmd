@@ -1,6 +1,8 @@
 #!/bin/zsh
 # Recreates build/testdata (the only place automated test runs may touch).
 cd "$(dirname $0)/../.."
+# A test may leave a locked file behind (it would stop rm).
+[ -d build/testdata ] && chflags -R nouchg build/testdata
 rm -rf build/testdata
 mkdir -p build/testdata/left/{alpha,beta,gamma.app/Contents} build/testdata/right
 cd build/testdata/left

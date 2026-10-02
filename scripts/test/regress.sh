@@ -720,6 +720,41 @@ check "a middle click closes another tab" "panels tabmiddle | grep -q '^left\*: 
 run tabmiddlecurrent "cmd+t wait alt+a wait text:lpha enter wait tabmiddleclick:1 wait wait"
 check "a middle click closes the current tab" "panels tabmiddlecurrent | grep -q '^left\*: .*/left |.*tabs: left$'"
 
+# Find Files, Advanced: the date (between, not older than), the size, attributes
+# (tri-state), the subfolder levels.
+scripts/test/mkdata.sh
+mkdir -p $L/found/sub/deeper $L/found/folder.dat
+head -c 5000 /dev/zero > $L/found/small.dat; head -c 4000000 /dev/zero > $L/found/big.dat
+head -c 2500000 /dev/zero > $L/found/sub/deeper/deep.dat; touch $L/found/.hidden.dat
+head -c 100 /dev/zero > $L/found/old.dat; touch -t 202001150000 $L/found/old.dat
+printf '#!/bin/sh\n' > $L/found/run.dat; chmod +x $L/found/run.dat; ln -s big.dat $L/found/link.dat
+head -c 10 /dev/zero > $L/found/sub/locked.dat; chflags uchg $L/found/sub/locked.dat
+findfiles() { run "$1" "alt+f7 wait set:findMask=*.dat set:findIn=$PWD/$L/found $2 click:Start_Search wait wait wait"; }
+found() { grep '^\[row\]' build/shots/reg-$1-win1.txt 2>/dev/null | sed 's|.*/found/||' | tr '\n' ' '; }
+findfiles fsize "click:Advanced set:findSizeOn=on set:findSizeOp=> set:findSize=2 set:findSizeUnit=MB"
+check "Find Files: size > 2 MB (a link to a big file too)" "[ \"\$(found fsize)\" = 'big.dat link.dat sub/deeper/deep.dat ' ]"
+findfiles fsizeeq "click:Advanced set:findSizeOn=on set:findSizeOp== set:findSize=2 set:findSizeUnit=MB"
+check "Find Files: size = 2 MB takes 2 to 3 MB" "[ \"\$(found fsizeeq)\" = 'sub/deeper/deep.dat ' ]"
+findfiles fdate "click:Advanced set:findBetween=on set:findFrom=2020-01-01 set:findTo=2020-02-01"
+check "Find Files: date between" "[ \"\$(found fdate)\" = 'old.dat ' ]"
+findfiles fage "click:Advanced set:findOlder=on set:findAge=1 set:findAgeUnit=days"
+check "Find Files: not older than a day" "found fage | grep -q 'big.dat' && ! found fage | grep -q 'old.dat'"
+findfiles fexec "click:Advanced set:findAttr-executable=on"
+check "Find Files: executable" "[ \"\$(found fexec)\" = 'run.dat ' ]"
+findfiles flocked "click:Advanced set:findAttr-locked=on"
+check "Find Files: locked" "[ \"\$(found flocked)\" = 'sub/locked.dat ' ]"
+findfiles flink "click:Advanced set:findAttr-symbolicLink=on"
+check "Find Files: symbolic link" "[ \"\$(found flink)\" = 'link.dat ' ]"
+findfiles fnot "click:Advanced set:findAttr-folder=off set:findAttr-hidden=off"
+check "Find Files: neither a folder nor hidden" "[ \"\$(found fnot)\" = 'big.dat link.dat old.dat run.dat small.dat sub/deeper/deep.dat sub/locked.dat ' ]"
+findfiles fdepth0 "set:findDepth=None"
+check "Find Files: no subfolders" "! found fdepth0 | grep -q sub/"
+findfiles fdepth1 "set:findDepth=1"
+check "Find Files: one level of subfolders" "found fdepth1 | grep -q 'sub/locked.dat' && ! found fdepth1 | grep -q deeper"
+findfiles fbadsize "click:Advanced set:findSizeOn=on set:findSize=lots"
+check "Find Files: a wrong number is not searched with" "grep -qx 'Enter a whole number.' build/shots/reg-fbadsize-win1.txt && [ -z \"\$(found fbadsize)\" ]"
+chflags nouchg $L/found/sub/locked.dat
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

@@ -231,6 +231,16 @@
         }
       }
     },
+    "A check mark: has it; empty: does not have it; a dash: any.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Галочка — есть, пусто — нет, черта — неважно."
+          }
+        }
+      }
+    },
     "A file named “%@” already exists": {
       "localizations": {
         "ru": {
@@ -351,6 +361,26 @@
         }
       }
     },
+    "Advanced": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнительно"
+          }
+        }
+      }
+    },
+    "Advanced (in use)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнительно (задано)"
+          }
+        }
+      }
+    },
     "Advanced options": {
       "localizations": {
         "ru": {
@@ -367,6 +397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Алгоритм контрольных сумм:"
+          }
+        }
+      }
+    },
+    "All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все"
           }
         }
       }
@@ -497,6 +537,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Атрибуты"
+          }
+        }
+      }
+    },
+    "Attributes:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Атрибуты:"
           }
         }
       }
@@ -1621,6 +1671,16 @@
         }
       }
     },
+    "Date between:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дата между:"
+          }
+        }
+      }
+    },
     "Default": {
       "localizations": {
         "ru": {
@@ -1971,6 +2031,16 @@
         }
       }
     },
+    "Enter a whole number.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите целое число."
+          }
+        }
+      }
+    },
     "Entries with the same names will be replaced.": {
       "localizations": {
         "ru": {
@@ -1997,6 +2067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Примеры"
+          }
+        }
+      }
+    },
+    "Executable": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исполняемый"
           }
         }
       }
@@ -2147,6 +2227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ещё идут файловые операции"
+          }
+        }
+      }
+    },
+    "File size:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер файла:"
           }
         }
       }
@@ -2357,6 +2447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Функциональные клавиши"
+          }
+        }
+      }
+    },
+    "GB": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ГБ"
           }
         }
       }
@@ -2581,6 +2681,16 @@
         }
       }
     },
+    "KB": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "КБ"
+          }
+        }
+      }
+    },
     "Keep options open": {
       "localizations": {
         "ru": {
@@ -2757,6 +2867,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Защищённый"
+          }
+        }
+      }
+    },
+    "MB": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "МБ"
           }
         }
       }
@@ -3137,6 +3257,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Различий нет"
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет"
+          }
+        }
+      }
+    },
+    "Not older than:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не старше чем:"
           }
         }
       }
@@ -4761,6 +4901,16 @@
         }
       }
     },
+    "Subfolder levels:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уровней подпапок:"
+          }
+        }
+      }
+    },
     "Subfolders": {
       "localizations": {
         "ru": {
@@ -4777,6 +4927,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Поменять панели местами"
+          }
+        }
+      }
+    },
+    "Symbolic link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Символическая ссылка"
           }
         }
       }
@@ -5591,12 +5751,32 @@
         }
       }
     },
+    "and": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "и"
+          }
+        }
+      }
+    },
     "binary comparison": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "двоичное сравнение"
+          }
+        }
+      }
+    },
+    "bytes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "байт"
           }
         }
       }
@@ -5681,6 +5861,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "дата и время"
+          }
+        }
+      }
+    },
+    "days": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "дней"
           }
         }
       }
@@ -5871,6 +6061,16 @@
         }
       }
     },
+    "hours": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "часов"
+          }
+        }
+      }
+    },
     "lowercase": {
       "localizations": {
         "ru": {
@@ -5904,6 +6104,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "отмеченные"
+          }
+        }
+      }
+    },
+    "minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "минут"
+          }
+        }
+      }
+    },
+    "months": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "месяцев"
           }
         }
       }
@@ -5998,6 +6218,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "треугольников: %lld"
+          }
+        }
+      }
+    },
+    "weeks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "недель"
+          }
+        }
+      }
+    },
+    "years": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "лет"
           }
         }
       }
