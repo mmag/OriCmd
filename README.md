@@ -199,6 +199,7 @@ shortcuts in parentheses.
 | `⌘K` | Connect to a server: `sftp://`, `ftp://`, `ftps://`, `ftpes://` open right in the panel; smb, afp, nfs and WebDAV are mounted as volumes (with a "Connecting…" window you can cancel; a server that does not answer is reported within seconds). The last ten servers connected to are listed under the address: a click picks one, a double click connects, `−` removes one; the window can be made taller |
 | `Ctrl+F` (`⇧⌘K`) | Saved connections (passwords are kept in the Keychain) |
 | Net → Disconnect | Close the server in the active panel |
+| Net → Download from URL… | http(s) and ftp addresses, one per line (the one on the clipboard offered), downloaded into the active panel by the system curl |
 | `⌘E` | Eject the removable or network volume of the active panel |
 | `Alt+F5` | Pack into an archive (the format follows the extension: `.zip`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.7z`): the compression (normal, fastest, best, none), move to archive (the files are deleted once the archive reads back whole), one archive per file or folder, a password for zip archives (AES-256, or ZipCrypto for old programs) |
 | `Alt+F9` | Unpack the selected archives |

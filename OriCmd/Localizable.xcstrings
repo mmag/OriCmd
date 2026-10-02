@@ -471,6 +471,16 @@
         }
       }
     },
+    "Addresses (http, https, ftp), one per line, into %@:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адреса (http, https, ftp) по одному в строке, загрузить в %@:"
+          }
+        }
+      }
+    },
     "Advanced": {
       "localizations": {
         "ru": {
@@ -2406,7 +2416,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Скачать"
+            "value": "Загрузить"
           }
         }
       }
@@ -2436,7 +2446,27 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ошибка скачивания"
+            "value": "Не удалось загрузить"
+          }
+        }
+      }
+    },
+    "Download from URL": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка по адресу"
+          }
+        }
+      }
+    },
+    "Download from URL…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить по адресу…"
           }
         }
       }
@@ -2456,7 +2486,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Скачивание"
+            "value": "Загрузка"
           }
         }
       }

@@ -249,6 +249,57 @@ final class MainViewController: NSViewController {
         tree.focus()
     }
 
+    /// Net → Download from URL…: http(s) and ftp addresses, one per line (the one
+    /// on the clipboard offered), downloaded into the active panel's folder.
+    @objc func downloadFromURL(_ sender: Any?) {
+        guard let window = view.window, activePanel.archive == nil, activePanel.remote == nil else {
+            NSSound.beep()
+            return
+        }
+        let text = NSTextView(frame: NSRect(x: 0, y: 0, width: 460, height: 120))
+        let clipboard = AppDefaults.pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        text.string = ["http://", "https://", "ftp://"].contains(where: clipboard.lowercased().hasPrefix) ? clipboard : ""
+        text.font = Theme.panelFont
+        text.isRichText = false
+        text.isAutomaticLinkDetectionEnabled = false
+        text.isAutomaticQuoteSubstitutionEnabled = false
+        text.identifier = NSUserInterfaceItemIdentifier("downloadURLs")
+        let scroll = NSScrollView(frame: text.frame)
+        scroll.documentView = text
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Download from URL")
+        alert.informativeText = String(localized: "Addresses (http, https, ftp), one per line, into \(activePanel.directory.path):")
+        alert.accessoryView = scroll
+        alert.addButton(withTitle: String(localized: "Download"))
+        alert.addCancelButton()
+        alert.window.initialFirstResponder = text
+        let panel = activePanel
+        let folder = panel.directory
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            let urls = text.string.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                .compactMap(URL.init(string:)).filter { ["http", "https", "ftp"].contains($0.scheme?.lowercased() ?? "") }
+            guard !urls.isEmpty else {
+                NSSound.beep()
+                return
+            }
+            confirmOverwriting(urls.map(URLDownloader.fileName(of:)), in: folder) {
+                Task {
+                    let controller = TransferController(title: String(localized: "Downloading"),
+                                                        failureTitle: String(localized: "Download failed"), window: window)
+                    let files = await controller.run(source: urls[0].absoluteString, target: folder.path) { progress, _ in
+                        try await URLDownloader.download(urls, into: folder, progress: progress)
+                    }
+                    panel.reread()
+                    if let first = files.first { panel.load(folder, selecting: first.lastPathComponent) }
+                }
+            }
+        }
+    }
+
     /// Show → Use the Ignore List (cm_SwitchIgnoreList).
     @objc(cm_SwitchIgnoreList:)
     func switchIgnoreList(_ sender: Any?) {

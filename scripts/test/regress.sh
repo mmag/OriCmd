@@ -1158,6 +1158,18 @@ check "Solid RAR 4: a folder unpacked through unar" "[ \"\$(cat $R/docs/two.txt 
 ORICMD_UNAR_DIR=$PWD/scripts/test/fakeunar run rarview "alt+s wait text:olid escape enter wait wait alt+o wait text:ne escape f3 wait wait"
 check "Solid RAR 4: a file viewed" "grep -qx 'first file' build/shots/reg-rarview-win1.txt"
 
+# Net → Download from URL (a local http server): a file downloaded into the active
+# panel; a missing one said so, nothing left behind.
+scripts/test/mkdata.sh
+python3 -m http.server 8765 --bind 127.0.0.1 --directory $L >/dev/null 2>&1 &
+httpd=$!
+for i in {1..20}; do curl -s -o /dev/null http://127.0.0.1:8765/ && break; sleep 0.2; done
+run dl "tab wait menuitem:Download_from_URL… wait set:downloadURLs=http://127.0.0.1:8765/readme.txt click:Download wait wait wait"
+check "Download from URL: the file in the active panel" "cmp -s $R/readme.txt $L/readme.txt"
+run dl404 "tab wait menuitem:Download_from_URL… wait set:downloadURLs=http://127.0.0.1:8765/nothing.txt click:Download wait wait wait"
+check "Download from URL: a missing file is said so" "grep -q '404' build/shots/reg-dl404-sheet.txt && [ ! -e $R/nothing.txt ] && [ -z \"\$(print -l $R/.oricmd-*.part(N))\" ]"
+kill $httpd
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.
