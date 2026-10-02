@@ -30,6 +30,7 @@ enum Settings {
         static let copySkipUnreadable = "CopySkipUnreadable"
         static let copyOverwriteLocked = "CopyOverwriteLocked"
         static let rightButton = "RightMouseButton"
+        static let separateTree = "SeparateTree"
     }
 
     static let defaultFontSize: CGFloat = 12
@@ -83,6 +84,12 @@ enum Settings {
     static var showsFunctionKeys: Bool {
         get { bool(Key.functionKeys, default: true) }
         set { set(newValue, Key.functionKeys) }
+    }
+
+    /// Show → Separate Tree: one folder tree beside both panels.
+    static var showsSeparateTree: Bool {
+        get { bool(Key.separateTree, default: false) }
+        set { set(newValue, Key.separateTree) }
     }
 
     static var showsDriveButtons: Bool {

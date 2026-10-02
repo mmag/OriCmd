@@ -90,8 +90,14 @@ final class DirectoryTreePanel: NSView {
         window?.makeFirstResponder(outline)
     }
 
-    /// Expands the tree down to `url` and selects it.
-    func reveal(_ url: URL) {
+    /// While the tree follows a panel: selecting does not go anywhere.
+    private var isFollowing = false
+
+    /// Expands the tree down to `url` and selects it; `quietly`, the selection is
+    /// not reported (the tree follows a panel's folder).
+    func reveal(_ url: URL, quietly: Bool = false) {
+        isFollowing = quietly
+        defer { isFollowing = false }
         var node = root
         var path = [root]
         for component in url.standardizedFileURL.pathComponents.dropFirst(root.url.pathComponents.count) {
@@ -150,7 +156,7 @@ extension DirectoryTreePanel: NSOutlineViewDataSource, NSOutlineViewDelegate {
     }
 
     func outlineViewSelectionDidChange(_ notification: Notification) {
-        if let url = selectedURL {
+        if !isFollowing, let url = selectedURL {
             onSelect?(url)
         }
     }

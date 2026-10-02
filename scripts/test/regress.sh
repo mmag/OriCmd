@@ -989,6 +989,12 @@ check "A column turned on in the header menu" "[ \"\$(columns cheader left)\" = 
 run cwindow "menuitem:Column_Sets… wait click:+ wait set:columnSetName=Wide set:columnSet-kind=on set:columnSet-attr=off wait escape wait menuitem:Columns>Wide wait"
 check "A column set made in the Column Sets window" "[ \"\$(columns cwindow left)\" = 'ext, size, date, kind' ]"
 
+# The separate tree: a folder chosen in it is shown in the active panel (the other
+# one too after Tab), and it follows the active panel.
+scripts/test/mkdata.sh
+run streepick "cmd:cm_ToggleSeparateTree1 wait tree:$PWD/$L/beta wait wait tab wait tree:$PWD/$L/alpha wait wait"
+check "The separate tree shows its folder in the active panel" "panels streepick | grep -q '^left: .*/left/beta |' && panels streepick | grep -q '^right\*: .*/left/alpha |'"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

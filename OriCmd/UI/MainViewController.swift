@@ -7,6 +7,10 @@ final class MainViewController: NSViewController {
     private let leftPanel: FilePanelController
     private let rightPanel: FilePanelController
     private let splitView = PanelSplitView()
+    /// Show → Separate Tree: a folder tree left of the panels, for the active one.
+    private var separateTree: DirectoryTreePanel?
+    private var splitViewLeading: NSLayoutConstraint!
+    private static let separateTreeWidth: CGFloat = 220
     private static let splitRatioKey = "PanelSplitRatio"
     private let commandLine = CommandLineController()
     private let functionKeyBar = FunctionKeyBar()
@@ -94,13 +98,14 @@ final class MainViewController: NSViewController {
             view.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(view)
         }
+        splitViewLeading = splitView.leadingAnchor.constraint(equalTo: root.leadingAnchor)
+        splitViewLeading.isActive = true
         commandLineHeight = commandLine.view.heightAnchor.constraint(equalToConstant: CommandLineView.height)
         functionKeyBarHeight = functionKeyBar.heightAnchor.constraint(equalToConstant: 22)
         NSLayoutConstraint.activate([
             commandLineHeight,
             functionKeyBarHeight,
             splitView.topAnchor.constraint(equalTo: root.topAnchor),
-            splitView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             splitView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
 
             commandLine.view.topAnchor.constraint(equalTo: splitView.bottomAnchor),
@@ -119,10 +124,12 @@ final class MainViewController: NSViewController {
         super.viewDidLoad()
         activate(leftPanel)
         applyLayoutSettings()
+        applySeparateTree()
     }
 
     @objc private func settingsDidChange(_ notification: Notification) {
         applyLayoutSettings()
+        applySeparateTree()
         leftPanel.settingsDidChange()
         rightPanel.settingsDidChange()
     }
@@ -192,6 +199,50 @@ final class MainViewController: NSViewController {
         leftPanel.isActive = panel === leftPanel
         rightPanel.isActive = panel === rightPanel
         commandLine.view.directory = panel.directory
+        separateTree?.reveal(panel.directory, quietly: true)
+    }
+
+    #if DEBUG
+    /// The separate tree, for the test harness.
+    var separateTreeForTests: DirectoryTreePanel? { separateTree }
+    #endif
+
+    /// Show → Separate Tree (cm_ToggleSeparateTree1): one tree for both panels.
+    @objc(cm_ToggleSeparateTree1:)
+    func toggleSeparateTree1(_ sender: Any?) {
+        Settings.showsSeparateTree.toggle()
+    }
+
+    /// Shows or removes the separate tree. A folder chosen in it is shown in the
+    /// active panel, and it follows the active panel's folder.
+    private func applySeparateTree() {
+        if Settings.showsSeparateTree, separateTree == nil {
+            let tree = DirectoryTreePanel(root: URL(filePath: "/"), showsHidden: showsHidden)
+            tree.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(tree)
+            NSLayoutConstraint.activate([
+                tree.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                tree.topAnchor.constraint(equalTo: splitView.topAnchor),
+                tree.bottomAnchor.constraint(equalTo: splitView.bottomAnchor),
+                tree.widthAnchor.constraint(equalToConstant: Self.separateTreeWidth),
+            ])
+            splitViewLeading.constant = Self.separateTreeWidth + 1
+            tree.onSelect = { [weak self] url in self?.activePanel.load(url) }
+            tree.onSwitchPanel = { [weak self] in self?.activePanel.focus() }
+            tree.onClose = { [weak self] mode in
+                self?.activePanel.viewMode = mode
+                self?.activePanel.focus()
+            }
+            separateTree = tree
+            tree.reveal(activePanel.directory, quietly: true)
+        } else if !Settings.showsSeparateTree, let tree = separateTree {
+            if view.window?.firstResponder.map({ ($0 as? NSView)?.isDescendant(of: tree) == true }) == true {
+                activePanel.focus()
+            }
+            tree.removeFromSuperview()
+            separateTree = nil
+            splitViewLeading.constant = 0
+        }
     }
 }
 
@@ -1256,6 +1307,8 @@ extension MainViewController: NSMenuItemValidation {
             menuItem.state = quickView == nil ? .off : .on
         } else if menuItem.action == #selector(ejectVolume(_:)) {
             return ejectableVolume != nil
+        } else if menuItem.action == Command.toggleSeparateTree1.selector {
+            menuItem.state = separateTree == nil ? .off : .on
         } else if menuItem.action == Command.srcTree.selector {
             menuItem.state = treePanel == nil ? .off : .on
         } else if menuItem.action == Command.syncChangeDir.selector {
@@ -1322,6 +1375,7 @@ extension MainViewController: FilePanelControllerDelegate {
         rightPanel.alwaysShowsTabBar = showTabs
         if panel === activePanel {
             commandLine.view.directory = panel.directory
+            separateTree?.reveal(panel.directory, quietly: true)
         }
     }
 }

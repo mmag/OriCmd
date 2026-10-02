@@ -131,6 +131,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | Right-click on the column headers | The columns of the set shown: Ext, Size, Date, Attr and the optional ones — kind, date created, picture dimensions, duration, Finder tags (sortable like the others) |
 | Show → Columns | Column sets: the Default columns or a set of your own for the panel; Column Sets… makes them, and a set can be used by itself in folders matching masks (`~/Pictures*;*/Photos`) |
 | `Ctrl+F8` (`⌘3`) | Directory tree; the other panel shows the chosen folder |
+| Show → Separate Tree | A folder tree left of both panels: a folder chosen there opens in the active panel, and the tree follows the active panel |
 | `Shift+F2` | Compare directories: mark unique and newer files in both panels |
 | Commands → Synchronous Directory Changes | Entering a subfolder or going up in one panel is repeated in the other (if it has such a folder) |
 | Commands → Synchronize Directories… | Compare two folders recursively and copy in the chosen directions (double-click or `Space` changes the direction) |

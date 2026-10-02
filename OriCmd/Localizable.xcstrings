@@ -5141,6 +5141,16 @@
         }
       }
     },
+    "Separate Tree": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отдельное дерево"
+          }
+        }
+      }
+    },
     "Server Terminal": {
       "localizations": {
         "ru": {

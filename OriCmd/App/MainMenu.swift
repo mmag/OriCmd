@@ -52,7 +52,7 @@ enum MainMenu {
         net.addItem(item(String(localized: "Eject"), #selector(MainViewController.ejectVolume(_:)), "e"))
         mainMenu.addItem(container(for: net))
         let show = commandMenu(String(localized: "Show"), [
-            [.srcShort, .srcLong, .srcThumbs, .srcTree, .srcQuickView],
+            [.srcShort, .srcLong, .srcThumbs, .srcTree, .toggleSeparateTree1, .srcQuickView],
             [.srcAllFiles, .srcUserSpec, .showOnlySelected, .quickFilter, .branchView],
             [.countDirContent],
             [.sortByName, .sortByExt, .sortByDateTime, .sortBySize, .reverseOrder],
