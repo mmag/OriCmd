@@ -148,6 +148,15 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate, NSText
             find(.showFindInterface)
             return true
         }
+        // ⌘P: what is shown, printed.
+        if modifiers == .command, event.shortcutCharacters == "p", let window {
+            if mode == .text || mode == .hex {
+                Printing.print(textView.string, title: url.lastPathComponent, in: window)
+            } else if let view = window.contentView {
+                Printing.print(view, title: url.lastPathComponent, in: window)
+            }
+            return true
+        }
         switch (event.specialKey, modifiers) {
         case (.f7?, []): find(.showFindInterface)
         case (.f7?, [.shift]): findWithOptions()

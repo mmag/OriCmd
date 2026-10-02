@@ -1107,6 +1107,20 @@ check "Lister: case sensitive, not found" "[ -z \"\$(selected lcase)\" ]"
 run lhex "alt+a wait text:rchive-t escape f3 wait wait 1 wait shift+f7 wait set:listerFind=50_4B_03_04 set:listerFindHex=on enter wait wait"
 check "Lister: bytes in hex found in the hex dump" "[ \"\$(selected lhex)\" = '50 4B 03 04' ]"
 
+# Printing (a test run writes what would be printed to -print.txt): the file list,
+# with the subfolders' files, a text file (its encoding read), the Lister's text.
+scripts/test/mkdata.sh
+printf 'alpha word42 beta\n' > $L/find.txt
+printed() { cat build/shots/reg-$1-print.txt 2>/dev/null; }
+run pdir "cmd:cm_PrintDir wait"
+check "Print File List" "printed pdir | grep -qE '^alpha +<DIR>' && ! printed pdir | grep -q 'alpha/inside.txt'"
+run pdirsub "cmd:cm_PrintDirSub wait"
+check "Print File List with Subfolders" "printed pdirsub | grep -qE '^alpha/inside.txt +17 '"
+run pfile "alt+c wait text:p1251 escape cmd:cm_PrintFile wait"
+check "Print File: a text in its encoding" "printed pfile | grep -q 'Привет, мир!'"
+run plister "alt+f wait text:ind escape f3 wait wait cmd+p wait"
+check "Lister: ⌘P prints what is shown" "printed plister | grep -qx 'alpha word42 beta'"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

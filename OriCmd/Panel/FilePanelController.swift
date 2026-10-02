@@ -2537,6 +2537,35 @@ extension FilePanelController: NSMenuItemValidation {
         copyToClipboard(selectedItems.map { item in prefix.map { $0 + item.name } ?? item.url.path })
     }
 
+    /// Files → Print File List: the entries shown (the marked ones, when some are).
+    @objc(cm_PrintDir:)
+    func printDir(_ sender: Any?) {
+        printList(subfolders: false)
+    }
+
+    /// Files → Print File List with Subfolders: the files inside the folders too.
+    @objc(cm_PrintDirSub:)
+    func printDirSub(_ sender: Any?) {
+        printList(subfolders: true)
+    }
+
+    private func printList(subfolders: Bool) {
+        let items = listView.marked.isEmpty ? listView.items : selectedItems
+        Printing.print(Printing.list(items, in: directory, subfolders: subfolders && archive == nil && remote == nil),
+                       title: panelView.pathBar.path, in: view.window)
+    }
+
+    /// Files → Print File: the text of the file under the cursor.
+    @objc(cm_PrintFile:)
+    func printFile(_ sender: Any?) {
+        guard archive == nil, remote == nil, let item = listView.currentItem, !item.isParent, !item.isDirectory,
+              let data = try? Data(contentsOf: item.url, options: .alwaysMapped), TextDecoding.looksLikeText(data) else {
+            NSSound.beep()
+            return
+        }
+        Printing.print(TextDecoding.string(from: data), title: item.name, in: view.window)
+    }
+
     /// Ctrl+Z: the Finder comment of the file under the cursor, changed (empty:
     /// removed); the Comment column shows it.
     @objc(cm_CommentFiles:)

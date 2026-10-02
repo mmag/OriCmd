@@ -4751,6 +4751,36 @@
         }
       }
     },
+    "Print File List with Subfolders…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Печать списка файлов с подпапками…"
+          }
+        }
+      }
+    },
+    "Print File List…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Печать списка файлов…"
+          }
+        }
+      }
+    },
+    "Print File…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Печать файла…"
+          }
+        }
+      }
+    },
     "Programs": {
       "localizations": {
         "ru": {

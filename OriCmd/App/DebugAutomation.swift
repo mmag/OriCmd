@@ -473,6 +473,14 @@ enum DebugAutomation {
     /// The file given with `file:/path` for the next save or open sheet.
     private static var chosenFile: String?
 
+    /// In a test run, what would be printed goes to `<snapshot>-print.txt` instead;
+    /// returns whether it did.
+    static func printed(_ text: String) -> Bool {
+        guard isTestRun, let snapshot = environment["ORICMD_SNAPSHOT"] else { return false }
+        try? text.write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-print.txt"), atomically: true, encoding: .utf8)
+        return true
+    }
+
     /// Takes the file given with `file:` (once), instead of asking in a sheet.
     static func takeChosenFile() -> String? {
         defer { chosenFile = nil }

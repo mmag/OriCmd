@@ -17,6 +17,7 @@ enum MainMenu {
             [.packFiles, .unpackFiles, .testArchive],
             [.crcCreate, .crcCheck],
             [.fileSpliter, .fileCombine],
+            [.printDir, .printDirSub, .printFile],
             [.internalAssociate],
         ])))
         mainMenu.addItem(container(for: editMenu()))
