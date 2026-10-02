@@ -1066,18 +1066,28 @@ final class FilePanelController: NSViewController {
     func applyArchiveEdit(_ edit: ArchiveEditor.Edit, selecting name: String? = nil,
                           completion: ((Bool) -> Void)? = nil) {
         guard let archive, let window = view.window else { return }
-        guard !archive.entries.contains(where: \.isEncrypted) else {
-            Prompt.info(String(localized: "This archive is encrypted"),
-                        message: String(localized: "Encrypted archives can be unpacked, not changed."), in: window)
-            completion?(false)
-            return
-        }
         let url = archive.url
         Task {
+            // An encrypted archive is changed with its password (and keeps it).
+            let password: String?
+            do {
+                password = try await ArchivePasswords.password(for: url, entries: archive.entries, in: window)
+            } catch {
+                if !(error is CancellationError) {
+                    Prompt.error(String(localized: "Cannot update archive"), error, in: window)
+                }
+                completion?(false)
+                return
+            }
             let controller = TransferController(title: String(localized: "Updating archive"),
                                                 failureTitle: String(localized: "Cannot update archive"), window: window)
             let done = await controller.run(source: url.path, target: url.path) { progress, _ in
-                try await ArchiveEditor.apply(edit, to: url, progress: progress)
+                do {
+                    try await ArchiveEditor.apply(edit, to: url, password: password, progress: progress)
+                } catch let error as ArchiveError where error.kind == .wrongPassword {
+                    await ArchivePasswords.forget(url)
+                    throw error
+                }
                 return [url]
             }
             if let current = self.archive, current.url == url {

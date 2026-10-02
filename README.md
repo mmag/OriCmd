@@ -187,7 +187,7 @@ shortcuts in parentheses.
 | `Ctrl+F` (`⇧⌘K`) | Saved connections (passwords are kept in the Keychain) |
 | Net → Disconnect | Close the server in the active panel |
 | `⌘E` | Eject the removable or network volume of the active panel |
-| `Alt+F5` | Pack into an archive (the format follows the extension: `.zip`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.7z`) |
+| `Alt+F5` | Pack into an archive (the format follows the extension: `.zip`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.7z`): the compression (normal, fastest, best, none), move to archive (the files are deleted once the archive reads back whole), one archive per file or folder, a password for zip archives (AES-256, or ZipCrypto for old programs) |
 | `Alt+F9` | Unpack the selected archives |
 | Files → Create Checksum File… | MD5 / SHA-1 / SHA-256 / SHA-512 for the selection (`shasum`/`md5sum` format) |
 | Files → Verify Checksums | Check the `.md5`/`.sha1`/`.sha256`/`.sha512` file under the cursor |
@@ -324,9 +324,9 @@ it is read-only.
 
 Encrypted zip archives (ZipCrypto or AES) ask for the password when something is
 unpacked or viewed; it is checked before anything is written, asked for again while
-it is wrong and remembered until OriCmd quits. Encrypted archives are not changed;
-encrypted 7z and RAR ones cannot be unpacked (the system libarchive cannot decrypt
-them).
+it is wrong and remembered until OriCmd quits. An encrypted zip is changed with its
+password and stays encrypted the same way; encrypted 7z and RAR archives cannot be
+unpacked (the system libarchive cannot decrypt them).
 
 ### Button bar and drive buttons
 

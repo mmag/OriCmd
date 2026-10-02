@@ -181,6 +181,50 @@ nonisolated enum ArchiveReader {
         }
     }
 
+    /// Reads every entry's data, so libarchive checks it (the checksums of zip,
+    /// 7z, gzip, bzip2, xz); throws for the first entry that is damaged.
+    @concurrent
+    static func test(_ url: URL, password: String? = nil, progress: TransferProgress) async throws {
+        let archive = try open(url, password: password)
+        defer { archive_read_free(archive) }
+        var entry: OpaquePointer?
+        while true {
+            if progress.isCancelled { throw CancellationError() }
+            let status = archive_read_next_header(archive, &entry)
+            if status == ARCHIVE_EOF { return }
+            guard status >= ARCHIVE_WARN, let entry else { throw ArchiveError(archive, url.path) }
+            let name = pathname(of: entry)
+            let encrypted = archive_entry_is_encrypted(entry) != 0
+            if encrypted && (password == nil || !isZip(archive)) {
+                throw ArchiveError.encrypted(url, password: nil, archive: archive)
+            }
+            let size = archive_entry_size(entry)
+            progress.update {
+                $0.source = url.path + "/" + name
+                $0.fileBytes = size
+                $0.fileDoneBytes = 0
+            }
+            var buffer: UnsafeRawPointer?
+            var length = 0
+            var offset: Int64 = 0
+            while true {
+                if progress.isCancelled { throw CancellationError() }
+                let result = archive_read_data_block(archive, &buffer, &length, &offset)
+                if result == ARCHIVE_EOF { break }
+                guard result >= ARCHIVE_WARN else {
+                    if encrypted { throw ArchiveError.encrypted(url, password: password, archive: archive) }
+                    let reason = archive_error_string(archive).map { String(cString: $0) } ?? ""
+                    throw ArchiveError(message: String(localized: "\u{201C}\(name)\u{201D} is damaged: \(reason)"))
+                }
+                let read = Int64(length)
+                progress.update {
+                    $0.doneBytes += read
+                    $0.fileDoneBytes += read
+                }
+            }
+        }
+    }
+
     /// Whether an archive with encrypted entries can be decrypted at all (zip ones).
     @concurrent
     static func decryptsEntries(of url: URL) async -> Bool {

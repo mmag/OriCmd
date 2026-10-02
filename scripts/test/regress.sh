@@ -853,7 +853,7 @@ run tpldelete "$tplsave set:findTemplates=bigfiles click:Delete wait"
 check "Find Files: a saved search listed, then deleted" "grep -qx '\[row\] bigfiles' build/shots/reg-tplsaved-win1.txt && ! grep -q '^\[row\] bigfiles' build/shots/reg-tpldelete-win1.txt"
 
 # Encrypted zip archives: the password is asked for (again while wrong, nothing
-# unpacked meanwhile), F3 inside asks too, changes are refused.
+# unpacked meanwhile), F3 inside asks too, so does a change.
 scripts/test/mkdata.sh
 (cd $L && echo 'the secret text' > secret.txt && zip -q -P secret crypto.zip secret.txt && rm secret.txt)
 run encok "alt+c wait text:rypto escape alt+f9 wait enter wait text:secret enter wait wait wait"
@@ -864,7 +864,33 @@ check "A wrong password is asked for again, nothing unpacked" "grep -qx 'The pas
 run encview "alt+c wait text:rypto enter wait wait alt+s wait text:ecret escape f3 wait text:secret enter wait wait wait"
 check "F3 in an encrypted zip asks for the password" "grep -q 'the secret text' build/shots/reg-encview-win1.txt"
 run encedit "alt+c wait text:rypto enter wait wait alt+s wait text:ecret escape f8 wait enter wait wait"
-check "An encrypted zip is not changed" "grep -qx 'This archive is encrypted' build/shots/reg-encedit-sheet.txt && unzip -l $L/crypto.zip | grep -q secret.txt"
+check "A change of an encrypted zip asks for its password" "grep -qx 'The archive is encrypted. Enter its password:' build/shots/reg-encedit-sheet.txt && unzip -l $L/crypto.zip | grep -q secret.txt"
+
+# Alt+F5 options: the compression (store, best), a password (AES-256, ZipCrypto;
+# Pack only with the same password twice), moving into the archive, one archive per
+# file; an AES archive read back and changed (it keeps its password and AES).
+scripts/test/mkdata.sh
+echo 'packed secret' > $L/secret.txt; yes 'compressible line of text' | head -5000 > $L/plain.txt
+echo one > $L/sep1.txt; echo two > $L/sep2.txt; echo moving > $L/movable.txt
+run pstore "alt+p wait text:lain escape alt+f5 wait set:packCompression=Store_(no_compression) enter wait wait"
+check "Alt+F5: a zip without compression" "unzip -v $R/plain.zip | grep plain.txt | grep -q Stored"
+run pbest "alt+p wait text:lain escape alt+f5 wait set:packPath=$PWD/$R/plain.tar.gz set:packCompression=Best enter wait wait"
+check "Alt+F5: a tar.gz with the best compression" "[ \"\$(xxd -s 8 -l 1 -p $R/plain.tar.gz)\" = 02 ]"
+run paes "alt+s wait text:ecret escape alt+f5 wait set:packEncrypt=on set:packPassword=pw set:packRepeat=pw enter wait wait"
+check "Alt+F5: a zip encrypted with AES-256" "[ \"\$(xxd -s 8 -l 2 -p $R/secret.zip)\" = 6300 ]"
+run pcrypto "alt+s wait text:ecret escape alt+f5 wait set:packPath=$PWD/$R/zc.zip set:packEncrypt=on set:packEncryption=ZipCrypto_(weak,_for_old_programs) set:packPassword=pw set:packRepeat=pw enter wait wait"
+check "Alt+F5: a zip encrypted with ZipCrypto (unzip reads it)" "[ \"\$(unzip -P pw -p $R/zc.zip)\" = 'packed secret' ]"
+run pdiffer "alt+s wait text:ecret escape alt+f5 wait set:packPath=$PWD/$R/no.zip set:packEncrypt=on set:packPassword=pw set:packRepeat=px enter wait wait"
+check "Alt+F5: different passwords pack nothing" "grep -qx 'The passwords differ.' build/shots/reg-pdiffer-sheet.txt && [ ! -e $R/no.zip ] && ! grep -qx 'px' build/shots/reg-pdiffer-sheet.txt"
+run pmove "alt+m wait text:ovable escape alt+f5 wait set:packMove=on enter wait wait wait"
+check "Alt+F5: moved into the archive" "[ \"\$(unzip -p $R/movable.zip)\" = moving ] && [ ! -e $L/movable.txt ]"
+run psep "plus wait cmd+a text:sep*.txt enter wait alt+f5 wait set:packSeparate=on enter wait wait wait"
+check "Alt+F5: one archive per file" "[ \"\$(unzip -p $R/sep1.zip)\" = one ] && [ \"\$(unzip -p $R/sep2.zip)\" = two ]"
+rm -f $L/secret.txt
+run paesread "tab wait alt+s wait text:ecret escape alt+f9 wait enter wait text:pw enter wait wait wait"
+check "An AES zip is read back with its password" "[ \"\$(cat $L/secret.txt 2>/dev/null)\" = 'packed secret' ]"
+run paesedit "tab wait alt+s wait text:ecret enter wait wait tab wait alt+s wait text:ep1 escape f5 wait enter wait text:pw enter wait wait wait"
+check "An encrypted zip is changed with its password, still AES" "unzip -l $R/secret.zip | grep -q sep1.txt && unzip -l $R/secret.zip | grep -q secret.txt && [ \"\$(xxd -s 8 -l 2 -p $R/secret.zip)\" = 6300 ]"
 
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none

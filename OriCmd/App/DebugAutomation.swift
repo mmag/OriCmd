@@ -405,7 +405,9 @@ enum DebugAutomation {
     private static func saveTexts(of window: NSWindow, to path: String) {
         func texts(in view: NSView) -> [String] {
             var result: [String] = []
-            if let field = view as? NSTextField, !field.stringValue.isEmpty { result.append(field.stringValue) }
+            if let field = view as? NSTextField, !field.stringValue.isEmpty {
+                result.append(field is NSSecureTextField ? "[secure]" : field.stringValue)
+            }
             if let table = view as? NSTableView, let source = table.dataSource,
                !(table.delegate?.responds(to: #selector(NSTableViewDelegate.tableView(_:viewFor:row:))) ?? false) {
                 result += (0..<(source.numberOfRows?(in: table) ?? 0)).map { row in

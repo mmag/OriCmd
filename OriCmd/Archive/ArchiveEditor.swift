@@ -17,16 +17,18 @@ nonisolated enum ArchiveEditor {
     }
 
     /// Changes of one archive run one after another: each unpacks the whole
-    /// archive, so two at once would lose the first one's change.
+    /// archive, so two at once would lose the first one's change. An encrypted
+    /// zip archive is unpacked with `password` and packed again with it, as it was
+    /// encrypted (AES or ZipCrypto).
     @concurrent
-    static func apply(_ edit: Edit, to archive: URL, progress: TransferProgress) async throws {
+    static func apply(_ edit: Edit, to archive: URL, password: String? = nil, progress: TransferProgress) async throws {
         try await SerialTasks.shared.run(archive.standardizedFileURL.path) {
-            try await applyNow(edit, to: archive, progress: progress)
+            try await applyNow(edit, to: archive, password: password, progress: progress)
         }
     }
 
     @concurrent
-    private static func applyNow(_ edit: Edit, to archive: URL, progress: TransferProgress) async throws {
+    private static func applyNow(_ edit: Edit, to archive: URL, password: String?, progress: TransferProgress) async throws {
         let manager = FileManager.default
         let before = fingerprint(of: archive)
         let workspace = manager.temporaryDirectory.appending(path: "OriCmd-edit-\(UUID().uuidString)")
@@ -36,7 +38,8 @@ nonisolated enum ArchiveEditor {
 
         let total = try ArchiveReader.entries(of: archive).reduce(Int64(0)) { $0 + $1.size }
         progress.update { $0.totalBytes = total }
-        try await ArchiveReader.extract(archive, paths: [], base: "", to: content, progress: progress)
+        let encryption = password == nil ? nil : ArchiveWriter.encryption(of: archive)
+        try await ArchiveReader.extract(archive, paths: [], base: "", to: content, password: password, progress: progress)
         if progress.isCancelled { throw CancellationError() }
 
         switch edit {
@@ -75,7 +78,8 @@ nonisolated enum ArchiveEditor {
             throw ArchiveError(message: String(localized: "The archive would become empty."))
         }
         let packed = workspace.appending(path: archive.lastPathComponent)
-        try await ArchiveWriter.pack(names, in: content, to: packed, progress: progress)
+        try await ArchiveWriter.pack(names, in: content, to: packed, password: password,
+                                     encryption: encryption ?? .aes256, progress: progress)
         guard fingerprint(of: archive) == before else {
             throw ArchiveError(message: String(localized:
                 "\u{201C}\(archive.lastPathComponent)\u{201D} was changed by another program meanwhile; nothing was written."))

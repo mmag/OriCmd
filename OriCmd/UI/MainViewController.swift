@@ -519,23 +519,49 @@ extension MainViewController: NSMenuItemValidation {
                                 length: (name as NSString).length)
         let what = items.count == 1 ? String(localized: "\u{201C}\(items[0].name)\u{201D}")
             : String(localized: "\(items.count) files/folders")
-        Prompt.text(String(localized: "Pack files"),
-                    message: String(localized: "Pack \(what) to archive (.zip, .tar.gz, .tar.bz2, .tar.xz, .7z):"),
-                    initial: initial, selection: selection, okTitle: String(localized: "Pack"), in: window) {
-            [weak self] text in
-            guard let self, !text.isEmpty else { return }
-            var path = (text as NSString).expandingTildeInPath
+        PackDialog.show(title: String(localized: "Pack files"),
+                        message: String(localized: "Pack \(what) to archive (.zip, .tar.gz, .tar.bz2, .tar.xz, .7z):"),
+                        initial: initial, selection: selection, itemCount: items.count, in: window) { [weak self] choice in
+            guard let self else { return }
+            var path = (choice.path as NSString).expandingTildeInPath
             if !path.hasPrefix("/") { path = source.directory.appending(path: path).path }
-            let archive = URL(filePath: path)
-            let names = items.map(\.name)
-            confirmOverwriting([archive.lastPathComponent], in: archive.deletingLastPathComponent()) {
+            let archive = URL(filePath: path).standardizedFileURL
+            let folder = archive.deletingLastPathComponent()
+            // One archive per item: named after it (the whole name when two would clash).
+            let suffix = choice.separately ? ArchiveWriter.suffix(of: archive.lastPathComponent) : nil
+            let bases = items.map { $0.isFolder ? $0.name : $0.baseName }
+            let jobs: [(names: [String], archive: URL)] = suffix.map { suffix in
+                items.indices.map { index in
+                    let base = bases.filter { $0 == bases[index] }.count > 1 ? items[index].name : bases[index]
+                    return ([items[index].name], folder.appending(path: base + suffix))
+                }
+            } ?? [(items.map(\.name), archive)]
+            let directory = source.directory
+            // A folder packed into an archive inside it would take in the archive being written.
+            let inside = items.first { item in
+                jobs.contains { $0.archive.path.hasPrefix(item.url.standardizedFileURL.path + "/") }
+            }
+            if let inside {
+                Prompt.info(String(localized: "Cannot pack \u{201C}\(inside.name)\u{201D}"),
+                            message: String(localized: "The archive cannot be put inside a folder being packed."), in: window)
+                return
+            }
+            confirmOverwriting(jobs.map(\.archive.lastPathComponent), in: folder) {
                 Task {
                     let controller = TransferController(title: String(localized: "Packing"),
                                                         failureTitle: String(localized: "Packing failed"), window: window)
-                    _ = await controller.run(source: source.directory.path, target: archive.path) { progress, _ in
-                        // The old archive is replaced only once the new one is complete.
-                        try await ArchiveWriter.pack(names, in: source.directory, to: archive, progress: progress)
-                        return []
+                    _ = await controller.run(source: directory.path, target: archive.path) { progress, _ in
+                        for job in jobs {
+                            // The old archive is replaced only once the new one is complete.
+                            try await ArchiveWriter.pack(job.names, in: directory, to: job.archive,
+                                                         compression: choice.compression, password: choice.password,
+                                                         encryption: choice.encryption, progress: progress)
+                            guard choice.moves else { continue }
+                            // The files go only once the archive reads back whole.
+                            try await ArchiveReader.test(job.archive, password: choice.password, progress: TransferProgress())
+                            try await FileOperations.deletePermanently(job.names.map { directory.appending(path: $0) })
+                        }
+                        return jobs.map(\.archive)
                     }
                     self.leftPanel.reread()
                     self.rightPanel.reread()

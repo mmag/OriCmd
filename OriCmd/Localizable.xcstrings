@@ -311,6 +311,16 @@
         }
       }
     },
+    "AES-256": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AES-256"
+          }
+        }
+      }
+    },
     "About %@": {
       "localizations": {
         "ru": {
@@ -631,6 +641,16 @@
         }
       }
     },
+    "Best": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наилучшее"
+          }
+        }
+      }
+    },
     "Blue–yellow color blindness (tritanopia)": {
       "localizations": {
         "ru": {
@@ -857,6 +877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось открыть «%@»"
+          }
+        }
+      }
+    },
+    "Cannot pack “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся упаковать «%@»"
           }
         }
       }
@@ -1297,6 +1327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сравнение…"
+          }
+        }
+      }
+    },
+    "Compression:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сжатие:"
           }
         }
       }
@@ -2101,6 +2141,16 @@
         }
       }
     },
+    "Encrypt:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шифровать:"
+          }
+        }
+      }
+    },
     "Encrypted archives can be unpacked, not changed.": {
       "localizations": {
         "ru": {
@@ -2237,6 +2287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "F2 Очередь"
+          }
+        }
+      }
+    },
+    "Fastest": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Быстрое"
           }
         }
       }
@@ -3181,6 +3241,16 @@
         }
       }
     },
+    "Move to archive (delete the originals)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить в архив (удалить исходные)"
+          }
+        }
+      }
+    },
     "Move/Rename": {
       "localizations": {
         "ru": {
@@ -3401,6 +3471,16 @@
         }
       }
     },
+    "Normal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обычное"
+          }
+        }
+      }
+    },
     "Not containing it": {
       "localizations": {
         "ru": {
@@ -3491,6 +3571,16 @@
         }
       }
     },
+    "One archive per file or folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отдельный архив для каждого файла или папки"
+          }
+        }
+      }
+    },
     "Only files of this type:": {
       "localizations": {
         "ru": {
@@ -3507,6 +3597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Только папки src на любой глубине"
+          }
+        }
+      }
+    },
+    "Only zip archives can be encrypted.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зашифровать можно только zip-архив."
           }
         }
       }
@@ -4381,6 +4481,16 @@
         }
       }
     },
+    "Repeat:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё раз:"
+          }
+        }
+      }
+    },
     "Replace": {
       "localizations": {
         "ru": {
@@ -5111,6 +5221,16 @@
         }
       }
     },
+    "Store (no compression)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без сжатия"
+          }
+        }
+      }
+    },
     "Subfolder levels:": {
       "localizations": {
         "ru": {
@@ -5271,6 +5391,16 @@
         }
       }
     },
+    "The archive cannot be put inside a folder being packed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив нельзя положить внутрь упаковываемой папки."
+          }
+        }
+      }
+    },
     "The archive is encrypted. Enter its password:": {
       "localizations": {
         "ru": {
@@ -5397,6 +5527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пароль неверный. Введите его ещё раз:"
+          }
+        }
+      }
+    },
+    "The passwords differ.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароли не совпадают."
           }
         }
       }
@@ -6021,6 +6161,16 @@
         }
       }
     },
+    "ZipCrypto (weak, for old programs)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ZipCrypto (слабое, для старых программ)"
+          }
+        }
+      }
+    },
     "Zoom": {
       "localizations": {
         "ru": {
@@ -6628,6 +6778,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» — папка с одной стороны и файл с другой."
+          }
+        }
+      }
+    },
+    "“%@” is damaged: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» повреждён: %@"
           }
         }
       }
