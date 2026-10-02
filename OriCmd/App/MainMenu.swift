@@ -14,7 +14,7 @@ enum MainMenu {
             [.copy, .copySamePanel, .renMov, .renameOnly, .multiRenameFiles, .mkDir],
             [.delete, .deletePermanently],
             [.setAttrib, .properties, .createSymlink, .compareFilesByContent],
-            [.packFiles, .unpackFiles],
+            [.packFiles, .unpackFiles, .testArchive],
             [.crcCreate, .crcCheck],
             [.internalAssociate],
         ])))

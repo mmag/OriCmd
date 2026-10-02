@@ -189,6 +189,7 @@ shortcuts in parentheses.
 | `⌘E` | Eject the removable or network volume of the active panel |
 | `Alt+F5` | Pack into an archive (the format follows the extension: `.zip`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.7z`): the compression (normal, fastest, best, none), move to archive (the files are deleted once the archive reads back whole), one archive per file or folder, a password for zip archives (AES-256, or ZipCrypto for old programs) |
 | `Alt+F9` | Unpack the selected archives |
+| `Alt+Shift+F9` | Test the selected archives (or the one shown): they are read through, their checksums checked, and the damaged files named |
 | Files → Create Checksum File… | MD5 / SHA-1 / SHA-256 / SHA-512 for the selection (`shasum`/`md5sum` format) |
 | Files → Verify Checksums | Check the `.md5`/`.sha1`/`.sha256`/`.sha512` file under the cursor |
 

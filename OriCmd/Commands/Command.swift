@@ -30,6 +30,7 @@ enum Command: String, CaseIterable {
     case internalAssociate = "cm_InternalAssociate"
     case packFiles = "cm_PackFiles"
     case unpackFiles = "cm_UnpackFiles"
+    case testArchive = "cm_TestArchive"
     case exit = "cm_Exit"
 
     // Mark
@@ -124,6 +125,7 @@ enum Command: String, CaseIterable {
         case .internalAssociate: String(localized: "Internal Associations…")
         case .packFiles: String(localized: "Pack…")
         case .unpackFiles: String(localized: "Unpack…")
+        case .testArchive: String(localized: "Test Archives")
         case .exit: String(localized: "Exit")
         case .spreadSelection: String(localized: "Select Group…  (+)")
         case .shrinkSelection: String(localized: "Unselect Group…  (−)")
@@ -207,6 +209,7 @@ enum Command: String, CaseIterable {
         case .createSymlink: .f(5, [.control, .shift])
         case .packFiles: .f(5, .option)
         case .unpackFiles: .f(9, .option)
+        case .testArchive: .f(9, [.option, .shift])
         case .clearAll: .cmd("a", .option)
         case .copyFullNamesToClip: .cmd("c", .option)
         case .rereadSource: .cmd("r")

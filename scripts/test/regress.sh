@@ -892,6 +892,19 @@ check "An AES zip is read back with its password" "[ \"\$(cat $L/secret.txt 2>/d
 run paesedit "tab wait alt+s wait text:ecret enter wait wait tab wait alt+s wait text:ep1 escape f5 wait enter wait text:pw enter wait wait wait"
 check "An encrypted zip is changed with its password, still AES" "unzip -l $R/secret.zip | grep -q sep1.txt && unzip -l $R/secret.zip | grep -q secret.txt && [ \"\$(xxd -s 8 -l 2 -p $R/secret.zip)\" = 6300 ]"
 
+# Alt+Shift+F9 tests archives: intact ones, a damaged one (its file named), an
+# encrypted one with its password.
+scripts/test/mkdata.sh
+mkdir -p $L/tests; cp $L/archive-test.zip $L/tests/good.zip; cp $L/bundle.tar.gz $L/tests/good.tar.gz
+python3 -c "d=bytearray(open('$L/archive-test.zip','rb').read()); d[len(d)//2]^=0xFF; open('$L/tests/bad.zip','wb').write(d)"
+(cd $L/tests && echo 'the secret text' > s.txt && zip -q -P secret crypto.zip s.txt && rm s.txt)
+run tok "alt+t wait text:ests enter wait plus wait cmd+a text:good* enter wait alt+shift+f9 wait wait wait"
+check "Alt+Shift+F9: intact archives" "grep -qx '2 archives were read through: their contents are intact.' build/shots/reg-tok-sheet.txt"
+run tbad "alt+t wait text:ests enter wait plus wait cmd+a text:*d.zip enter wait alt+shift+f9 wait wait wait"
+check "Alt+Shift+F9: a damaged archive and its file" "grep -q '^“bad.zip”: “beta/deep/deeper/blob.bin” is damaged' build/shots/reg-tbad-sheet.txt && grep -qx 'The other archives (1) are intact.' build/shots/reg-tbad-sheet.txt"
+run tenc "alt+t wait text:ests enter wait alt+c wait text:rypto escape alt+shift+f9 wait text:secret enter wait wait wait"
+check "Alt+Shift+F9: an encrypted archive with its password" "grep -qx '“crypto.zip” was read through: its contents are intact.' build/shots/reg-tenc-sheet.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

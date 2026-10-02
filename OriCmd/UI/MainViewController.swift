@@ -1,4 +1,5 @@
 import AppKit
+import os
 
 /// Root view of the main window: two panels side by side,
 /// the command line and the function key bar underneath.
@@ -410,6 +411,61 @@ extension MainViewController: NSMenuItemValidation {
                 }
             }
         }
+    }
+
+    /// Alt+Shift+F9: reads the selected archives through (or the one shown), so
+    /// libarchive checks their contents, and tells which are damaged.
+    @objc(cm_TestArchive:)
+    func testArchives(_ sender: Any?) {
+        let source = activePanel
+        let archives = source.archive.map { [$0.url] }
+            ?? source.selectedItems.filter { !$0.isDirectory && ArchiveReader.isArchive($0.name) }.map(\.url)
+        guard !archives.isEmpty, let window = view.window else {
+            NSSound.beep()
+            return
+        }
+        Task {
+            let entries = await Self.entries(of: archives)
+            guard let passwords = await passwords(for: archives.map { ($0, entries[$0] ?? []) }) else { return }
+            let total = entries.values.joined().reduce(Int64(0)) { $0 + $1.size }
+            let failures = OSAllocatedUnfairLock(initialState: [String]())
+            let controller = TransferController(title: String(localized: "Testing archives"),
+                                                failureTitle: String(localized: "Cannot test archives"), window: window)
+            let tested = await controller.run(source: archives[0].path, target: "") { progress, _ in
+                progress.update { $0.totalBytes = total }
+                for archive in archives {
+                    do {
+                        try await ArchiveReader.test(archive, password: passwords[archive], progress: progress)
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        if (error as? ArchiveError)?.kind == .wrongPassword {
+                            await ArchivePasswords.forget(archive)
+                        }
+                        let line = "\u{201C}\(archive.lastPathComponent)\u{201D}: \(error.localizedDescription)"
+                        failures.withLock { $0.append(line) }
+                    }
+                }
+                return archives
+            }
+            guard !tested.isEmpty else { return }
+            let failed = failures.withLock { $0 }
+            if failed.isEmpty {
+                Prompt.info(String(localized: "No errors found"), message: archives.count == 1
+                    ? String(localized: "\u{201C}\(archives[0].lastPathComponent)\u{201D} was read through: its contents are intact.")
+                    : String(localized: "\(archives.count) archives were read through: their contents are intact."), in: window)
+            } else {
+                let intact = archives.count - failed.count
+                Prompt.info(String(localized: "Errors found"), message: failed.joined(separator: "\n")
+                    + (intact > 0 ? "\n\n" + String(localized: "The other archives (\(intact)) are intact.") : ""), in: window)
+            }
+        }
+    }
+
+    /// The entries of each archive (an archive that cannot be read has none).
+    @concurrent
+    private nonisolated static func entries(of archives: [URL]) async -> [URL: [ArchiveEntry]] {
+        Dictionary(uniqueKeysWithValues: archives.map { ($0, (try? ArchiveReader.entries(of: $0)) ?? []) })
     }
 
     /// Alt+F9: unpacks the selected archives, by default into the other panel.

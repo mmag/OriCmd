@@ -91,6 +91,16 @@
         }
       }
     },
+    "%lld archives were read through: their contents are intact.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архивы прочитаны целиком (%lld): содержимое не повреждено."
+          }
+        }
+      }
+    },
     "%lld conflicting names": {
       "localizations": {
         "ru": {
@@ -957,6 +967,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удаётся запустить «%@»"
+          }
+        }
+      }
+    },
+    "Cannot test archives": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся проверить архивы"
           }
         }
       }
@@ -2187,6 +2207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Одноимённые элементы архива будут заменены."
+          }
+        }
+      }
+    },
+    "Errors found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найдены ошибки"
           }
         }
       }
@@ -3457,6 +3487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Различий нет"
+          }
+        }
+      }
+    },
+    "No errors found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибок не найдено"
           }
         }
       }
@@ -5391,6 +5431,26 @@
         }
       }
     },
+    "Test Archives": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить архивы"
+          }
+        }
+      }
+    },
+    "Testing archives": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка архивов"
+          }
+        }
+      }
+    },
     "The archive cannot be put inside a folder being packed.": {
       "localizations": {
         "ru": {
@@ -5497,6 +5557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Папку можно будет сменить, когда она завершится."
+          }
+        }
+      }
+    },
+    "The other archives (%lld) are intact.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остальные архивы (%lld) не повреждены."
           }
         }
       }
@@ -6848,6 +6918,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» не найдено"
+          }
+        }
+      }
+    },
+    "“%@” was read through: its contents are intact.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» прочитан целиком: содержимое не повреждено."
           }
         }
       }
