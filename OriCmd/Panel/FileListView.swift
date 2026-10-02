@@ -58,6 +58,11 @@ final class FileListView: NSView {
     /// Names of marked entries, drawn in red.
     private(set) var marked: Set<String> = []
     /// Calculated folder sizes by name, shown instead of <DIR>.
+    /// The Full view columns after Name (the panel's column set).
+    var columns = ColumnSet.standard {
+        didSet { if columns != oldValue { needsDisplay = true } }
+    }
+
     var folderSizes: [String: Int64] = [:] {
         didSet { needsDisplay = true }
     }
@@ -157,8 +162,9 @@ final class FileListView: NSView {
         let row = rowRect(cursor)
         var frame = row.insetBy(dx: 0, dy: -1)
         if viewMode == .full {
-            let layout = ColumnLayout(width: bounds.width)
-            frame.size.width = layout.rect(for: .ext, y: 0, height: 0).maxX
+            let layout = ColumnLayout(width: bounds.width, columns: columns)
+            frame.size.width = layout.contains(.ext) ? layout.rect(for: .ext, y: 0, height: 0).maxX
+                : layout.rect(for: .name, y: 0, height: 0).maxX
         }
         if viewMode == .thumbnails {
             frame = NSRect(x: row.minX, y: row.minY + Self.thumbnailSize + 8, width: row.width, height: rowHeight + 2)
@@ -426,7 +432,7 @@ final class FileListView: NSView {
         }
         let range = max(first, 0)...min(last, items.count - 1)
         guard !range.isEmpty, range.lowerBound <= range.upperBound else { return }
-        let layout = ColumnLayout(width: bounds.width)
+        let layout = ColumnLayout(width: bounds.width, columns: columns)
         for row in range {
             switch viewMode {
             case .full: drawRow(row, layout: layout)
@@ -550,8 +556,10 @@ final class FileListView: NSView {
         drawText(name, in: nameRect.divided(atDistance: 20, from: .minXEdge).remainder,
                  font: textFont, color: color)
 
-        drawText(item.fileExtension, in: layout.rect(for: .ext, y: y, height: rowHeight),
-                 font: textFont, color: color)
+        if layout.contains(.ext) {
+            drawText(item.fileExtension, in: layout.rect(for: .ext, y: y, height: rowHeight),
+                     font: textFont, color: color)
+        }
 
         let size: String
         if item.isFolder, let folderSize = folderSizes[item.name] {
@@ -563,8 +571,10 @@ final class FileListView: NSView {
         } else {
             size = item.size.formatted(.number.grouping(.automatic))
         }
-        drawText(size, in: layout.rect(for: .size, y: y, height: rowHeight),
-                 font: numberFont, color: color, alignment: .right)
+        if layout.contains(.size) {
+            drawText(size, in: layout.rect(for: .size, y: y, height: rowHeight),
+                     font: numberFont, color: color, alignment: .right)
+        }
 
         if !item.isParent {
             for column in layout.extraColumns {
@@ -576,9 +586,11 @@ final class FileListView: NSView {
                          font: numeric || column == .created ? numberFont : textFont,
                          color: color, alignment: numeric ? .right : .left)
             }
-            drawText(Self.dateFormatter.string(from: item.modified),
-                     in: layout.rect(for: .date, y: y, height: rowHeight),
-                     font: numberFont, color: color)
+            if layout.contains(.date) {
+                drawText(Self.dateFormatter.string(from: item.modified),
+                         in: layout.rect(for: .date, y: y, height: rowHeight),
+                         font: numberFont, color: color)
+            }
             if layout.contains(.attr) {
                 drawText(item.permissions, in: layout.rect(for: .attr, y: y, height: rowHeight),
                          font: numberFont, color: color)

@@ -51,7 +51,7 @@ enum MainMenu {
         net.addItem(.separator())
         net.addItem(item(String(localized: "Eject"), #selector(MainViewController.ejectVolume(_:)), "e"))
         mainMenu.addItem(container(for: net))
-        mainMenu.addItem(container(for: commandMenu(String(localized: "Show"), [
+        let show = commandMenu(String(localized: "Show"), [
             [.srcShort, .srcLong, .srcThumbs, .srcTree, .srcQuickView],
             [.srcAllFiles, .srcUserSpec, .showOnlySelected, .quickFilter, .branchView],
             [.countDirContent],
@@ -61,7 +61,13 @@ enum MainMenu {
             .separator(),
             item(String(localized: "Show Toolbar"), #selector(NSWindow.toggleToolbarShown(_:)), "t", [.command, .option]),
             item(String(localized: "Customize Toolbar…"), #selector(NSWindow.runToolbarCustomizationPalette(_:))),
-        ])))
+        ])
+        let columns = NSMenu(title: String(localized: "Columns"))
+        columns.delegate = ColumnSetsMenu.shared
+        if let long = show.items.firstIndex(where: { $0.action == Command.srcLong.selector }) {
+            show.insertItem(container(for: columns), at: long + 1)
+        }
+        mainMenu.addItem(container(for: show))
 
         let windowMenu = windowMenu()
         mainMenu.addItem(container(for: windowMenu))

@@ -7,17 +7,12 @@ struct ColumnLayout {
     /// Below this Name width, Attr and then optional columns are left out.
     static let preferredNameWidth: CGFloat = 140
 
-    /// The columns shown in Full view, in order.
-    static var visibleColumns: [SortColumn] {
-        [.name, .ext, .size, .date] + Settings.extraColumns + [.attr]
-    }
-
     private static var cachedWidths: (font: NSFont, columns: [SortColumn], widths: [(SortColumn, CGFloat)])?
 
-    /// Widths of all columns but Name, measured with the current panel font.
-    static var fixedWidths: [(SortColumn, CGFloat)] {
+    /// Widths of the columns after Name, measured with the current panel font.
+    static func fixedWidths(of shown: [SortColumn]) -> [(SortColumn, CGFloat)] {
         let font = Theme.panelNumberFont
-        let columns = visibleColumns
+        let columns = [.name] + shown
         if let cachedWidths, cachedWidths.font == font, cachedWidths.columns == columns { return cachedWidths.widths }
         let formatter = DateFormatter()
         formatter.dateStyle = .short
@@ -49,8 +44,9 @@ struct ColumnLayout {
     /// The optional metadata columns in this layout.
     private(set) var extraColumns: [SortColumn] = []
 
-    init(width: CGFloat) {
-        var fixedWidths = Self.fixedWidths
+    /// `shown`: the columns after Name (a column set's).
+    init(width: CGFloat, columns shown: [SortColumn]) {
+        var fixedWidths = Self.fixedWidths(of: shown)
         // Keep names readable: drop Attr first, then optional columns from the right.
         while width - fixedWidths.reduce(0, { $0 + $1.1 }) < Self.preferredNameWidth,
               let index = fixedWidths.firstIndex(where: { $0.0 == .attr })

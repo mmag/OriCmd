@@ -210,6 +210,12 @@ final class FilePanelController: NSViewController {
         }
     }
 
+    /// The column set chosen for this panel (nil: the Default view); folders that
+    /// match a set's masks show that set anyway.
+    var chosenColumnSet: String? {
+        didSet { applyColumnSet() }
+    }
+
     /// cm_ShowOnlySelected: only these names are listed, until another folder is
     /// shown or All Files is chosen.
     private var onlyNames: Set<String>? {
@@ -256,6 +262,7 @@ final class FilePanelController: NSViewController {
         listView.delegate = self
         panelView.headerView.sortOrder = sortOrder
         panelView.headerView.onColumnClicked = { [weak self] column in self?.sort(by: column) }
+        panelView.headerView.onChooseColumnSet = { [weak self] name in self?.chooseColumnSet(name) }
         panelView.pathBar.onClick = { [weak self] in self?.focus() }
         panelView.pathBar.editableText = { [weak self] in self?.editablePath ?? "" }
         panelView.pathBar.onCommit = { [weak self] text in self?.go(to: text) }
@@ -307,6 +314,7 @@ final class FilePanelController: NSViewController {
 
     /// Font or other appearance settings changed.
     func settingsDidChange() {
+        applyColumnSet()
         panelView.setDriveBarVisible(Settings.showsDriveButtons)
         // Setting the font clears the terminal's selection: only when it changed.
         for terminal in terminals where terminal.font != TerminalPane.font {
@@ -437,6 +445,7 @@ final class FilePanelController: NSViewController {
             watcher = DirectoryWatcher(url: directory) { [weak self] in self?.reread() }
         }
         panelView.show(directory: directory, volumes: listing.volumes, freeSpace: listing.freeSpace)
+        applyColumnSet()
         refreshList(selecting: name, fallback: isNewDirectory ? 0 : listView.cursor)
         tabs[activeTabIndex].directory = directory
         updateTabBar()
@@ -2246,6 +2255,28 @@ extension FilePanelController: NSMenuItemValidation {
         }
     }
 
+    // MARK: - Column sets
+
+    /// The Full view columns for the folder shown (a server's: the chosen set).
+    func applyColumnSet() {
+        let set = ColumnSet.set(for: remote == nil ? directory : nil, chosen: chosenColumnSet)
+        listView.columns = set.columns
+        panelView.headerView.columns = set.columns
+        panelView.headerView.columnSet = set.name
+    }
+
+    private func chooseColumnSet(_ name: String) {
+        chosenColumnSet = name.isEmpty ? nil : name
+    }
+
+    /// Show → Columns: a set chosen in the menu (its name in the item).
+    @objc func chooseColumnSetFromMenu(_ sender: Any?) {
+        chooseColumnSet((sender as? NSMenuItem)?.representedObject as? String ?? "")
+    }
+
+    /// The set the panel shows ("" the Default view), for the menu's check mark.
+    var columnSetShown: String { panelView.headerView.columnSet }
+
     /// Show → All Files: removes the filter (and Only Selected Files).
     @objc(cm_SrcAllFiles:)
     func srcAllFiles(_ sender: Any?) {
@@ -3073,6 +3104,9 @@ extension FilePanelController: NSMenuItemValidation {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
+        case #selector(chooseColumnSetFromMenu(_:)):
+            menuItem.state = (menuItem.representedObject as? String) == columnSetShown ? .on : .off
+            return true
         case #selector(copy(_:)), #selector(cut(_:)):
             return archive == nil && !selectedItems.isEmpty
         case #selector(paste(_:)), #selector(moveItemsHere(_:)):

@@ -14,6 +14,8 @@ nonisolated enum SortColumn: String, CaseIterable, Sendable {
     }
 
     static let extras: [SortColumn] = [.kind, .created, .dimensions, .duration, .tags]
+    /// The columns after Name, in the order Full view shows them.
+    static let optional: [SortColumn] = [.ext, .size, .date] + extras + [.attr]
 }
 
 /// Total Commander ordering: "[..]" first, then folders, then files.

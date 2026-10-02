@@ -968,6 +968,27 @@ run cpause "alt+b wait text:ig escape f5 wait enter set:transferSpeed=1_MB/s cli
 check "A paused copy waits" "grep -qx 'Copying (paused)' build/shots/reg-cpause-sheet.txt && grep -qx '\\[button\\] Resume' build/shots/reg-cpause-sheet.txt && [ ! -e $R/big.bin ]"
 rm -f $R/.oricmd-*.part(N)
 
+# Column sets: the Default columns, a set used by itself in the folders matching
+# its masks (and left there), a set chosen in Show → Columns, a column turned on in
+# the header menu, a set made in the Column Sets window.
+scripts/test/mkdata.sh
+columns() { grep "^$2 columns: " build/shots/reg-$1-panels.txt | sed "s/^$2 columns: //"; }
+run cdef "wait"
+check "The Default columns" "[ \"\$(columns cdef left)\" = 'ext, size, date, attr' ]"
+defaults write ru.themmag.OriCmd.tests ColumnSets -array '{name=Photos;columns=(size,dimensions);folders="*/left/alpha";}'
+run cauto "alt+a wait text:lpha enter wait wait"
+check "A column set used by itself in its folders" "[ \"\$(columns cauto left)\" = 'size, dimensions' ] && [ \"\$(columns cauto right)\" = 'ext, size, date, attr' ]"
+defaults write ru.themmag.OriCmd.tests ColumnSets -array '{name=Photos;columns=(size,dimensions);folders="*/left/alpha";}'
+run cautoback "alt+a wait text:lpha enter wait wait backspace wait wait"
+check "...and not outside them" "[ \"\$(columns cautoback left)\" = 'ext, size, date, attr' ]"
+defaults write ru.themmag.OriCmd.tests ColumnSets -array '{name=Photos;columns=(size,dimensions);folders="";}'
+run cchoose "menuitem:Columns>Photos wait"
+check "A column set chosen for a panel" "[ \"\$(columns cchoose left)\" = 'size, dimensions' ]"
+run cheader "headermenu:Kind wait"
+check "A column turned on in the header menu" "[ \"\$(columns cheader left)\" = 'ext, size, date, kind, attr' ] && [ \"\$(columns cheader right)\" = 'ext, size, date, kind, attr' ]"
+run cwindow "menuitem:Column_Sets… wait click:+ wait set:columnSetName=Wide set:columnSet-kind=on set:columnSet-attr=off wait escape wait menuitem:Columns>Wide wait"
+check "A column set made in the Column Sets window" "[ \"\$(columns cwindow left)\" = 'ext, size, date, kind' ]"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

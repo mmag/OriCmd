@@ -10,7 +10,7 @@ import WebKit
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
-///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `file:/path` (the file the next save or open sheet chooses), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `file:/path` (the file the next save or open sheet chooses), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title` (also a tab of a tab view),
 ///   `set:identifier=value` (a control by its identifier: text, a pop-up item's title, `on`/`off`/`mixed`, a
@@ -178,6 +178,21 @@ enum DebugAutomation {
                 } else if token.hasPrefix("file:") {
                     // The file the next save or open sheet would have chosen.
                     chosenFile = String(token.dropFirst(5))
+                } else if token.hasPrefix("headermenu:"), let main = window.contentViewController as? MainViewController {
+                    // `headermenu:Item_Title`: an item of the active panel's column header menu.
+                    let title = String(token.dropFirst(11)).replacingOccurrences(of: "_", with: " ")
+                    let header = main.activePanel.panelView.headerView
+                    guard let event = NSEvent.mouseEvent(
+                            with: .rightMouseDown, location: header.convert(NSPoint(x: 10, y: 5), to: nil), modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                            context: nil, eventNumber: harnessEventNumber, clickCount: 1, pressure: 1),
+                          let menu = header.menu(for: event),
+                          let index = menu.items.firstIndex(where: { $0.title == title }) else { continue }
+                    if menu.items[index].target == nil, let action = menu.items[index].action {
+                        _ = perform(action, in: window, from: menu.items[index])
+                    } else {
+                        menu.performActionForItem(at: index)
+                    }
                 } else if token.hasPrefix("menuitem:") {
                     // `menuitem:Title` or `menuitem:Submenu>Title`: the first enabled item of the main
                     // menu so titled (menus made when opened are made first) is chosen.
@@ -369,6 +384,8 @@ enum DebugAutomation {
                         "\(side)\(panel === main.activePanel ? "*" : ""): \(panel.panelView.pathBar.path)"
                             + " | cursor: \(panel.listView.currentItem?.name ?? "")"
                             + " | tabs: \(panel.panelView.tabBar.titles.joined(separator: ", "))"
+                    } + zip(["left", "right"], main.panels).map { side, panel in
+                        "\(side) columns: " + panel.listView.columns.map(\.rawValue).joined(separator: ", ")
                     } + zip(["left", "right"], main.panels).map { side, panel in
                         // The entries listed (the first 30), the marked ones with *.
                         "\(side) items: " + panel.listView.items.filter { !$0.isParent }.prefix(30).map { item in

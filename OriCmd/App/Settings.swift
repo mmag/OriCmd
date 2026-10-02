@@ -187,6 +187,11 @@ enum Settings {
         AppDefaults.store.object(forKey: key) == nil ? value : AppDefaults.store.bool(forKey: key)
     }
 
+    /// Tells the windows to show settings changed elsewhere (column sets).
+    static func notifyChange() {
+        NotificationCenter.default.post(name: didChange, object: nil)
+    }
+
     private static func set(_ value: Any, _ key: String) {
         AppDefaults.store.set(value, forKey: key)
         notify()

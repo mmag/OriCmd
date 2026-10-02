@@ -1301,6 +1301,66 @@
         }
       }
     },
+    "Column Sets": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наборы колонок"
+          }
+        }
+      }
+    },
+    "Column Sets…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наборы колонок…"
+          }
+        }
+      }
+    },
+    "Column set": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Набор колонок"
+          }
+        }
+      }
+    },
+    "Columns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Колонки"
+          }
+        }
+      }
+    },
+    "Columns %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Колонки %lld"
+          }
+        }
+      }
+    },
+    "Columns:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Колонки:"
+          }
+        }
+      }
+    },
     "Command": {
       "localizations": {
         "ru": {
@@ -1877,6 +1937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Цвета по умолчанию"
+          }
+        }
+      }
+    },
+    "Default Columns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обычные колонки"
           }
         }
       }
@@ -3267,6 +3337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Маска:"
+          }
+        }
+      }
+    },
+    "Masks of folder paths, separated by ; (~/Pictures*;*/Photos): there the set is used by itself.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маски путей папок через ; (~/Pictures*;*/Photos): там набор включается сам."
           }
         }
       }
@@ -6287,6 +6367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закачка"
+          }
+        }
+      }
+    },
+    "Use in folders:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В папках:"
           }
         }
       }

@@ -155,12 +155,15 @@ final class MainViewController: NSViewController {
         let (tabs, active) = FilePanelController.SavedTabs(state).tabs(sortOrder: SortOrder())
         let panel = FilePanelController(tabs: tabs, activeTab: active)
         panel.viewMode = viewMode
+        panel.chosenColumnSet = state?["columnSet"] as? String
         return panel
     }
 
     private func savePanels() {
         for (panel, key) in [(leftPanel, Self.leftPanelKey), (rightPanel, Self.rightPanelKey)] {
-            AppDefaults.store.set(panel.tabState.dictionary.merging(["view": panel.viewMode.rawValue]) { $1 }, forKey: key)
+            var state = panel.tabState.dictionary.merging(["view": panel.viewMode.rawValue]) { $1 }
+            state["columnSet"] = panel.chosenColumnSet
+            AppDefaults.store.set(state, forKey: key)
         }
     }
 
@@ -402,6 +405,13 @@ extension MainViewController: NSMenuItemValidation {
                 }
             }
         }
+    }
+
+    // MARK: - Column sets
+
+    /// Show → Columns → Column Sets…: the sets, their columns and folders.
+    @objc func configureColumnSets(_ sender: Any?) {
+        ColumnSetsWindowController.show()
     }
 
     // MARK: - Favorite tabs
