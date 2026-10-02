@@ -5731,6 +5731,16 @@
         }
       }
     },
+    "Use the Spotlight index": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через индекс Spotlight"
+          }
+        }
+      }
+    },
     "Verification failed: “%@” differs from the original.": {
       "localizations": {
         "ru": {
@@ -6098,6 +6108,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "расширение"
+          }
+        }
+      }
+    },
+    "faster; Spotlight leaves out hidden files, packages and excluded folders, archives are not looked into": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "быстрее; Spotlight пропускает скрытые файлы, пакеты и исключённые папки, в архивы не заглядывает"
           }
         }
       }

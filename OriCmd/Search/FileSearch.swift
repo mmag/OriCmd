@@ -1,3 +1,4 @@
+import CoreServices
 import CryptoKit
 import Foundation
 import os
@@ -36,8 +37,11 @@ nonisolated final class FileSearch: Sendable {
         /// Only files that have the same name, size or contents as another one found.
         var duplicates: Duplicates?
         /// Also inside archives (by their names: zip, tar.gz, 7z…); not when looking
-        /// for duplicates.
+        /// for duplicates or using the index.
         var inArchives = false
+        /// The files are taken from the Spotlight index by name (and then checked as
+        /// usual) instead of going through the folders.
+        var usesIndex = false
     }
 
     /// A file or folder found: on disk, or inside the archive `url` at `entry`.
@@ -128,7 +132,9 @@ nonisolated final class FileSearch: Sendable {
     @concurrent
     func run() async {
         var candidates: [Candidate] = []
-        walk(query.root, level: 0, candidates: &candidates)
+        if !(query.usesIndex && searchIndex(candidates: &candidates)) {
+            walk(query.root, level: 0, candidates: &candidates)
+        }
         if let duplicates = query.duplicates {
             let groups = duplicateGroups(candidates, duplicates)
             if !isCancelled {
@@ -152,40 +158,109 @@ nonisolated final class FileSearch: Sendable {
         let index: Int
     }
 
-    /// `level`: how many subfolders below the root `directory` is. Looking for
-    /// duplicates, the regular files found go to `candidates` to be compared.
+    /// `level`: how many subfolders below the root `directory` is.
     private func walk(_ directory: URL, level: Int, candidates: inout [Candidate]) {
         guard !isCancelled, let names = try? DirectoryListing.names(in: directory) else { return }
         for name in names.sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending }) {
             if isCancelled { return }
             let url = directory.appending(path: name)
-            var info = stat()
-            guard lstat(url.path, &info) == 0 else { continue }
-            let isFolder = info.st_mode & S_IFMT == S_IFDIR
-
-            // Text is only looked for in regular files (also behind a symbolic link):
-            // a FIFO or a device would block or never end.
-            var target = stat()
-            let isLink = info.st_mode & S_IFMT == S_IFLNK
-            let isRegular = info.st_mode & S_IFMT == S_IFREG
-                || (isLink && stat(url.path, &target) == 0 && target.st_mode & S_IFMT == S_IFREG)
-            let file = isRegular ? (isLink ? target : info) : nil
-            if matches(Item(name: name, info, file: file)) && matchesText(url, isRegular: isRegular) {
-                if query.duplicates == nil {
-                    state.withLock { $0.found.append(Found(url: url)) }
-                } else if info.st_mode & S_IFMT == S_IFREG {
-                    candidates.append(Candidate(url: url, name: name, size: Int64(info.st_size),
-                                                file: [UInt64(info.st_dev), info.st_ino], index: candidates.count))
-                }
-            }
-            state.withLock { $0.scannedCount += 1 }
-            if query.inArchives, query.duplicates == nil, info.st_mode & S_IFMT == S_IFREG, ArchiveReader.isArchive(name) {
-                searchArchive(url)
-            }
-            if isFolder, query.depth.map({ level < $0 }) ?? true {
+            if examine(url, name: name, candidates: &candidates, archives: query.inArchives) == true,
+               query.depth.map({ level < $0 }) ?? true {
                 walk(url, level: level + 1, candidates: &candidates)
             }
         }
+    }
+
+    /// Checks a file or folder by all the conditions: a match is found, or, looking
+    /// for duplicates, goes to `candidates` to be compared; an archive is looked
+    /// into if `archives`. Returns whether it is a folder (nil: it is gone).
+    private func examine(_ url: URL, name: String, candidates: inout [Candidate], archives: Bool) -> Bool? {
+        var info = stat()
+        guard lstat(url.path, &info) == 0 else { return nil }
+
+        // Text is only looked for in regular files (also behind a symbolic link):
+        // a FIFO or a device would block or never end.
+        var target = stat()
+        let isLink = info.st_mode & S_IFMT == S_IFLNK
+        let isRegular = info.st_mode & S_IFMT == S_IFREG
+            || (isLink && stat(url.path, &target) == 0 && target.st_mode & S_IFMT == S_IFREG)
+        let file = isRegular ? (isLink ? target : info) : nil
+        if matches(Item(name: name, info, file: file)) && matchesText(url, isRegular: isRegular) {
+            if query.duplicates == nil {
+                state.withLock { $0.found.append(Found(url: url)) }
+            } else if info.st_mode & S_IFMT == S_IFREG {
+                candidates.append(Candidate(url: url, name: name, size: Int64(info.st_size),
+                                            file: [UInt64(info.st_dev), info.st_ino], index: candidates.count))
+            }
+        }
+        state.withLock { $0.scannedCount += 1 }
+        if archives, query.duplicates == nil, info.st_mode & S_IFMT == S_IFREG, ArchiveReader.isArchive(name) {
+            searchArchive(url)
+        }
+        return info.st_mode & S_IFMT == S_IFDIR
+    }
+
+    /// The files the Spotlight index has under the root by the masks (all of them
+    /// for a regular expression), checked as when going through the folders; false
+    /// when the index cannot be asked.
+    private func searchIndex(candidates: inout [Candidate]) -> Bool {
+        let root = query.root.standardizedFileURL.path
+        // The index has real paths (/private/tmp for /tmp).
+        let real = realpath(root, nil).map { resolved in
+            defer { free(resolved) }
+            return String(cString: resolved)
+        } ?? root
+        let masks = query.nameIsRegex ? ["*"] : query.masks.split { $0 == ";" || $0 == " " }.map(String.init)
+        let predicate = masks.map(Self.indexPredicate).contains(nil) ? Self.anyItem
+            : masks.compactMap(Self.indexPredicate).joined(separator: " || ")
+        guard let index = MDQueryCreate(kCFAllocatorDefault, predicate as CFString, nil, nil) else { return false }
+        MDQuerySetSearchScope(index, [real] as CFArray, 0)
+        guard MDQueryExecute(index, CFOptionFlags(kMDQuerySynchronous.rawValue)) else { return false }
+        let prefix = real.hasSuffix("/") ? real : real + "/"
+        let paths = (0..<MDQueryGetResultCount(index)).compactMap { position -> String? in
+            guard let result = MDQueryGetResultAtIndex(index, position) else { return nil }
+            let item = Unmanaged<MDItem>.fromOpaque(result).takeUnretainedValue()
+            return MDItemCopyAttribute(item, kMDItemPath) as? String
+        }
+        for path in paths.filter({ $0.hasPrefix(prefix) }).sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending }) {
+            if isCancelled { break }
+            let relative = path.dropFirst(prefix.count)
+            if let depth = query.depth, relative.split(separator: "/").count - 1 > depth { continue }
+            let url = URL(filePath: root).appending(path: String(relative))
+            _ = examine(url, name: url.lastPathComponent, candidates: &candidates, archives: false)
+        }
+        return true
+    }
+
+    /// Every item of the index (`kMDItemFSName == "*"` finds none).
+    private static let anyItem = "kMDItemContentTypeTree == \"public.item\""
+
+    /// A mask as Spotlight takes it: its * works at the ends of a name only, so
+    /// "spot-*.txt" asks for names that start with "spot-" and end with ".txt"; ? and
+    /// [] cut the mask the same way. The names are checked by the mask itself
+    /// afterwards. Nil: any name.
+    private static func indexPredicate(for mask: String) -> String? {
+        var parts = [""]
+        var inBrackets = false
+        for character in mask {
+            if inBrackets {
+                inBrackets = character != "]"
+            } else if "*?[".contains(character) {
+                inBrackets = character == "["
+                parts.append("")
+            } else {
+                parts[parts.count - 1].append(character)
+            }
+        }
+        func name(_ pattern: String) -> String {
+            "kMDItemFSName == \"" + pattern.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"") + "\"c"
+        }
+        guard parts.count > 1 else { return name(mask) }
+        let conditions = parts.enumerated().filter { !$0.element.isEmpty }.map { index, part in
+            name((index == 0 ? "" : "*") + part + (index == parts.count - 1 ? "" : "*"))
+        }
+        return conditions.isEmpty ? nil : "(" + conditions.joined(separator: " && ") + ")"
     }
 
     /// The entries of an archive, by the same conditions; the data of an entry is

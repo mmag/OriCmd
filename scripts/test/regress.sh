@@ -829,6 +829,18 @@ check "Find Files: a folder in an archive" "[ \"\$(archfound afolder)\" = 'archi
 archfind agoto "set:findMask=inside.txt set:findArchives=on" "click:Go_to_File wait wait wait"
 check "Find Files: Go to File opens the archive at the entry" "panels agoto | grep -q '^left\*: .*/arch/archive-test.zip/alpha | cursor: inside.txt'"
 
+# Find Files with the Spotlight index: the files come from the index (only those
+# named so are looked at), by the subfolder levels too. Skipped without indexing.
+if mdutil -s / 2>/dev/null | grep -q 'Indexing enabled'; then
+  scripts/test/mkdata.sh
+  mkdir -p $L/spot/sub; touch $L/spot/spot-a.txt $L/spot/spot-b.txt $L/spot/sub/spot-c.txt
+  for i in {1..20}; do [ "$(mdfind -onlyin $PWD/$L/spot 'kMDItemFSName == "spot-*"' | wc -l)" -ge 3 ] && break; sleep 1; done
+  run spotall "alt+f7 wait set:findMask=spot-*.txt set:findIndex=on click:Start_Search wait wait wait"
+  check "Find Files: names from the Spotlight index" "[ \"\$(grep '^\[row\]' build/shots/reg-spotall-win1.txt | sed 's|.*/left/||' | tr '\n' ' ')\" = 'spot/spot-a.txt spot/spot-b.txt spot/sub/spot-c.txt ' ] && grep -qx 'Done: 3 found, 3 scanned' build/shots/reg-spotall-win1.txt"
+  run spotdepth "alt+f7 wait set:findMask=spot-*.txt set:findIndex=on set:findDepth=1 click:Start_Search wait wait wait"
+  check "Find Files: the index by the subfolder levels" "[ \"\$(grep '^\[row\]' build/shots/reg-spotdepth-win1.txt | sed 's|.*/left/||' | tr '\n' ' ')\" = 'spot/spot-a.txt spot/spot-b.txt ' ]"
+fi
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

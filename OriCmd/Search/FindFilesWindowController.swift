@@ -15,6 +15,7 @@ final class FindFilesWindowController: NSWindowController {
     private let notContainingBox = NSButton(checkboxWithTitle: String(localized: "Not containing it"), target: nil, action: nil)
     private let encodingPopup = NSPopUpButton()
     private let archivesBox = NSButton(checkboxWithTitle: String(localized: "Search in archives"), target: nil, action: nil)
+    private let indexBox = NSButton(checkboxWithTitle: String(localized: "Use the Spotlight index"), target: nil, action: nil)
     /// How deep into subfolders: all, none, 1…9 levels.
     private let depthPopup = NSPopUpButton()
     private let tabs = NSTabView()
@@ -153,13 +154,14 @@ final class FindFilesWindowController: NSWindowController {
             [NSTextField(labelWithString: String(localized: "Search in:")), directoryField],
             [NSTextField(labelWithString: String(localized: "Subfolder levels:")), depthPopup],
             [NSGridCell.emptyContentView, archivesBox],
+            [NSGridCell.emptyContentView, indexOption()],
             [NSTextField(labelWithString: String(localized: "Find text:")), textField],
             [NSGridCell.emptyContentView, textOptions],
             [NSTextField(labelWithString: String(localized: "Encoding:")), encodingPopup],
         ])
         general.column(at: 0).xPlacement = .trailing
         general.rowSpacing = 6
-        for index in [3, 7] {
+        for index in [3, 8] {
             general.row(at: index).yPlacement = .center
         }
 
@@ -192,6 +194,7 @@ final class FindFilesWindowController: NSWindowController {
                              (nameRegexBox, "findNameRegex"), (caseSensitiveBox, "findCase"),
                              (wholeWordsBox, "findWholeWords"), (textRegexBox, "findTextRegex"),
                              (notContainingBox, "findNot"), (encodingPopup, "findEncoding"), (archivesBox, "findArchives"),
+                             (indexBox, "findIndex"),
                              (depthPopup, "findDepth"), (betweenBox, "findBetween"), (fromPicker, "findFrom"),
                              (toPicker, "findTo"), (olderBox, "findOlder"), (ageField, "findAge"),
                              (ageUnitPopup, "findAgeUnit"), (sizeBox, "findSizeOn"), (sizeComparisonPopup, "findSizeOp"),
@@ -267,6 +270,27 @@ final class FindFilesWindowController: NSWindowController {
         return grid
     }
 
+    /// The index checkbox with what it means beside it.
+    private func indexOption() -> NSView {
+        indexBox.target = self
+        indexBox.action = #selector(indexChanged(_:))
+        let hint = NSTextField(wrappingLabelWithString: String(localized:
+            "faster; Spotlight leaves out hidden files, packages and excluded folders, archives are not looked into"))
+        hint.textColor = .secondaryLabelColor
+        hint.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        hint.preferredMaxLayoutWidth = 480
+        let option = NSStackView(views: [indexBox, hint])
+        option.orientation = .vertical
+        option.alignment = .leading
+        option.spacing = 2
+        return option
+    }
+
+    /// The index has no archive contents.
+    @objc private func indexChanged(_ sender: Any?) {
+        archivesBox.isEnabled = indexBox.state != .on
+    }
+
     /// Bytes in hex are looked for as they are: no case, words or expressions.
     @objc private func encodingChanged(_ sender: Any?) {
         let isHex = Self.textEncodings[encodingPopup.indexOfSelectedItem].encodings == nil
@@ -308,7 +332,8 @@ final class FindFilesWindowController: NSWindowController {
             depth: depthPopup.indexOfSelectedItem == 0 ? nil : depthPopup.indexOfSelectedItem - 1
         )
         query.nameIsRegex = nameRegexBox.state == .on
-        query.inArchives = archivesBox.state == .on
+        query.usesIndex = indexBox.state == .on
+        query.inArchives = archivesBox.state == .on && !query.usesIndex
         query.notContaining = notContainingBox.state == .on
         if let encodings = Self.textEncodings[encodingPopup.indexOfSelectedItem].encodings {
             query.encodings = encodings
