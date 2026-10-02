@@ -123,7 +123,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `Ctrl+↑` (`⌥⌘↑`) | Open the folder under the cursor in a new tab |
 | `Ctrl+D` (`⌘D`) | Directory hotlist: go, add or remove the current folder |
 | `Alt`+letter, `Ctrl+Alt`+letter | Quick search by name (`↑`/`↓` — other matches, a leading `*` searches inside names) |
-| `Alt+F7` (`⌘F`) | Find files by mask (or a regular expression for the name) and text, to a chosen depth of subfolders; the text: case-sensitive or not, whole words, a regular expression, files not containing it; in UTF-8, UTF-16, Windows-1251, DOS (866), KOI8-R or all of them, or bytes in hex (`50 4B 03 04`); also inside archives (zip, tar.\*, 7z… — names, attributes and text, Go to File opens the archive at the entry, Feed to Panel shows the archive itself); "Use the Spotlight index" takes the files by name from the index instead of going through the folders — faster, but Spotlight leaves out hidden files, packages and excluded folders (the other conditions are checked as usual); the Templates tab saves a search under a name and loads it back (all conditions but the folder); the Advanced tab adds the modification date (between two dates or not older than), the file size (`=` `<` `>`; "= 2 MB" takes 2 to 3 MB) and attributes (folder, hidden, locked, symbolic link, executable: has it, does not have it, any), and finds duplicates — files with the same name, size or contents (the beginning is compared first, then the rest; hard links to one file count once, empty files are left out), shown in groups; "Feed to Panel" shows the results as a list in the panel, where all commands work on them, `[..]` returns to the search folder |
+| `Alt+F7` (`⌘F`) | Find files by name, text, date, size and attributes, duplicates too (see [Find Files](#find-files-altf7)); "Feed to Panel" shows the results as a list in the panel, where all commands work on them, `[..]` returns to the search folder |
 | `Ctrl+F1` / `Ctrl+F2` (`⌘1` / `⌘2`) | Brief / Full view |
 | `Ctrl+Shift+F1` (`⌘4`) | Thumbnails (Quick Look previews) |
 | Right-click on the column headers | Optional columns: kind, date created, picture dimensions, duration, Finder tags (sortable like the others) |
@@ -262,6 +262,28 @@ the texts shown in the viewer afterwards, see which programs run, post system
 notifications, take up shared memory until a restart and send back a wrong
 coloring, which OriCmd checks; nothing can leave the Mac through it. A highlighting
 that takes more than 5 seconds is stopped (the text stays plain).
+
+#### Find Files (`Alt+F7`)
+
+- **General:** masks (`*.txt;*.md`) or a regular expression for the name; the
+  folder and how many levels of subfolders; the text — case-sensitive or not,
+  whole words, a regular expression, or files *not* containing it — in UTF-8,
+  UTF-16, Windows-1251, DOS (866), KOI8-R or all of them, or bytes in hex
+  (`50 4B 03 04`).
+- **Inside archives** (zip, tar.\*, 7z… by name): names, attributes and text of
+  their files; Go to File opens the archive at the file, Feed to Panel shows the
+  archive itself.
+- **The Spotlight index:** files are taken by name from the index instead of going
+  through the folders — faster, but Spotlight leaves out hidden files, packages and
+  excluded folders (the other conditions are checked as usual).
+- **Advanced:** the modification date (between two dates or not older than), the
+  file size (`=` `<` `>`; "= 2 MB" takes 2 to 3 MB), attributes (folder, hidden,
+  locked, symbolic link, executable: has it, does not have it, any); duplicates —
+  files with the same name, size or contents (the beginning is compared first,
+  then the rest; hard links to one file count once, empty files are left out),
+  shown in groups. The tab's title says when a condition is set there.
+- **Templates:** a search saved under a name (all conditions but the folder) and
+  loaded back.
 
 #### The copy and move dialog (`F5` / `F6`)
 
