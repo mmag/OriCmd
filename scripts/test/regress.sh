@@ -1326,6 +1326,12 @@ scripts/test/mkdata.sh; ln -s alpha $L/current; mkdir -p $R/current; echo new > 
 run sftpsymlinkfolder "$(connect sftp://oritest$PWD/$L) tab alt+c wait text:urrent escape f5 wait enter wait wait wait"
 check "SFTP upload into a server symlink to a folder" "[ -f $L/alpha/new.txt ]"
 
+# Cyrillic names over SFTP: listed as they are (with LC_ALL=C the sftp client wrote
+# their bytes as octal escapes), a folder entered, a file downloaded.
+scripts/test/mkdata.sh; mkdir -p "$L/cyr/Наутилус"; echo крылья > "$L/cyr/Наутилус/Крылья.txt"
+run sftpcyr "$(connect sftp://oritest$PWD/$L/cyr) home down enter wait wait down f5 wait enter wait wait wait"
+check "SFTP: Cyrillic names listed, entered and downloaded" "grep -q '^left\\*: .*/cyr/Наутилус |' build/shots/reg-sftpcyr-panels.txt && grep -q '^left items: Крылья.txt\$' build/shots/reg-sftpcyr-panels.txt && [ \"\$(cat $R/Крылья.txt)\" = крылья ]"
+
 # F6 to the server through a symlinked local path, one file inside kept: nothing local is lost.
 scripts/test/mkdata.sh; ln -s right build/testdata/linkright; mkdir -p $R/site $L/site
 echo local-index > $R/site/index.html; echo other > $R/site/other.txt; echo server-index > $L/site/index.html

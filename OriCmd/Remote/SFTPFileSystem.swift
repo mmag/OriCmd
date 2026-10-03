@@ -63,8 +63,11 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
         port.map { [flag, String($0)] } ?? []
     }
 
+    /// Dates of `ls -l` in English (LC_TIME=C) and names in UTF-8: with LC_ALL=C the
+    /// sftp client writes every byte above 127 as an octal escape (`\320\240`).
     private var environment: [String: String] {
-        ["LC_ALL": "C", "SSH_ASKPASS": Askpass.path, "SSH_ASKPASS_REQUIRE": "force", "DISPLAY": ":0"]
+        ["LC_ALL": "", "LANG": "C", "LC_TIME": "C", "LC_CTYPE": "C.UTF-8",
+         "SSH_ASKPASS": Askpass.path, "SSH_ASKPASS_REQUIRE": "force", "DISPLAY": ":0"]
     }
 
     // MARK: - Connection

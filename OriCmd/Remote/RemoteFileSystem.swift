@@ -252,7 +252,7 @@ nonisolated final class LineBuffer: Sendable {
 }
 
 /// Parses `ls -l` style lines ("drwxr-xr-x  2 501 20  96 Sep 27 21:45 name"),
-/// as printed by the sftp client (with LC_ALL=C) and by most FTP servers.
+/// as printed by the sftp client (with LC_TIME=C) and by most FTP servers.
 nonisolated enum LongListing {
     private static let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
