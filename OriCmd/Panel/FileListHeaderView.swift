@@ -25,7 +25,7 @@ final class FileListHeaderView: NSView {
 
     var onColumnClicked: ((SortColumn) -> Void)?
 
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
     override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: 18) }
 
     override func draw(_ dirtyRect: NSRect) {

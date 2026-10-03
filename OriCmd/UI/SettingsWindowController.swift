@@ -549,7 +549,7 @@ private final class PanelPreview: NSView {
     private var headerHeight: CGFloat { 20 }
     private var height: CGFloat { headerHeight + CGFloat(rows.count) * Theme.rowHeight + 2 }
 
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
         let frame = bounds.insetBy(dx: 0.5, dy: 0.5)

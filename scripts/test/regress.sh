@@ -1200,6 +1200,12 @@ defaults write ru.themmag.OriCmd.tests UserCommands -data $(usercommands)
 run uplain "menuitem:Start>Plain wait wait"
 check "Start: a command of Start itself" "[ -e $L/plain.txt ]"
 
+# A drag of many files: AppKit places their images on other threads and asks the
+# views whether they are flipped there; a main-actor override stopped the app.
+scripts/test/mkdata.sh
+run flipped "flippedoffmain wait"
+check "The views answer whether they are flipped off the main thread (a drag of many files)" "grep -q '^flipped: [1-9][0-9]* of ' build/shots/reg-flipped-flipped.txt"
+
 # Ctrl+PgDn never starts a file: it opens it as an archive whatever its name (a zip
 # named .bin or .docx, an archive inside an archive named .dat); a file that is none
 # stays as it is, without a word.

@@ -90,7 +90,8 @@ final class FileListView: NSView {
         return formatter
     }()
 
-    override var isFlipped: Bool { true }
+    // Asked off the main thread too (AppKit places the images of a drag of many files concurrently).
+    nonisolated override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
     override init(frame frameRect: NSRect) {

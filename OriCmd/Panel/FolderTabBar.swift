@@ -51,7 +51,7 @@ final class FolderTabBar: NSView, NSDraggingSource {
         fatalError("init(coder:) is not supported")
     }
 
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
 
     private var attributes: [NSAttributedString.Key: Any] {
         let paragraph = NSMutableParagraphStyle()

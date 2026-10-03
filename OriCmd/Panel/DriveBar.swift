@@ -40,7 +40,7 @@ final class DriveBar: NSView {
     /// The context menu of a drive button (as the Finder's for a volume).
     var menuProvider: ((URL) -> NSMenu?)?
 
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
 
     /// The startup volume, the home folder, then the other mounted volumes.
     static func drives(for volumes: [Volume]) -> [Drive] {
