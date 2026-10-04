@@ -433,6 +433,8 @@ private final class OperationsPane: SettingsPane {
                           #selector(skipUnreadableChanged(_:))))
         row(nil, checkbox(String(localized: "Overwrite/delete locked files"), Settings.copyOverwritesLocked,
                           #selector(overwriteLockedChanged(_:))))
+        row(nil, checkbox(String(localized: "Skip .DS_Store (Finder\u{2019}s folder view settings)"), Settings.copySkipsDSStore,
+                          #selector(skipDSStoreChanged(_:))))
         note(String(localized: "These are the defaults of the copy dialog; its \u{201C}Options >>\u{201D} change them for one operation."))
 
         section(String(localized: "Delete"))
@@ -457,6 +459,7 @@ private final class OperationsPane: SettingsPane {
     @objc private func attributesChanged(_ sender: NSButton) { Settings.copyAttributes = sender.state == .on }
     @objc private func skipUnreadableChanged(_ sender: NSButton) { Settings.copySkipsUnreadable = sender.state == .on }
     @objc private func overwriteLockedChanged(_ sender: NSButton) { Settings.copyOverwritesLocked = sender.state == .on }
+    @objc private func skipDSStoreChanged(_ sender: NSButton) { Settings.copySkipsDSStore = sender.state == .on }
     @objc private func confirmTrashChanged(_ sender: NSButton) { Settings.confirmsMoveToTrash = sender.state == .on }
 }
 

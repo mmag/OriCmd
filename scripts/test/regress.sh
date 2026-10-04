@@ -211,6 +211,45 @@ defaults write ru.themmag.OriCmd.tests CopyOverwriteMode -int 2
 run hardlink "home down f5 wait enter wait wait"
 check "A hard link to the source inside the target does not stop copying" "[ -f $R/alpha/extra.txt ]"
 
+# Finder's .DS_Store files inside the copied folders are left out by default (a move
+# across volumes drops them, leaving no folder behind); one chosen itself is copied,
+# and the option of the dialog or of Settings copies them all.
+dsprep() { scripts/test/mkdata.sh; echo view > $L/alpha/.DS_Store; }
+dsprep; run dsskip "home down f5 wait enter wait wait"
+check "F5 leaves out .DS_Store inside folders" "[ -f $R/alpha/inside.txt ] && [ ! -e $R/alpha/.DS_Store ]"
+dsprep; run dspaste "home down cmd+c tab cmd+v wait wait wait"
+check "Pasting leaves out .DS_Store inside folders" "[ -f $R/alpha/inside.txt ] && [ ! -e $R/alpha/.DS_Store ]"
+dsprep; run dskeep "home down f5 wait click:Options_>> wait set:copySkipDSStore=off enter wait wait"
+check "F5 with .DS_Store not skipped copies it" "cmp -s $L/alpha/.DS_Store $R/alpha/.DS_Store"
+dsprep; defaults write ru.themmag.OriCmd.tests CopySkipDSStore -bool false
+run dskeepset "home down f5 wait enter wait wait"
+check "Settings: .DS_Store not skipped is copied" "cmp -s $L/alpha/.DS_Store $R/alpha/.DS_Store"
+scripts/test/mkdata.sh; echo view > $L/.DS_Store; defaults write ru.themmag.OriCmd.tests ShowHiddenFiles -bool true
+run dschosen "alt+. wait text:DS_ escape f5 wait enter wait wait"
+check "F5 on a .DS_Store itself copies it" "cmp -s $L/.DS_Store $R/.DS_Store"
+dsprep
+if hdiutil create -quiet -size 4m -fs HFS+ -volname OriVeto build/testdata/veto.dmg \
+   && mkdir -p build/testdata/mnt && hdiutil attach -quiet -nobrowse build/testdata/veto.dmg -mountroot $PWD/build/testdata/mnt; then
+  M=$PWD/build/testdata/mnt/OriVeto
+  RIGHT_PANEL=$M run dsmove "home down f6 wait enter wait wait"
+  check "F6 to another volume drops .DS_Store with the folder" "[ -f $M/alpha/inside.txt ] && [ ! -e $M/alpha/.DS_Store ] && [ ! -e $L/alpha ]"
+  hdiutil detach -quiet -force $M
+fi
+
+# A server's "veto files" (Samba on a NAS) refuse .DS_Store and the like: putting the
+# copy in place under that name fails with ENOENT (ORICMD_VETO plays such a server).
+# Finder's and Explorer's own files are left out and the copy goes on; any other
+# refused name stops it and is said so.
+dsprep; echo thumbs > $L/alpha/Thumbs.db; echo after > $L/alpha/zzz.txt; defaults write ru.themmag.OriCmd.tests CopySkipDSStore -bool false
+ORICMD_VETO=/.DS_Store/thumbs.db/ run veto "home down f5 wait enter wait wait"
+check "A server refusing .DS_Store and Thumbs.db does not stop copying" "[ -f $R/alpha/zzz.txt ] && [ -f $R/alpha/inside.txt ] && [ ! -e $R/alpha/.DS_Store ] && [ ! -e $R/alpha/Thumbs.db ] && [ ! -f build/shots/reg-veto-sheet.png ] && ! ls -a $R/alpha | grep -q oricmd"
+scripts/test/mkdata.sh
+ORICMD_VETO=/inside.txt/ run vetoname "home down f5 wait enter wait wait"
+check "A file name the server refuses is said so" "grep -qx '$PWD/$R/alpha/inside.txt: the server does not accept this name.' build/shots/reg-vetoname-sheet.txt && ! ls -a $R/alpha | grep -q oricmd"
+scripts/test/mkdata.sh
+UI_LANGUAGE=ru ORICMD_VETO=/deeper/ run vetofolder "home down down f5 wait enter wait wait"
+check "A folder name the server refuses is said so" "grep -qx '$PWD/$R/beta/deep/deeper: сервер не принимает такое имя.' build/shots/reg-vetofolder-sheet.txt"
+
 scripts/test/mkdata.sh; echo locked > $R/notes.md; chflags uchg $R/notes.md
 defaults write ru.themmag.OriCmd.tests CopyOverwriteMode -int 2
 run locked "alt+n wait text:otes escape f5 wait enter wait wait"

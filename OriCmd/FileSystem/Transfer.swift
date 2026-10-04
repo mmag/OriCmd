@@ -53,10 +53,24 @@ nonisolated enum ConflictDecision: Sendable {
 
 nonisolated struct TransferError: LocalizedError {
     let message: String
+    /// The destination lets nothing take this name.
+    var refusesName = false
     var errorDescription: String? { message }
 
     static func posix(_ path: String) -> TransferError {
         TransferError(message: "\(path): \(String(cString: strerror(errno)))")
+    }
+
+    /// A rename or mkdir that made `path` failed: ENOENT although `existing` is
+    /// there means the destination refuses the name (a Samba server's "veto files"
+    /// hide .DS_Store, Thumbs.db and the like, and let nothing take those names).
+    static func creating(_ path: String, although existing: String) -> TransferError {
+        let failure = errno
+        guard failure == ENOENT, access(existing, F_OK) == 0 else {
+            errno = failure
+            return posix(path)
+        }
+        return TransferError(message: String(localized: "\(path): the server does not accept this name."), refusesName: true)
     }
 }
 
@@ -204,6 +218,26 @@ nonisolated final class TransferEngine {
         return lstat(path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
     }
 
+    /// What Finder and Windows Explorer keep in folders for themselves (view
+    /// settings, thumbnails), which file servers are often set to refuse.
+    private static func isFolderMetadata(_ name: String) -> Bool {
+        [".ds_store", "thumbs.db", "desktop.ini"].contains(name.lowercased())
+    }
+
+    /// A test run's stand-in for a server's "veto files": the names in `ORICMD_VETO`
+    /// ("/.DS_Store/Thumbs.db/", any case) cannot be created, with ENOENT as there.
+    private static func vetoed(_ path: String) -> Bool {
+        #if DEBUG
+        guard let list = ProcessInfo.processInfo.environment["ORICMD_VETO"],
+              list.lowercased().split(separator: "/").contains(Substring((path as NSString).lastPathComponent.lowercased()))
+        else { return false }
+        errno = ENOENT
+        return true
+        #else
+        false
+        #endif
+    }
+
     /// Returns false if the item (or something inside it) was skipped or filtered out.
     /// `topLevel`: one of the items the user chose (not something inside a folder).
     private func transfer(_ source: URL, to target: URL, insideIncludedFolder: Bool,
@@ -237,6 +271,15 @@ nonisolated final class TransferEngine {
             throw TransferError(message: job.kind == .move
                 ? String(localized: "Cannot move \u{201C}\(name)\u{201D} into itself.")
                 : String(localized: "Cannot copy \u{201C}\(name)\u{201D} into itself."))
+        }
+
+        // Finder's view settings of a folder are not carried over; a move drops them,
+        // or its source folder would stay behind for them.
+        if options.skipsDSStore, !topLevel, !isFolder, name == ".DS_Store" {
+            let size = Int64(sourceInfo.st_size)
+            progress.update { $0.doneBytes += size }
+            if job.kind == .move { unlink(sourcePath) }
+            return true
         }
 
         // "Only files of this type".
@@ -306,8 +349,8 @@ nonisolated final class TransferEngine {
         }
 
         if isFolder {
-            guard mkdir(targetPath, sourceInfo.st_mode & 0o7777 | S_IRWXU) == 0 else {
-                throw TransferError.posix(targetPath)
+            guard !Self.vetoed(targetPath), mkdir(targetPath, sourceInfo.st_mode & 0o7777 | S_IRWXU) == 0 else {
+                throw TransferError.creating(targetPath, although: target.deletingLastPathComponent().path)
             }
             return try await merge(source, into: target, insideIncludedFolder: insideIncludedFolder, created: true)
         }
@@ -324,7 +367,13 @@ nonisolated final class TransferEngine {
                 try verify(sourcePath, partial)
             }
             if unlocksTarget { chflags(targetPath, targetInfo.st_flags & ~UInt32(UF_IMMUTABLE)) }
-            guard Darwin.rename(partial, targetPath) == 0 else { throw TransferError.posix(targetPath) }
+            guard !Self.vetoed(targetPath), Darwin.rename(partial, targetPath) == 0 else {
+                throw TransferError.creating(targetPath, although: partial)
+            }
+        } catch let error as TransferError where error.refusesName && Self.isFolderMetadata(name) {
+            // Kept off the server on purpose: left out (Finder or Explorer writes a new
+            // one when needed), and the copy goes on; a move removes the original too.
+            unlink(partial)
         } catch {
             unlink(partial)
             throw error

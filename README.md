@@ -330,9 +330,14 @@ that takes more than 5 seconds is stopped (the text stays plain).
   other way round).
 - **Options >>**: overwrite mode (ask, overwrite all, skip all, overwrite older,
   auto-rename the copied or the existing files — `name(2).ext`, copy larger or
-  smaller ones), skip unreadable files, overwrite/delete locked files, copy to all
-  folders selected in the target panel. The pin keeps the options open, the save
-  button makes them the default.
+  smaller ones), skip unreadable files, overwrite/delete locked files, skip
+  `.DS_Store` (on by default: Finder's view settings inside the folders are not
+  copied; one chosen itself is), copy to all folders selected in the target
+  panel. The pin keeps the options open, the save button makes them the default.
+- A file server that refuses some names (Samba's "veto files" on a NAS often keep
+  out `.DS_Store`, `Thumbs.db`, `desktop.ini`): such Finder and Explorer files
+  are left out and the copy goes on; any other refused name stops it with "the
+  server does not accept this name".
 
 ### Archives
 

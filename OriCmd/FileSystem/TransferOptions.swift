@@ -33,6 +33,8 @@ nonisolated struct TransferOptions: Sendable {
     var skipsUnreadable = false
     /// Locked (read-only) targets are unlocked to be overwritten, and locked sources to be moved.
     var overwritesLocked = false
+    /// Finder's .DS_Store files inside the folders are left out (one chosen itself is copied).
+    var skipsDSStore = true
 }
 
 /// Total Commander's "Only files of this type": "*.jpg *.png" copies only

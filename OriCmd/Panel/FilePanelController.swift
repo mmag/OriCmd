@@ -2480,8 +2480,10 @@ extension FilePanelController: NSMenuItemValidation {
                                      window: window)
                 : TransferController(title: String(localized: "Copying"), failureTitle: String(localized: "Copying failed"),
                                      window: window)
+            var options = TransferOptions()
+            options.skipsDSStore = Settings.copySkipsDSStore
             _ = await controller.run(source: urls[0].deletingLastPathComponent().path, target: destination.path) {
-                progress, resolveConflict in
+                [options] progress, resolveConflict in
                 let total = urls.reduce(Int64(0)) { $0 + TransferEngine.totalSize(of: $1) }
                 progress.update { $0.totalBytes = total }
                 // Items from another folder go in one job, so "Overwrite All" / "Skip All"
@@ -2494,12 +2496,13 @@ extension FilePanelController: NSMenuItemValidation {
                     }
                     if moving { continue }
                     let job = TransferJob(kind: .copy, sources: [url], destination: destination,
-                                          newName: Self.copyName(for: url.lastPathComponent, in: destination))
+                                          newName: Self.copyName(for: url.lastPathComponent, in: destination), options: options)
                     _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
                                                  resolveConflict: resolveConflict).run()
                 }
                 if !others.isEmpty {
-                    let job = TransferJob(kind: moving ? .move : .copy, sources: others, destination: destination, newName: nil)
+                    let job = TransferJob(kind: moving ? .move : .copy, sources: others, destination: destination, newName: nil,
+                                          options: options)
                     _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
                                                  resolveConflict: resolveConflict).run()
                 }
@@ -2998,7 +3001,8 @@ extension FilePanelController: NSMenuItemValidation {
                     initial: item.name, selection: selection,
                     okTitle: String(localized: "copy.button", defaultValue: "Copy"), in: window) { [weak self] name in
             guard let self, !name.isEmpty, name != item.name, !name.contains("/") else { return }
-            let job = TransferJob(kind: .copy, sources: [item.url], destination: directory, newName: name)
+            var job = TransferJob(kind: .copy, sources: [item.url], destination: directory, newName: name)
+            job.options.skipsDSStore = Settings.copySkipsDSStore
             Task {
                 _ = await TransferController.run(job, in: window)
                 self.load(self.directory, selecting: name)
