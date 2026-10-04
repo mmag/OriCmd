@@ -566,7 +566,7 @@ extension MainViewController: NSMenuItemValidation {
         guard let window = view.window else { return }
         let controller = TransferController(title: moving ? String(localized: "Moving") : String(localized: "Copying"),
                                             failureTitle: String(localized: "Server to server failed"), window: window)
-        let done = await controller.run(source: from.displayPath, target: to.displayPath) { progress, resolveConflict in
+        let done = await controller.run(source: from.displayPath, target: to.displayPath) { progress, prompts in
             let temporary = FileManager.default.temporaryDirectory.appending(path: "OriCmd-relay-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: temporary) }
@@ -574,7 +574,7 @@ extension MainViewController: NSMenuItemValidation {
                                                              conflicts: RemoteConflicts(nil))
             let local = items.filter { fetched.contains($0.name) }.map { temporary.appending(path: $0.name) }
             let sent = try await to.fileSystem.upload(local, to: to.path, progress: progress,
-                                                      conflicts: RemoteConflicts(resolveConflict))
+                                                      conflicts: RemoteConflicts(prompts.resolveConflict))
             let names = Set(sent.map(\.lastPathComponent))
             if moving {
                 try await from.fileSystem.delete(items.filter { names.contains($0.name) }, in: from.path)

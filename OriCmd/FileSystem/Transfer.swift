@@ -51,6 +51,19 @@ nonisolated enum ConflictDecision: Sendable {
     case resume
 }
 
+/// What to do about an item that could not be copied or moved.
+nonisolated enum ErrorDecision: Sendable {
+    case skip, retry, cancel
+}
+
+/// The questions a transfer asks while it runs, answered in its progress window.
+nonisolated struct TransferPrompts: Sendable {
+    /// "File already exists".
+    let resolveConflict: TransferEngine.ConflictHandler
+    /// An item that failed: skip it, try it again or stop the whole operation.
+    let resolveError: TransferEngine.ErrorHandler
+}
+
 nonisolated struct TransferError: LocalizedError {
     let message: String
     /// The destination lets nothing take this name.
@@ -167,10 +180,11 @@ nonisolated final class TransferProgress: Sendable {
 /// by mask and verification.
 nonisolated final class TransferEngine {
     typealias ConflictHandler = @Sendable (_ source: ConflictItem, _ target: ConflictItem) async -> ConflictDecision
+    typealias ErrorHandler = @Sendable (_ message: String) async -> ErrorDecision
 
     private let job: TransferJob
     private let progress: TransferProgress
-    private let resolveConflict: ConflictHandler
+    private let prompts: TransferPrompts
     /// Starts as chosen in the dialog; "Overwrite All" etc. in the prompt change it.
     private var mode: OverwriteMode
     private var options: TransferOptions { job.options }
@@ -178,12 +192,11 @@ nonisolated final class TransferEngine {
     private let reportsTotal: Bool
 
     /// With `reportsTotal` false the caller has set `totalBytes` for a batch of jobs.
-    init(job: TransferJob, progress: TransferProgress, reportsTotal: Bool = true,
-         resolveConflict: @escaping ConflictHandler) {
+    init(job: TransferJob, progress: TransferProgress, reportsTotal: Bool = true, prompts: TransferPrompts) {
         self.job = job
         self.progress = progress
         self.reportsTotal = reportsTotal
-        self.resolveConflict = resolveConflict
+        self.prompts = prompts
         mode = job.options.overwrite
     }
 
@@ -240,8 +253,37 @@ nonisolated final class TransferEngine {
 
     /// Returns false if the item (or something inside it) was skipped or filtered out.
     /// `topLevel`: one of the items the user chose (not something inside a folder).
+    /// An item that fails is asked about: skipped, tried again, or the whole
+    /// operation stops; what failed inside a folder is asked about by itself.
     private func transfer(_ source: URL, to target: URL, insideIncludedFolder: Bool,
                           topLevel: Bool = false) async throws -> Bool {
+        let doneBefore = progress.snapshot.doneBytes
+        while true {
+            do {
+                return try await transferItem(source, to: target, insideIncludedFolder: insideIncludedFolder,
+                                              topLevel: topLevel)
+            } catch let error as CancellationError {
+                throw error
+            } catch {
+                let message = error is TransferError ? error.localizedDescription
+                    : "\(source.standardizedFileURL.path): \(error.localizedDescription)"
+                switch await prompts.resolveError(message) {
+                case .skip:
+                    let size = Self.totalSize(of: source)
+                    progress.update { $0.doneBytes = max($0.doneBytes, doneBefore + size) }
+                    return false
+                case .retry:
+                    // A file counts afresh; a folder keeps what its contents counted.
+                    if !Self.isFolder(source.path) { progress.update { $0.doneBytes = doneBefore } }
+                case .cancel:
+                    throw CancellationError()
+                }
+            }
+        }
+    }
+
+    private func transferItem(_ source: URL, to target: URL, insideIncludedFolder: Bool,
+                              topLevel: Bool) async throws -> Bool {
         if progress.isCancelled { throw CancellationError() }
         var target = target
 
@@ -435,7 +477,7 @@ nonisolated final class TransferEngine {
         // since replacing would delete a whole folder (or put a file over one).
         if !bothFiles {
             if mode == .skipAll { return .skip }
-            switch await resolveConflict(.local(source), .local(target)) {
+            switch await prompts.resolveConflict(.local(source), .local(target)) {
             case .overwrite, .overwriteAll, .overwriteAllOlder, .resume: return .overwrite
             case .skip, .skipAll: return .skip
             case .cancel: throw CancellationError()
@@ -462,7 +504,7 @@ nonisolated final class TransferEngine {
             break
         }
         // Ask, and for a file meeting a folder in the modes that compare files.
-        switch await resolveConflict(.local(source), .local(target)) {
+        switch await prompts.resolveConflict(.local(source), .local(target)) {
         case .overwrite, .resume:
             return .overwrite
         case .overwriteAll:

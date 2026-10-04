@@ -5561,6 +5561,16 @@
         }
       }
     },
+    "Retry": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторить"
+          }
+        }
+      }
+    },
     "Reverse Order": {
       "localizations": {
         "ru": {

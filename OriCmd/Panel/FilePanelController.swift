@@ -573,9 +573,9 @@ final class FilePanelController: NSViewController {
             let controller = TransferController(title: String(localized: "Uploading"),
                                                 failureTitle: String(localized: "Upload failed"), window: window)
             let done = await controller.run(source: urls.first?.deletingLastPathComponent().path ?? "",
-                                            target: remote.fileSystem.displayName + target) { progress, resolveConflict in
+                                            target: remote.fileSystem.displayName + target) { progress, prompts in
                 let completed = try await remote.fileSystem.upload(urls, to: target, progress: progress,
-                                                                   conflicts: RemoteConflicts(resolveConflict))
+                                                                   conflicts: RemoteConflicts(prompts.resolveConflict))
                 // Moving deletes only what reached the server completely.
                 if moving {
                     try await FileOperations.deletePermanently(urls.filter(completed.contains))
@@ -596,10 +596,10 @@ final class FilePanelController: NSViewController {
         let controller = TransferController(title: String(localized: "Downloading"),
                                             failureTitle: String(localized: "Download failed"), window: window)
         let completed = OSAllocatedUnfairLock(initialState: Set<String>())
-        let done = await controller.run(source: remote.displayPath, target: folder.path) { progress, resolveConflict in
+        let done = await controller.run(source: remote.displayPath, target: folder.path) { progress, prompts in
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let names = try await remote.fileSystem.download(items, from: remote.path, to: folder, progress: progress,
-                                                             conflicts: RemoteConflicts(resolveConflict))
+                                                             conflicts: RemoteConflicts(prompts.resolveConflict))
             completed.withLock { $0 = names }
             // Moving deletes on the server only what arrived completely (skipped files stay).
             if moving {
@@ -2483,7 +2483,7 @@ extension FilePanelController: NSMenuItemValidation {
             var options = TransferOptions()
             options.skipsDSStore = Settings.copySkipsDSStore
             _ = await controller.run(source: urls[0].deletingLastPathComponent().path, target: destination.path) {
-                [options] progress, resolveConflict in
+                [options] progress, prompts in
                 let total = urls.reduce(Int64(0)) { $0 + TransferEngine.totalSize(of: $1) }
                 progress.update { $0.totalBytes = total }
                 // Items from another folder go in one job, so "Overwrite All" / "Skip All"
@@ -2498,13 +2498,13 @@ extension FilePanelController: NSMenuItemValidation {
                     let job = TransferJob(kind: .copy, sources: [url], destination: destination,
                                           newName: Self.copyName(for: url.lastPathComponent, in: destination), options: options)
                     _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
-                                                 resolveConflict: resolveConflict).run()
+                                                 prompts: prompts).run()
                 }
                 if !others.isEmpty {
                     let job = TransferJob(kind: moving ? .move : .copy, sources: others, destination: destination, newName: nil,
                                           options: options)
                     _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
-                                                 resolveConflict: resolveConflict).run()
+                                                 prompts: prompts).run()
                 }
                 return urls
             }

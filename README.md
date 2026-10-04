@@ -334,10 +334,13 @@ that takes more than 5 seconds is stopped (the text stays plain).
   `.DS_Store` (on by default: Finder's view settings inside the folders are not
   copied; one chosen itself is), copy to all folders selected in the target
   panel. The pin keeps the options open, the save button makes them the default.
-- A file server that refuses some names (Samba's "veto files" on a NAS often keep
-  out `.DS_Store`, `Thumbs.db`, `desktop.ini`): such Finder and Explorer files
-  are left out and the copy goes on; any other refused name stops it with "the
-  server does not accept this name".
+- A file or folder that cannot be copied or moved is asked about while the
+  operation waits: **Skip** (`Return`), **Skip All** (the next failures of this
+  operation without asking), **Retry**, **Cancel** (`Esc`) the rest. A file server
+  that refuses some names (Samba's "veto files" on a NAS often keep out
+  `.DS_Store`, `Thumbs.db`, `desktop.ini`) is named as the cause ("the server does
+  not accept this name"); such Finder and Explorer files are left out without
+  asking.
 
 ### Archives
 

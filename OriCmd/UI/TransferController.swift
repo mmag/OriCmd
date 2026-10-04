@@ -1,10 +1,10 @@
 import AppKit
 
 /// Runs a long file operation (copy, move, pack, unpack) with a Total Commander
-/// style progress sheet and "File already exists" prompts.
+/// style progress sheet, "File already exists" prompts and questions about failed items.
 final class TransferController {
     /// Runs off the main thread (so the progress window stays live), whatever the caller.
-    typealias Work = @concurrent @Sendable (TransferProgress, @escaping TransferEngine.ConflictHandler) async throws -> [URL]
+    typealias Work = @concurrent @Sendable (TransferProgress, TransferPrompts) async throws -> [URL]
 
     private let title: String
     private let failureTitle: String
@@ -26,6 +26,8 @@ final class TransferController {
     private static let speeds: [Int64] = [0, 1, 5, 10, 20, 50, 100]
     /// After "Background" the progress is a separate window and the main window stays usable.
     private var isInBackground = false
+    /// "Skip All" answered about a failed item: the others of this operation are skipped too.
+    private var skipsAllErrors = false
 
     /// Queued operations start in their own window right away.
     var startsInBackground = false
@@ -49,8 +51,8 @@ final class TransferController {
                                  window: window)
         controller.startsInBackground = inBackground
         return await controller.run(source: job.sources.first?.path ?? "", target: job.destination.path) {
-            progress, resolveConflict in
-            try await TransferEngine(job: job, progress: progress, resolveConflict: resolveConflict).run()
+            progress, prompts in
+            try await TransferEngine(job: job, progress: progress, prompts: prompts).run()
         }
     }
 
@@ -79,12 +81,14 @@ final class TransferController {
             MainActor.assumeIsolated { self?.refresh() }
         }
 
-        let resolveConflict: TransferEngine.ConflictHandler = { [weak self] source, target in
+        let prompts = TransferPrompts(resolveConflict: { [weak self] source, target in
             await self?.askOverwrite(source, target) ?? .cancel
-        }
+        }, resolveError: { [weak self] message in
+            await self?.askAboutError(message) ?? .cancel
+        })
         var result: Result<[URL], Error>
         do {
-            result = .success(try await work(progress, resolveConflict))
+            result = .success(try await work(progress, prompts))
         } catch {
             result = .failure(error)
         }
@@ -252,6 +256,30 @@ final class TransferController {
         case 4: return .overwriteAllOlder
         case 5 where target.resumable: return .resume
         default: return .cancel
+        }
+    }
+
+    /// An item that could not be copied or moved: Skip (Return), Skip All (the next
+    /// failures of this operation without asking), Retry, or Cancel (Esc) the rest.
+    private func askAboutError(_ message: String) async -> ErrorDecision {
+        if skipsAllErrors { return .skip }
+        let alert = NSAlert()
+        alert.messageText = failureTitle
+        alert.informativeText = message
+        for title in [String(localized: "Skip"), String(localized: "Skip All"), String(localized: "Retry")] {
+            alert.addButton(withTitle: title)
+        }
+        alert.addCancelButton()
+        switch await alert.beginSheetModal(for: sheet) {
+        case .alertFirstButtonReturn:
+            return .skip
+        case .alertSecondButtonReturn:
+            skipsAllErrors = true
+            return .skip
+        case .alertThirdButtonReturn:
+            return .retry
+        default:
+            return .cancel
         }
     }
 

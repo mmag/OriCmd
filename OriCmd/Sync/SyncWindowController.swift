@@ -208,7 +208,7 @@ final class SyncWindowController: NSWindowController {
             Task {
                 let controller = TransferController(title: String(localized: "Synchronizing"),
                                                     failureTitle: String(localized: "Synchronization failed"), window: window)
-                _ = await controller.run(source: left.path, target: right.path) { progress, resolveConflict in
+                _ = await controller.run(source: left.path, target: right.path) { progress, prompts in
                     let total = copies.reduce(Int64(0)) { $0 + $1.size }
                     progress.update { $0.totalBytes = total }
                     // Files replace files without asking; a file meeting a folder is still asked about.
@@ -218,7 +218,7 @@ final class SyncWindowController: NSWindowController {
                         let job = TransferJob(kind: .copy, sources: [copy.source], destination: copy.folder, newName: nil,
                                               options: options)
                         _ = try await TransferEngine(job: job, progress: progress, reportsTotal: false,
-                                                     resolveConflict: resolveConflict).run()
+                                                     prompts: prompts).run()
                     }
                     return copies.map(\.source)
                 }
