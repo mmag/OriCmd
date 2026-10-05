@@ -131,11 +131,11 @@ run cmdline "text:touch space text:cmd-made.txt enter wait wait"
 check "command line runs commands" "[ -f $L/cmd-made.txt ]"
 # A failure shows what the command wrote to stderr (it came after the exit at times:
 # "Exit status 1" alone); a program left in the background keeps a stderr to write
-# to after the shell ends (a closed pipe ended it with SIGPIPE), the exit status said.
-run cmdfail "text:ls space text:/nope-oricmd enter wait wait"
+# to after the shell ends (a closed pipe ended it with SIGPIPE), the failure said.
+run cmdfail "text:/bin/ls space text:/nope-oricmd enter wait wait"
 check "command line: a failure says what the command wrote" "grep -q '/nope-oricmd: No such file or directory' build/shots/reg-cmdfail-sheet.txt"
 run cmdbg "text:(sleep space text:2; space text:echo space text:late space text:>&2; space text:touch space text:bg-alive.txt) space text:& space text:exit space text:3 enter wait wait wait wait wait wait"
-check "command line: a background program outlives the shell's stderr" "[ -f $L/bg-alive.txt ] && grep -qx 'Exit status 3' build/shots/reg-cmdbg-sheet.txt"
+check "command line: a background program outlives the shell's stderr" "[ -f $L/bg-alive.txt ] && grep -q 'exit 3” failed' build/shots/reg-cmdbg-sheet.txt"
 
 scripts/test/mkdata.sh
 run unzip "alt+a wait text:rchive-t enter wait home down space space f5 wait enter wait wait"

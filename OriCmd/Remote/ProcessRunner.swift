@@ -87,10 +87,10 @@ nonisolated enum ProcessRunner {
             try? await Task.sleep(for: .milliseconds(40))
         }
         // What the tool wrote last may still be on its way: both pipes are read to their
-        // end, but not waited for long (a process it left behind may keep one open).
+        // end, but not waited for long (a process it left behind may keep one open), nor
+        // once the task is cancelled (the tool's result stands: it has finished).
         let deadline = ContinuousClock.now + .seconds(2)
-        while collected.withLock({ $0.openPipes > 0 }), ContinuousClock.now < deadline {
-            if Task.isCancelled { throw CancellationError() }
+        while collected.withLock({ $0.openPipes > 0 }), ContinuousClock.now < deadline, !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(5))
         }
         let (output, errors) = collected.withLock { ($0.output, $0.errors) }

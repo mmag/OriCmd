@@ -230,7 +230,7 @@ enum ShellRunner {
         // is read until it closes (the rest dropped): a closed one would end it (SIGPIPE).
         let errors = Pipe()
         let outcome = OSAllocatedUnfairLock(initialState: ShellOutcome())
-        let update: @Sendable (@Sendable (inout ShellOutcome) -> Void) -> Void = { change in
+        let update: @Sendable (@Sendable (inout ShellOutcome) -> Void) -> Void = { [weak window] change in
             let failure: (status: Int32, message: String)? = outcome.withLock { state in
                 change(&state)
                 guard let status = state.status, state.ended, !state.reported else { return nil }
@@ -253,8 +253,10 @@ enum ShellRunner {
             update { state in
                 if data.isEmpty {
                     state.ended = true
-                } else if !state.reported {
-                    state.errors.append(data)
+                } else if !state.reported, state.errors.count < 65536 {
+                    // The start is what the message shows; a program that logs to stderr
+                    // for hours is not kept in memory.
+                    state.errors.append(data.prefix(65536 - state.errors.count))
                 }
             }
         }
