@@ -197,6 +197,16 @@ extension CommandLineController: NSComboBoxDelegate {
 
 /// Runs shell commands the way Total Commander runs programs from its command line.
 enum ShellRunner {
+    /// How a command run detached went, as far as it is known.
+    nonisolated private struct ShellOutcome {
+        var errors = Data()
+        /// Its stderr was read to the end (or is not waited for any longer).
+        var ended = false
+        /// The shell's exit status, once it has exited.
+        var status: Int32?
+        var reported = false
+    }
+
     /// The user's shell when it is sh-compatible (the parameters are quoted for
     /// sh: in fish or csh the quoting would differ), else zsh.
     private static var shell: String {
@@ -214,21 +224,46 @@ enum ShellRunner {
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
 
+        // A failure is reported once the shell has exited and its stderr is read to the
+        // end (its last words came after the exit before), or a second after the exit: a
+        // program it left in the background may keep stderr open. Such a program's pipe
+        // is read until it closes (the rest dropped): a closed one would end it (SIGPIPE).
         let errors = Pipe()
-        let collected = OSAllocatedUnfairLock(initialState: Data())
-        errors.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            collected.withLock { $0.append(data) }
+        let outcome = OSAllocatedUnfairLock(initialState: ShellOutcome())
+        let update: @Sendable (@Sendable (inout ShellOutcome) -> Void) -> Void = { change in
+            let failure: (status: Int32, message: String)? = outcome.withLock { state in
+                change(&state)
+                guard let status = state.status, state.ended, !state.reported else { return nil }
+                state.reported = true
+                return status == 0 ? nil : (status, String(decoding: state.errors, as: UTF8.self))
+            }
+            guard let failure else { return }
+            Task { @MainActor in
+                let error = TransferError(message: failure.message.isEmpty
+                    ? String(localized: "Exit status \(failure.status)") : failure.message)
+                Prompt.error(String(localized: "\u{201C}\(command)\u{201D} failed"), error, in: window)
+            }
+        }
+        // The handler keeps the reading end (and its file) open until the end of the pipe.
+        let reader = errors.fileHandleForReading
+        reader.readabilityHandler = { _ in
+            let data = reader.availableData
+            // At the end of the pipe it would be called again and again with no data.
+            if data.isEmpty { reader.readabilityHandler = nil }
+            update { state in
+                if data.isEmpty {
+                    state.ended = true
+                } else if !state.reported {
+                    state.errors.append(data)
+                }
+            }
         }
         process.standardError = errors
         process.terminationHandler = { process in
-            errors.fileHandleForReading.readabilityHandler = nil
             let status = process.terminationStatus
-            let message = String(decoding: collected.withLock { $0 }, as: UTF8.self)
-            guard status != 0 else { return }
-            Task { @MainActor in
-                let error = TransferError(message: message.isEmpty ? String(localized: "Exit status \(status)") : message)
-                Prompt.error(String(localized: "\u{201C}\(command)\u{201D} failed"), error, in: window)
+            update { $0.status = status }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
+                update { $0.ended = true }
             }
         }
         do {

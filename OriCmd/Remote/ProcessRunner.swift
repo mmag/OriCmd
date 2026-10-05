@@ -13,6 +13,13 @@ nonisolated enum ProcessRunner {
         var text: String { String(decoding: output, as: UTF8.self) }
     }
 
+    private struct Collected {
+        var output = Data()
+        var errors = Data()
+        /// Pipes not read to their end yet.
+        var openPipes = 2
+    }
+
     @concurrent
     static func run(_ executable: String, _ arguments: [String], input: String? = nil,
                     environment: [String: String] = [:], progress: TransferProgress? = nil,
@@ -30,16 +37,28 @@ nonisolated enum ProcessRunner {
         process.standardError = errorPipe
         process.standardInput = input == nil ? FileHandle.nullDevice : inputPipe
 
-        let collected = OSAllocatedUnfairLock(initialState: (output: Data(), errors: Data()))
-        outputPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            collected.withLock { $0.output.append(data) }
-            if !data.isEmpty { onOutput?(data) }
+        // Each pipe is read to its end, where its handler removes itself: there it would
+        // be called again and again with no data, a core each for as long as the app runs.
+        let collected = OSAllocatedUnfairLock(initialState: Collected())
+        func read(_ pipe: Pipe, errors: Bool, then callback: (@Sendable (Data) -> Void)?) {
+            pipe.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                guard !data.isEmpty else {
+                    handle.readabilityHandler = nil
+                    collected.withLock { $0.openPipes -= 1 }
+                    return
+                }
+                collected.withLock { errors ? $0.errors.append(data) : $0.output.append(data) }
+                callback?(data)
+            }
         }
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            collected.withLock { $0.errors.append(data) }
-            if !data.isEmpty { onErrors?(data) }
+        read(outputPipe, errors: false, then: onOutput)
+        read(errorPipe, errors: true, then: onErrors)
+        // Not read any longer, however the run ends (a cancelled tool may have left a
+        // process of its own holding a pipe open).
+        defer {
+            outputPipe.fileHandleForReading.readabilityHandler = nil
+            errorPipe.fileHandleForReading.readabilityHandler = nil
         }
 
         try process.run()
@@ -67,11 +86,14 @@ nonisolated enum ProcessRunner {
             }
             try? await Task.sleep(for: .milliseconds(40))
         }
-        outputPipe.fileHandleForReading.readabilityHandler = nil
-        errorPipe.fileHandleForReading.readabilityHandler = nil
-        let restOutput = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let restErrors = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let (output, errors) = collected.withLock { ($0.output + restOutput, $0.errors + restErrors) }
+        // What the tool wrote last may still be on its way: both pipes are read to their
+        // end, but not waited for long (a process it left behind may keep one open).
+        let deadline = ContinuousClock.now + .seconds(2)
+        while collected.withLock({ $0.openPipes > 0 }), ContinuousClock.now < deadline {
+            if Task.isCancelled { throw CancellationError() }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        let (output, errors) = collected.withLock { ($0.output, $0.errors) }
         return Output(status: process.terminationStatus, output: output,
                       errors: String(decoding: errors, as: UTF8.self))
     }

@@ -129,6 +129,13 @@ check "the context menu has Get Info (the Finder's window; not opened here)" "ta
 scripts/test/mkdata.sh
 run cmdline "text:touch space text:cmd-made.txt enter wait wait"
 check "command line runs commands" "[ -f $L/cmd-made.txt ]"
+# A failure shows what the command wrote to stderr (it came after the exit at times:
+# "Exit status 1" alone); a program left in the background keeps a stderr to write
+# to after the shell ends (a closed pipe ended it with SIGPIPE), the exit status said.
+run cmdfail "text:ls space text:/nope-oricmd enter wait wait"
+check "command line: a failure says what the command wrote" "grep -q '/nope-oricmd: No such file or directory' build/shots/reg-cmdfail-sheet.txt"
+run cmdbg "text:(sleep space text:2; space text:echo space text:late space text:>&2; space text:touch space text:bg-alive.txt) space text:& space text:exit space text:3 enter wait wait wait wait wait wait"
+check "command line: a background program outlives the shell's stderr" "[ -f $L/bg-alive.txt ] && grep -qx 'Exit status 3' build/shots/reg-cmdbg-sheet.txt"
 
 scripts/test/mkdata.sh
 run unzip "alt+a wait text:rchive-t enter wait home down space space f5 wait enter wait wait"
@@ -1359,6 +1366,27 @@ connect() { echo "cmd:connectToServer wait cmd+a text:$1 enter wait $2 wait wait
 scripts/test/mkdata.sh
 run sftp "$(connect sftp://oritest$PWD/$L) home down down enter wait wait down f5 wait enter wait wait wait"
 check "SFTP downloads a folder" "cmp -s $L/beta/deep/deeper/blob.bin $R/deep/deeper/blob.bin"
+
+# A cancelled server command left its pipe handlers behind: at the end of the pipe
+# they were called without end, two cores busy while nothing went on. The CPU time
+# of the app in its last 3 s (sampled every 0.5 s) after a paused download, partly
+# done, is cancelled. Only the app this run starts is measured (not one of Xcode's).
+cpulog() {
+  : > build/cpu.log; local app=$PWD/build/DerivedData/Build/Products/Debug/OriCmd.app/Contents/MacOS/OriCmd pid
+  local before=" $(pgrep -f $app | tr '\n' ' ')"
+  for i in {1..150}; do
+    pid=$(pgrep -nf $app); [ -n "$pid" ] && [[ $before != *" $pid "* ]] && break; pid=; sleep 0.2
+  done
+  [ -n "$pid" ] && while ps -p $pid -o time= >> build/cpu.log 2>/dev/null; do sleep 0.5; done
+}
+idle() { tail -7 build/cpu.log | tr -d ' ' | awk -F: '{ t[NR] = $1 * 60 + $2 } END { exit !(NR == 7 && t[7] - t[1] < 1) }'; }
+partial() { local size; [ -f $1 ] && size=$(stat -f %z $1) && [ $size -gt 0 ] && [ $size -lt $2 ]; }
+scripts/test/mkdata.sh; mkfile -n 4g $L/huge.bin
+cpulog & cpupid=$!
+run sftpcancel "$(connect sftp://oritest$PWD/$L) alt+h wait text:uge escape f5 wait enter wait click:Pause wait click:Cancel wait wait wait wait wait wait wait wait"
+kill $cpupid 2>/dev/null; wait $cpupid 2>/dev/null
+check "SFTP: a cancelled download leaves the app idle" "partial $R/huge.bin 4294967296 && idle"
+rm -f build/cpu.log
 
 scripts/test/mkdata.sh; echo upload > $R/up.txt
 run ftp "$(connect ftp://tester@127.0.0.1:2121/left 'text:secret enter wait') tab down f5 wait enter wait wait wait"
