@@ -10,7 +10,7 @@ import WebKit
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
-///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `speed:5_MB/s` (the speed limit the next copy starts with), `keybindings` (the Keyboard Shortcuts window), `flippedoffmain` (the window's views asked off the main thread whether they are flipped, as a drag does), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `drawrect:x,y,w,h` (the active file list asked to draw that rect, even beyond its bounds),`tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `speed:5_MB/s` (the speed limit the next copy starts with), `keybindings` (the Keyboard Shortcuts window), `flippedoffmain` (the window's views asked off the main thread whether they are flipped, as a drag does), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title` (also a tab of a tab view),
 ///   `set:identifier=value` (a control by its identifier: text, a pop-up item's title, `on`/`off`/`mixed`, a
@@ -260,6 +260,13 @@ enum DebugAutomation {
                           let model = topmost(window).contentView as? ModelView {
                     // A mouse wheel turned over the Lister's 3D model (lines > 0: up).
                     model.zoom(lines: lines)
+                } else if token.hasPrefix("drawrect:"), let main = window.contentViewController as? MainViewController {
+                    // The active file list asked to draw a rect, even one beyond its bounds, as
+                    // AppKit does while it scrolls a list concurrently (past the top of it).
+                    let numbers = token.dropFirst(9).split(separator: ",").compactMap { Double($0) }
+                    guard numbers.count == 4 else { continue }
+                    drawOffscreen(main.activePanel.panelView.listView,
+                                  rect: NSRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3]))
                 } else if token.hasPrefix("colorpreset:"), let index = Int(token.dropFirst(12)),
                           ColorSettings.Preset.allCases.indices.contains(index) {
                     ColorSettings.Preset.allCases[index].apply()
@@ -477,6 +484,22 @@ enum DebugAutomation {
                 exit(0)
             }
         }
+    }
+
+    /// Calls the view's draw(_:) with the rect as is (AppKit's own display paths would clip it
+    /// to the bounds), into a bitmap of the view's size that is thrown away.
+    private static func drawOffscreen(_ view: NSView, rect: NSRect) {
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds),
+              let context = NSGraphicsContext(bitmapImageRep: bitmap) else { return }
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        NSGraphicsContext.current = context
+        if view.isFlipped {
+            context.cgContext.translateBy(x: 0, y: view.bounds.height)
+            context.cgContext.scaleBy(x: 1, y: -1)
+        }
+        view.draw(rect)
+        NSLog("drawrect: drew %@ of a %@ list", NSStringFromRect(rect), NSStringFromRect(view.bounds))
     }
 
     private static func textView(in view: NSView?) -> NSTextView? {

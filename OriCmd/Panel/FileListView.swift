@@ -416,25 +416,31 @@ final class FileListView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         Theme.panelBackground.setFill()
         dirtyRect.fill()
-        guard !items.isEmpty else { return }
+        // AppKit may ask for a rect beyond the bounds, even one wholly above them (a list
+        // scrolled concurrently past its top, issue #5): only the entries within the bounds
+        // are drawn, and none when the rect holds no entry.
+        let rect = dirtyRect.intersection(bounds)
+        guard !items.isEmpty, !rect.isEmpty else { return }
 
         let first: Int
         let last: Int
         switch viewMode {
         case .full:
-            first = Int(dirtyRect.minY / rowHeight)
-            last = Int(dirtyRect.maxY / rowHeight)
+            first = Int(rect.minY / rowHeight)
+            last = Int(rect.maxY / rowHeight)
         case .brief:
-            first = Int(dirtyRect.minX / briefColumnWidth) * briefRowsPerColumn
-            last = (Int(dirtyRect.maxX / briefColumnWidth) + 1) * briefRowsPerColumn - 1
+            first = Int(rect.minX / briefColumnWidth) * briefRowsPerColumn
+            last = (Int(rect.maxX / briefColumnWidth) + 1) * briefRowsPerColumn - 1
         case .thumbnails:
-            first = Int(dirtyRect.minY / thumbnailCell.height) * thumbnailColumns
-            last = (Int(dirtyRect.maxY / thumbnailCell.height) + 1) * thumbnailColumns - 1
+            first = Int(rect.minY / thumbnailCell.height) * thumbnailColumns
+            last = (Int(rect.maxY / thumbnailCell.height) + 1) * thumbnailColumns - 1
         }
-        let range = max(first, 0)...min(last, items.count - 1)
-        guard !range.isEmpty, range.lowerBound <= range.upperBound else { return }
+        // Checked before the range is made: a range with its bounds reversed traps.
+        let lower = max(first, 0)
+        let upper = min(last, items.count - 1)
+        guard lower <= upper else { return }
         let layout = ColumnLayout(width: bounds.width, columns: columns)
-        for row in range {
+        for row in lower...upper {
             switch viewMode {
             case .full: drawRow(row, layout: layout)
             case .brief: drawBriefCell(row)
