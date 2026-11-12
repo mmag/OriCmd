@@ -4,6 +4,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // No macOS window tabs (Show Tab Bar in the Show menu, Merge All Windows…): there
+        // is one main window, which would only show a bar with its single tab; the
+        // panels have their own tabs. Set before the menu and the windows are made.
+        NSWindow.allowsAutomaticWindowTabbing = false
         Settings.applyAppearance()
         EscapeKey.install()
         Task { await Self.removeOldTemporaryFolders() }
