@@ -25,21 +25,35 @@ extension FileListView {
 // MARK: - Services
 
 extension FileListView {
-    /// Offers the selected files to macOS Services (e.g. in the context menu).
+    /// The paths of files, as older services take them (SnailSVN's, for one).
+    private static let filenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
+
+    /// Offers the selected files to macOS Services (e.g. in the context menu), as file
+    /// URLs and as paths: a service is listed only when it gets the kind it asks for.
     override func validRequestor(forSendType sendType: NSPasteboard.PasteboardType?,
                                  returnType: NSPasteboard.PasteboardType?) -> Any? {
-        if sendType == .fileURL, returnType == nil, delegate?.fileListCanDragItems(self) == true,
-           !selectedEntries.isEmpty {
+        if let sendType, [.fileURL, Self.filenamesType].contains(sendType), returnType == nil,
+           delegate?.fileListCanDragItems(self) == true, !selectedEntries.isEmpty {
             return self
         }
         return super.validRequestor(forSendType: sendType, returnType: returnType)
     }
 
-    @objc func writeSelection(to pasteboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
+}
+
+/// As a services requestor AppKit finds `writeSelectionToPasteboard:types:`: on its own
+/// the method was exported as `writeSelectionTo:types:`, and services got no files.
+extension FileListView: NSServicesMenuRequestor {
+    /// The files as URLs, as paths and as the text of their paths: a service reads what
+    /// it reads whatever it declares (SnailSVN's asks for paths and reads the text).
+    func writeSelection(to pasteboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
         let urls = selectedEntries.map(\.url)
         guard !urls.isEmpty else { return false }
         pasteboard.clearContents()
-        return pasteboard.writeObjects(urls as [NSURL])
+        guard pasteboard.writeObjects(urls as [NSURL]) else { return false }
+        pasteboard.setPropertyList(urls.map(\.path), forType: Self.filenamesType)
+        pasteboard.setString(urls.map(\.path).joined(separator: "\n"), forType: .string)
+        return true
     }
 }
 

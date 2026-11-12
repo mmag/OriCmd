@@ -8,7 +8,7 @@ import WebKit
 /// - `ORICMD_LEFT`, `ORICMD_RIGHT`: initial panel directories.
 /// - `ORICMD_KEYS`: space separated keystrokes played after launch, e.g.
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
-///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
+///   `menu` (writes the context menu to `<snapshot>-menu.txt`, submenu items checked with ✓ or –), `menupick:Title|N` (item N of its submenu Title chosen), `servicedata` (what a service gets for the selected files, to `<snapshot>-services.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
 ///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `drawrect:x,y,w,h` (the active file list asked to draw that rect, even beyond its bounds), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `headerdrag:date:-40` / `headerdoubleclick:date` (the header's divider before a column dragged by so many points / double-clicked), `headerclick:date` (a column's title clicked), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `speed:5_MB/s` (the speed limit the next copy starts with), `keybindings` (the Keyboard Shortcuts window), `flippedoffmain` (the window's views asked off the main thread whether they are flipped, as a drag does), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
@@ -52,13 +52,40 @@ enum DebugAutomation {
                 } else if token == "menu", let list = window.firstResponder as? FileListView,
                           let menu = list.delegate?.fileList(list, contextMenuFor: list.selectedEntries),
                           let snapshot = environment["ORICMD_SNAPSHOT"] {
-                    // Writes the context menu's titles next to the snapshot.
+                    // Writes the context menu's titles next to the snapshot (a submenu's items
+                    // checked with ✓, or – when it holds for some of the files).
                     let titles = menu.items.map { item in
                         item.isSeparatorItem ? "---" : item.title
-                            + (item.submenu.map { " ▸ " + $0.items.map(\.title).joined(separator: " | ") } ?? "")
+                            + (item.submenu.map { " ▸ " + $0.items.map { ($0.state == .on ? "✓" : $0.state == .mixed ? "–" : "") + $0.title }
+                                .joined(separator: " | ") } ?? "")
                     }
                     try? titles.joined(separator: "\n").write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-menu.txt"),
                                                                 atomically: true, encoding: .utf8)
+                } else if token.hasPrefix("menupick:"), let list = window.firstResponder as? FileListView,
+                          let menu = list.delegate?.fileList(list, contextMenuFor: list.selectedEntries) {
+                    // `menupick:Title|N`: item N of the context menu's submenu Title is chosen.
+                    let parts = token.dropFirst(9).split(separator: "|").map(String.init)
+                    if parts.count == 2, let index = Int(parts[1]),
+                       let submenu = menu.items.first(where: { $0.title == parts[0].replacingOccurrences(of: "_", with: " ") })?.submenu,
+                       submenu.items.indices.contains(index) {
+                        submenu.performActionForItem(at: index)
+                    }
+                } else if token == "servicedata", let list = window.firstResponder as? FileListView, let snapshot {
+                    // What a service gets for the selected files (on a private pasteboard): each
+                    // type with its value, to <snapshot>-services.txt.
+                    // Asked by its Objective-C name, as AppKit asks for it.
+                    let board = NSPasteboard(name: NSPasteboard.Name("ru.themmag.OriCmd.tests.services"))
+                    board.clearContents()
+                    if list.responds(to: #selector(NSServicesMenuRequestor.writeSelection(to:types:))) {
+                        _ = (list as NSServicesMenuRequestor).writeSelection?(to: board, types: [])
+                    }
+                    let lines = (board.types ?? []).map { type in
+                        type.rawValue + ": " + (board.string(forType: type)
+                            ?? board.propertyList(forType: type).map { "\($0)" }?.replacingOccurrences(of: "\n", with: " ") ?? "")
+                    }
+                    try? lines.joined(separator: "\n")
+                        .write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-services.txt"), atomically: true, encoding: .utf8)
+                    board.releaseGlobally()
                 } else if token == "textmenu", let snapshot, let text = textView(in: topmost(window).contentView),
                           let event = NSEvent.mouseEvent(
                             with: .rightMouseDown, location: text.convert(NSPoint(x: 20, y: 10), to: nil), modifierFlags: [],

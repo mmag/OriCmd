@@ -871,6 +871,16 @@
         }
       }
     },
+    "Cannot change the tags of “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся изменить теги «%@»"
+          }
+        }
+      }
+    },
     "Cannot check for updates": {
       "localizations": {
         "ru": {

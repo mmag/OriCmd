@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // panels have their own tabs. Set before the menu and the windows are made.
         NSWindow.allowsAutomaticWindowTabbing = false
         Settings.applyAppearance()
+        // The file lists send the selected files to Services (as URLs and as paths): told so,
+        // AppKit lists the services for files and folders, as in the Finder and System Settings.
+        NSApp.registerServicesMenuSendTypes([.fileURL, NSPasteboard.PasteboardType("NSFilenamesPboardType")], returnTypes: [])
         EscapeKey.install()
         Task { await Self.removeOldTemporaryFolders() }
         NSApp.mainMenu = MainMenu.make()
