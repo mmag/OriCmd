@@ -1077,6 +1077,27 @@ check "A column turned on in the header menu" "[ \"\$(columns cheader left)\" = 
 run cwindow "menuitem:Column_Sets… wait click:+ wait set:columnSetName=Wide set:columnSet-kind=on set:columnSet-attr=off wait escape wait menuitem:Columns>Wide wait"
 check "A column set made in the Column Sets window" "[ \"\$(columns cwindow left)\" = 'ext, size, date, kind' ]"
 
+# Column widths: a divider of the header dragged sizes the column after it, Name taking the
+# rest (never below a column's 24 points); a double click on it, or Reset Column Widths in
+# the header menu, gives back the measured widths; each set keeps its own.
+width() { sed -n "s/^${3:-left} widths: .*$2 \([0-9]*\).*/\1/p" build/shots/reg-$1-panels.txt; }
+run cwbase "wait"
+run cwdrag "headerdrag:date:-40"
+check "A header divider dragged left widens the column after it, Name gives the width" "[ \$(width cwdrag date) -eq \$(( \$(width cwbase date) + 40 )) ] && [ \$(width cwdrag name) -eq \$(( \$(width cwbase name) - 40 )) ] && [ \$(width cwdrag date right) -eq \$(width cwdrag date) ]"
+run cwmin "headerdrag:ext:500"
+check "...and not narrower than 24 points" "[ \$(width cwmin ext) -eq 24 ]"
+run cwdouble "headerdrag:date:-40 headerdoubleclick:date"
+check "A double click on the divider gives the column its width back" "[ \$(width cwdouble date) -eq \$(width cwbase date) ]"
+run cwreset "headerdrag:date:-40 headerdrag:size:-20 headermenu:Reset_Column_Widths"
+check "Reset Column Widths gives all the columns their widths back" "[ \$(width cwreset date) -eq \$(width cwbase date) ] && [ \$(width cwreset size) -eq \$(width cwbase size) ]"
+defaults write ru.themmag.OriCmd.tests ColumnSets -array '{name=Photos;columns=(ext,size,date,attr);folders="";}'
+run cwset "headermenu:Photos headerdrag:date:-50 headermenu:Default_Columns wait headermenu:Photos"
+check "A column set keeps its own widths" "[ \$(width cwset date) -eq \$(( \$(width cwbase date) + 50 )) ] && [ \$(width cwset date right) -eq \$(width cwbase date) ]"
+# AppKit may ask a list to draw a rect beyond it, even one wholly above it (a list scrolled
+# concurrently past its top, issue #5): nothing is drawn there, and the app goes on.
+run drawoutside "drawrect:0,-60,400,20 drawrect:0,5000,400,40 cmd:cm_SrcShort drawrect:5000,0,100,100 cmd:cm_SrcThumbs drawrect:0,-500,400,100 cmd:cm_SrcLong"
+check "A rect beyond the file list drawn: the app goes on" "[ -f build/shots/reg-drawoutside.png ]"
+
 # The separate tree: a folder chosen in it is shown in the active panel (the other
 # one too after Tab), and it follows the active panel.
 scripts/test/mkdata.sh
