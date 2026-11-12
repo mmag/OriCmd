@@ -263,6 +263,16 @@ final class FilePanelController: NSViewController {
         panelView.headerView.sortOrder = sortOrder
         panelView.headerView.onColumnClicked = { [weak self] column in self?.sort(by: column) }
         panelView.headerView.onChooseColumnSet = { [weak self] name in self?.chooseColumnSet(name) }
+        panelView.headerView.onResizeColumns = { [weak self] columns, widths in
+            self?.listView.columns = columns
+            self?.listView.columnWidths = widths
+        }
+        panelView.headerView.onSetColumnWidths = { [weak self] widths in
+            guard let self else { return }
+            ColumnSet.setWidths(widths, of: panelView.headerView.columnSet)
+            // As kept (the set may be gone), with the columns left out while dragging.
+            applyColumnSet()
+        }
         panelView.pathBar.onClick = { [weak self] in self?.focus() }
         panelView.pathBar.editableText = { [weak self] in self?.editablePath ?? "" }
         panelView.pathBar.onCommit = { [weak self] text in self?.go(to: text) }
@@ -2272,7 +2282,9 @@ extension FilePanelController: NSMenuItemValidation {
     func applyColumnSet() {
         let set = ColumnSet.set(for: remote == nil ? directory : nil, chosen: chosenColumnSet)
         listView.columns = set.columns
+        listView.columnWidths = set.widths
         panelView.headerView.columns = set.columns
+        panelView.headerView.widths = set.widths
         panelView.headerView.columnSet = set.name
     }
 

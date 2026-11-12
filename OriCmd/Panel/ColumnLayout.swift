@@ -1,11 +1,14 @@
 import AppKit
 
 /// Horizontal geometry of the Full view columns: Name | Ext | Size | Date |
-/// optional metadata columns | Attr. Fixed columns keep their width; Name takes the rest.
+/// optional metadata columns | Attr. Fixed columns keep their width (measured, or one
+/// given by dragging a divider of the header); Name takes the rest.
 struct ColumnLayout {
     static let minimumNameWidth: CGFloat = 60
     /// Below this Name width, Attr and then optional columns are left out.
     static let preferredNameWidth: CGFloat = 140
+    /// The narrowest a column after Name is made by dragging.
+    static let minimumColumnWidth: CGFloat = 24
 
     private static var cachedWidths: (font: NSFont, columns: [SortColumn], widths: [(SortColumn, CGFloat)])?
 
@@ -45,9 +48,9 @@ struct ColumnLayout {
     /// The optional metadata columns in this layout.
     private(set) var extraColumns: [SortColumn] = []
 
-    /// `shown`: the columns after Name (a column set's).
-    init(width: CGFloat, columns shown: [SortColumn]) {
-        var fixedWidths = Self.fixedWidths(of: shown)
+    /// `shown`: the columns after Name (a column set's); `widths`: the set's own widths.
+    init(width: CGFloat, columns shown: [SortColumn], widths: [SortColumn: CGFloat]) {
+        var fixedWidths = Self.fixedWidths(of: shown).map { ($0.0, widths[$0.0] ?? $0.1) }
         // Keep names readable: drop Attr first, then optional columns from the right.
         while width - fixedWidths.reduce(0, { $0 + $1.1 }) < Self.preferredNameWidth,
               let index = fixedWidths.firstIndex(where: { $0.0 == .attr })
@@ -77,5 +80,15 @@ struct ColumnLayout {
 
     func column(at x: CGFloat) -> SortColumn? {
         frames.first { x >= $0.value.x && x < $0.value.x + $0.value.width }?.key
+    }
+
+    func width(of column: SortColumn) -> CGFloat {
+        frames[column]?.width ?? 0
+    }
+
+    /// The column whose left edge (the divider before it) is within `tolerance` of `x`;
+    /// Name has none.
+    func column(leftEdgeNear x: CGFloat, tolerance: CGFloat) -> SortColumn? {
+        columns.dropFirst().first { abs(frames[$0]!.x - x) <= tolerance }
     }
 }

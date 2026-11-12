@@ -10,7 +10,7 @@ import WebKit
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
-///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `drawrect:x,y,w,h` (the active file list asked to draw that rect, even beyond its bounds), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `speed:5_MB/s` (the speed limit the next copy starts with), `keybindings` (the Keyboard Shortcuts window), `flippedoffmain` (the window's views asked off the main thread whether they are flipped, as a drag does), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `drawrect:x,y,w,h` (the active file list asked to draw that rect, even beyond its bounds), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `headerdrag:date:-40` / `headerdoubleclick:date` (the header's divider before a column dragged by so many points / double-clicked), `headerclick:date` (a column's title clicked), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `speed:5_MB/s` (the speed limit the next copy starts with), `keybindings` (the Keyboard Shortcuts window), `flippedoffmain` (the window's views asked off the main thread whether they are flipped, as a drag does), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title` (also a tab of a tab view),
 ///   `set:identifier=value` (a control by its identifier: text, a pop-up item's title, `on`/`off`/`mixed`, a
@@ -220,6 +220,36 @@ enum DebugAutomation {
                         _ = perform(action, in: window, from: menu.items[index])
                     } else {
                         menu.performActionForItem(at: index)
+                    }
+                } else if token.hasPrefix("headerdrag:") || token.hasPrefix("headerdoubleclick:")
+                            || token.hasPrefix("headerclick:"),
+                          let main = window.contentViewController as? MainViewController {
+                    // `headerdrag:date:-40`: the divider before a column of the active panel's
+                    // header dragged by that many points; `headerdoubleclick:date`: double-clicked;
+                    // `headerclick:date`: a click in the middle of the column's title.
+                    let parts = token.split(separator: ":").map(String.init)
+                    let header = main.activePanel.panelView.headerView
+                    guard parts.count >= 2, let column = SortColumn(rawValue: parts[1]) else { continue }
+                    let titles = ColumnLayout(width: header.bounds.width - 2, columns: header.columns, widths: header.widths)
+                    guard let x = parts[0] == "headerclick"
+                            ? (titles.contains(column) ? titles.rect(for: column, y: 0, height: 0).midX + 1 : nil)
+                            : header.dividerX(before: column) else { continue }
+                    @MainActor func event(_ type: NSEvent.EventType, at x: CGFloat, clicks: Int) -> NSEvent? {
+                        NSEvent.mouseEvent(with: type, location: header.convert(NSPoint(x: x, y: header.bounds.midY), to: nil),
+                                           modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: window.windowNumber, context: nil, eventNumber: harnessEventNumber,
+                                           clickCount: clicks, pressure: type == .leftMouseUp ? 0 : 1)
+                    }
+                    let dx = parts.count == 3 ? Double(parts[2]) ?? 0 : 0
+                    for clicks in 1...(parts[0] == "headerdoubleclick" ? 2 : 1) {
+                        if let down = event(.leftMouseDown, at: x, clicks: clicks) { header.mouseDown(with: down) }
+                        // In steps, as a hand moves.
+                        for step in 1...4 where dx != 0 {
+                            if let drag = event(.leftMouseDragged, at: x + dx * Double(step) / 4, clicks: clicks) {
+                                header.mouseDragged(with: drag)
+                            }
+                        }
+                        if let up = event(.leftMouseUp, at: x + dx, clicks: clicks) { header.mouseUp(with: up) }
                     }
                 } else if token.hasPrefix("menuitem:") {
                     // `menuitem:Title` or `menuitem:Submenu>Title`: the first enabled item of the main
@@ -431,6 +461,12 @@ enum DebugAutomation {
                             ? "one above the other" : "side by side"),
                     ] + zip(["left", "right"], main.panels).map { side, panel in
                         "\(side) columns: " + panel.listView.columns.map(\.rawValue).joined(separator: ", ")
+                    } + zip(["left", "right"], main.panels).map { side, panel in
+                        // The Full view columns as drawn, with their widths.
+                        let list = panel.listView
+                        let layout = ColumnLayout(width: list.bounds.width, columns: list.columns, widths: list.columnWidths)
+                        return "\(side) widths: " + layout.columns.map { "\($0.rawValue) \(Int(layout.width(of: $0)))" }
+                            .joined(separator: ", ")
                     } + zip(["left", "right"], main.panels).map { side, panel in
                         // The entries listed (the first 30), the marked ones with *.
                         "\(side) items: " + panel.listView.items.filter { !$0.isParent }.prefix(30).map { item in

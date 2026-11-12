@@ -130,6 +130,7 @@ layout `Ctrl+D`, `Ctrl+B`, `Ctrl+U` etc. work just like with the English one.
 | `Ctrl+F1` / `Ctrl+F2` (`⌘1` / `⌘2`) | Brief / Full view |
 | `Ctrl+Shift+F1` (`⌘4`) | Thumbnails (Quick Look previews) |
 | Right-click on the column headers | The columns of the set shown: Ext, Size, Date, Attr and the optional ones — kind, date created, picture dimensions, duration, Finder tags, Finder comment (sortable like the others) |
+| Dragging a divider in the column headers | The column after it gets narrower or wider, Name takes the rest; a double click on the divider gives the column its usual width back (all of them: Reset Column Widths in the headers' menu). Each column set keeps its own widths |
 | Show → Columns | Column sets: the Default columns or a set of your own for the panel; Column Sets… makes them, and a set can be used by itself in folders matching masks (`~/Pictures*;*/Photos`) |
 | `Ctrl+F8` (`⌘3`) | Directory tree; the other panel shows the chosen folder |
 | Show → Separate Tree | A folder tree left of both panels: a folder chosen there opens in the active panel, and the tree follows the active panel |

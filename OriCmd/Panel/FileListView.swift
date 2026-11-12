@@ -62,6 +62,10 @@ final class FileListView: NSView {
     var columns = ColumnSet.standard {
         didSet { if columns != oldValue { needsDisplay = true } }
     }
+    /// The set's own column widths (the others are measured).
+    var columnWidths: [SortColumn: CGFloat] = [:] {
+        didSet { if columnWidths != oldValue { needsDisplay = true } }
+    }
 
     var folderSizes: [String: Int64] = [:] {
         didSet { needsDisplay = true }
@@ -163,7 +167,7 @@ final class FileListView: NSView {
         let row = rowRect(cursor)
         var frame = row.insetBy(dx: 0, dy: -1)
         if viewMode == .full {
-            let layout = ColumnLayout(width: bounds.width, columns: columns)
+            let layout = ColumnLayout(width: bounds.width, columns: columns, widths: columnWidths)
             frame.size.width = layout.contains(.ext) ? layout.rect(for: .ext, y: 0, height: 0).maxX
                 : layout.rect(for: .name, y: 0, height: 0).maxX
         }
@@ -439,7 +443,7 @@ final class FileListView: NSView {
         let lower = max(first, 0)
         let upper = min(last, items.count - 1)
         guard lower <= upper else { return }
-        let layout = ColumnLayout(width: bounds.width, columns: columns)
+        let layout = ColumnLayout(width: bounds.width, columns: columns, widths: columnWidths)
         for row in lower...upper {
             switch viewMode {
             case .full: drawRow(row, layout: layout)

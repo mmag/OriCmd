@@ -128,6 +128,13 @@ final class ColumnSetsWindowController: NSWindowController, NSTableViewDataSourc
     }
 
     private func save() {
+        // Widths are changed in the panels' headers, meanwhile too: the ones kept now stay.
+        let current = ColumnSet.saved
+        for index in sets.indices {
+            if let kept = current.first(where: { $0.name == sets[index].name }) {
+                sets[index].widths = kept.widths
+            }
+        }
         ColumnSet.saved = sets
     }
 
