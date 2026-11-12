@@ -32,8 +32,12 @@ enum EscapeKey {
               event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
               !(window is MainWindow), !(window is NSSavePanel),
               !(window.windowController is HandlesEscapeKey) else { return false }
-        // A drop-down list or completions shown: Esc closes them first.
-        if window.childWindows?.contains(where: \.isVisible) == true { return false }
+        // A drop-down list or completions shown: Esc closes them first. A list starts below
+        // its field; a child window covering the whole window is no list but a backdrop
+        // (newer macOS puts a glass one under alerts).
+        if window.childWindows?.contains(where: { $0.isVisible && !$0.frame.contains(window.frame) }) == true {
+            return false
+        }
         if let editor = window.firstResponder as? NSTextView {
             // Text being composed (an input method), or a search field that clears first.
             if editor.hasMarkedText() { return false }
