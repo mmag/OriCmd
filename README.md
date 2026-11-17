@@ -181,7 +181,7 @@ shortcuts in parentheses.
 | `F5` | Copy (to the other panel by default) |
 | `Shift+F5` | Copy within the same folder under another name |
 | `F6` | Move / rename |
-| `Shift+F6`, `F2` | Rename in place (the name is selected; `F2` again selects the extension, then the whole name) |
+| `Shift+F6`, `F2` | Rename in place (the name is selected; `F2` again selects the extension, then the whole name); a click on the name of the already selected entry, as in the Finder, starts it too |
 | `Ctrl+M` | Multi-Rename Tool: masks `[N]`, `[N2-5]`, `[E]`, `[C]`, `[P]`, `[YMD]`, `[hms]`, search and replace (including regular expressions), case, preview and undo; rules saved under a name; the new names given one by one — edited as a list (Edit Names…) or read from a text file, a line per file |
 | `F7` (`⇧⌘N`) | New folder (`a/b/c` creates nested ones) |
 | `F8`, `Del` (`⌘⌫`) | Move to the Trash |

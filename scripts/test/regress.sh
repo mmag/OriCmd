@@ -111,6 +111,68 @@ scripts/test/mkdata.sh
 run renamef2ext "alt+n wait text:otes escape f2 wait f2 text:txt enter wait"
 check "F2 again selects the extension" "[ -f $L/notes.txt ] && [ ! -f $L/notes.md ]"
 
+# A click on the name of the already selected entry (after the click that selected it)
+# renames in place, as in the Finder; a double click still opens, and a first click,
+# a key, a panel switch, a modifier or several marked files cancel the rename.
+ran() { echo "grep -q '^$2 ' build/shots/reg-$1-actions.txt && [ ! -f build/shots/reg-$1-error.txt ]"; }
+norenamed() { echo "[ -f $L/notes.md ] && ! ls $L | grep -q '^by-click'"; }
+scripts/test/mkdata.sh
+run clickrename "alt+n wait text:otes escape wait rowclick:notes.md renamewait text:by-click enter wait"
+check "a click on the selected name renames in place" "[ -f $L/by-click.md ] && [ ! -f $L/notes.md ] && $(ran clickrename 'rowclick notes.md')"
+scripts/test/mkdata.sh
+run clickfirst "rowclick:notes.md renamewait text:by-click enter wait"
+check "the first click only selects (no rename)" "$(ran clickfirst 'rowclick notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickdouble "alt+n wait text:otes escape wait rowdoubleclick:notes.md renamewait text:by-click enter wait"
+check "a double click opens, not renames" "$(ran clickdouble 'rowdoubleclick notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickkeycancel "alt+n wait text:otes escape wait rowclick:notes.md down renamewait text:by-click enter wait"
+check "a key cancels a pending click rename" "$(ran clickkeycancel 'rowclick notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickflagscancel "alt+n wait text:otes escape wait rowclick:notes.md flagschanged:shift renamewait text:by-click enter wait"
+check "a modifier key alone cancels a pending click rename" "$(ran clickflagscancel 'rowclick notes.md') && grep -qx 'flagschanged shift' build/shots/reg-clickflagscancel-actions.txt && $(norenamed)"
+scripts/test/mkdata.sh
+run clickselcancel "alt+n wait text:otes escape wait rowclick:notes.md rowclick:readme.txt renamewait text:by-click enter wait"
+check "selecting another entry cancels a pending click rename" "$(ran clickselcancel 'rowclick notes.md') && grep -q '^rowclick readme.txt ' build/shots/reg-clickselcancel-actions.txt && $(norenamed)"
+scripts/test/mkdata.sh
+run clickpanelcancel "alt+n wait text:otes escape wait rowclick:notes.md tab renamewait text:by-click enter wait"
+check "switching panels cancels a pending click rename" "$(ran clickpanelcancel 'rowclick notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickmodifier "alt+n wait text:otes escape wait rowclick:notes.md:shift renamewait text:by-click enter wait"
+check "a modified click does not start a rename" "$(ran clickmodifier 'rowclick notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickmulti "alt+r wait text:eadme escape insert alt+n wait text:otes escape rowclick:notes.md renamewait text:by-click enter wait"
+check "a click with several files marked does not rename" "$(ran clickmulti 'rowclick notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickrenamefolder "alt+a wait text:lpha escape wait rowclick:alpha renamewait text:alpha2 enter wait"
+check "a click on a selected folder's name renames it" "[ -d $L/alpha2 ] && [ ! -d $L/alpha ] && $(ran clickrenamefolder 'rowclick alpha')"
+scripts/test/mkdata.sh
+run clickdircancel "alt+n wait text:otes escape wait rowclick:notes.md backspace renamewait text:by-click enter wait"
+check "leaving the folder cancels a pending click rename" "$(ran clickdircancel 'rowclick notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickrenamebrief "cmd:cm_SrcShort wait alt+n wait text:otes escape wait rowclick:notes.md renamewait text:by-click enter wait"
+check "click-to-rename works in Brief view" "[ -f $L/by-click.md ] && [ ! -f $L/notes.md ] && $(ran clickrenamebrief 'rowclick notes.md')"
+scripts/test/mkdata.sh
+run clickemptybrief "cmd:cm_SrcShort wait alt+n wait text:otes escape wait rowclickempty:notes.md renamewait text:by-click enter wait"
+check "a click beside the name in Brief view does not rename" "$(ran clickemptybrief 'rowclickempty notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickrenamethumbs "cmd:cm_SrcThumbs wait alt+n wait text:otes escape wait rowclick:notes.md renamewait text:by-click enter wait"
+check "click-to-rename works in Thumbnails view" "[ -f $L/by-click.md ] && [ ! -f $L/notes.md ] && $(ran clickrenamethumbs 'rowclick notes.md')"
+scripts/test/mkdata.sh
+run clickemptythumbs "cmd:cm_SrcThumbs wait alt+n wait text:otes escape wait rowclickempty:notes.md renamewait text:by-click enter wait"
+check "a click beside the name in Thumbnails view does not rename" "$(ran clickemptythumbs 'rowclickempty notes.md') && $(norenamed)"
+scripts/test/mkdata.sh
+run clickempty "alt+n wait text:otes escape wait rowclickempty:notes.md renamewait text:by-click enter wait"
+check "a click beside the name does not rename" "$(ran clickempty 'rowclickempty notes.md') && $(norenamed)"
+# The editor appears only after the button comes up: held longer than the user's
+# double-click interval it stays idle; releasing then starts it.
+scripts/test/mkdata.sh
+run clickhold "alt+n wait text:otes escape wait rowpress:notes.md renamewait renamestate:held rowrelease:notes.md renamewait renamestate:released text:after enter wait"
+check "a held click shows no editor until released" "grep -qx idle build/shots/reg-clickhold-held.txt && grep -qx renaming build/shots/reg-clickhold-released.txt && [ -f $L/after.md ] && [ ! -f $L/notes.md ] && $(ran clickhold 'rowpress notes.md') && grep -q '^rowrelease notes.md ' build/shots/reg-clickhold-actions.txt"
+scripts/test/mkdata.sh
+run clickdragcancel "alt+n wait text:otes escape wait rowpress:notes.md renamewait renamestate:held rowdrag:notes.md rowrelease:notes.md renamewait renamestate:drag wait text:by-click enter wait"
+check "a held drag before the release cancels the click rename" "grep -qx idle build/shots/reg-clickdragcancel-held.txt && grep -qx idle build/shots/reg-clickdragcancel-drag.txt && $(ran clickdragcancel 'rowpress notes.md') && grep -q '^rowdrag notes.md ' build/shots/reg-clickdragcancel-actions.txt && grep -q '^rowrelease notes.md ' build/shots/reg-clickdragcancel-actions.txt && $(norenamed)"
+
 scripts/test/mkdata.sh
 run delete "alt+s wait text:cript escape shift+f8 wait enter wait wait"
 check "Shift+F8 deletes permanently" "[ ! -f $L/script.sh ]"

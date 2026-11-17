@@ -11,6 +11,8 @@ protocol FileListViewDelegate: AnyObject {
     func fileListSwitchPanel(_ list: FileListView)
     /// ⇧F6 in-place rename was confirmed with Enter.
     func fileList(_ list: FileListView, rename item: FileItem, to newName: String)
+    /// Whether the panel allows renaming (a read-only archive does not).
+    func fileListCanRename(_ list: FileListView) -> Bool
     func fileListMarksDidChange(_ list: FileListView)
     func fileListCursorDidMove(_ list: FileListView)
     /// Num+ / Num−: ask for a mask, then mark or unmark matching files.
@@ -79,6 +81,10 @@ final class FileListView: NSView {
 
     private var renameField: NSTextField?
     private var renamedItem: FileItem?
+    /// A click on the selected entry's name becomes a rename after a short delay,
+    /// as in the Finder; the candidate lives from mouse down to mouse up only.
+    private var clickRenameTimer: Timer?
+    private var clickRenameCandidate: (row: Int, name: String)?
 
     /// Where a click started, for telling drags from clicks.
     var dragOrigin: (point: NSPoint, row: Int)?
@@ -114,10 +120,16 @@ final class FileListView: NSView {
         return true
     }
 
+    override func resignFirstResponder() -> Bool {
+        cancelPendingRename()
+        return super.resignFirstResponder()
+    }
+
     // MARK: - Content
 
     /// Replaces the entries; marks survive for names that are still present.
     func reload(items: [FileItem], cursor: Int) {
+        cancelPendingRename()
         if let renamedItem, !items.contains(renamedItem) {
             endRenaming()
         }
@@ -139,6 +151,7 @@ final class FileListView: NSView {
         guard !items.isEmpty else { return }
         let clamped = min(max(index, 0), items.count - 1)
         guard clamped != cursor else { return }
+        cancelPendingRename()
         setNeedsDisplay(rowRect(cursor))
         cursor = clamped
         setNeedsDisplay(rowRect(cursor))
@@ -148,6 +161,7 @@ final class FileListView: NSView {
 
     /// Font or other settings changed: re-measure rows and redraw.
     func settingsDidChange() {
+        cancelPendingRename()
         rowHeight = Theme.rowHeight
         updateBriefColumnWidth()
         updateFrameSize()
@@ -157,9 +171,122 @@ final class FileListView: NSView {
 
     // MARK: - In-place rename
 
+    /// How long after mouse up a click on the selected entry's name waits before
+    /// it becomes a rename: the system's double-click interval, so the second
+    /// click of a double click cancels it before the delay ends.
+    private static var clickRenameDelay: TimeInterval { NSEvent.doubleClickInterval }
+
+    /// Cancels a click candidate or a rename that it scheduled and that has not begun yet.
+    func cancelPendingRename() {
+        clickRenameTimer?.invalidate()
+        clickRenameTimer = nil
+        clickRenameCandidate = nil
+    }
+
+    /// The bounds of the visible text drawn by `drawText`, with its 4-point padding
+    /// and clipped to the column. A click outside it is not a click on the name.
+    private func textHitRect(_ text: String, in rect: NSRect, font: NSFont,
+                             centered: Bool = false, topAligned: Bool = false) -> NSRect? {
+        guard !text.isEmpty, rect.width > 8 else { return nil }
+        let available = rect.width - 8
+        let measured = ceil((text as NSString).size(withAttributes: [.font: font]).width)
+        let width = min(measured, available)
+        guard width > 0 else { return nil }
+        let lineHeight = min(ceil(font.ascender - font.descender), rect.height)
+        let x = centered ? rect.midX - width / 2 : rect.minX + 4
+        let y = topAligned ? rect.minY : rect.minY + (rect.height - lineHeight) / 2
+        return NSRect(x: x, y: y, width: width, height: lineHeight)
+    }
+
+    /// The visible name and extension of a row, as drawn. In Full view the name
+    /// and the extension are separate text runs; elsewhere it is one line.
+    private func renameHitRects(for row: Int) -> [NSRect] {
+        guard items.indices.contains(row) else { return [] }
+        let item = items[row]
+        let rect = rowRect(row)
+        let font = Theme.font(marked: marked.contains(item.name))
+        switch viewMode {
+        case .full:
+            let layout = ColumnLayout(width: bounds.width, columns: columns, widths: columnWidths)
+            let nameColumn = layout.rect(for: .name, y: rect.minY, height: rect.height)
+            let name = item.isFolder ? "[\(item.baseName)]" : item.baseName
+            var hit: [NSRect] = []
+            if let nameRect = textHitRect(name, in: nameColumn.divided(atDistance: 20, from: .minXEdge).remainder,
+                                          font: font) {
+                hit.append(nameRect)
+            }
+            if layout.contains(.ext), !item.fileExtension.isEmpty,
+               let extRect = textHitRect(item.fileExtension, in: layout.rect(for: .ext, y: rect.minY, height: rect.height),
+                                         font: font) {
+                hit.append(extRect)
+            }
+            return hit
+        case .brief:
+            return textHitRect(displayName(item), in: rect.divided(atDistance: 20, from: .minXEdge).remainder,
+                               font: font).map { [$0] } ?? []
+        case .thumbnails:
+            // The name is centred under the thumbnail, one clipped line.
+            let nameRect = NSRect(x: rect.minX + 4, y: rect.minY + Self.thumbnailSize + 10,
+                                  width: rect.width - 8, height: rowHeight)
+            return textHitRect(displayName(item), in: nameRect, font: font,
+                               centered: true, topAligned: true).map { [$0] } ?? []
+        }
+    }
+
+    private func isOnName(_ point: NSPoint, row: Int) -> Bool {
+        renameHitRects(for: row).contains { $0.contains(point) }
+    }
+
+    #if DEBUG
+    /// Where a click lands on the row's visible name, for the test harness.
+    func nameHitPoint(for row: Int) -> NSPoint? {
+        renameHitRects(for: row).first.map { NSPoint(x: $0.midX, y: $0.midY) }
+    }
+
+    /// A point on the row's name line but beyond the drawn text, for the test harness.
+    func emptyNamePoint(for row: Int) -> NSPoint? {
+        guard items.indices.contains(row) else { return nil }
+        let rect = rowRect(row)
+        let hit = renameHitRects(for: row)
+        let point: NSPoint
+        switch viewMode {
+        case .full:
+            let layout = ColumnLayout(width: bounds.width, columns: columns, widths: columnWidths)
+            let column = layout.rect(for: .name, y: rect.minY, height: rect.height)
+            let after = hit.map(\.maxX).max() ?? column.minX
+            point = NSPoint(x: min(after + 12, column.maxX - 2), y: rect.midY)
+        case .brief:
+            let after = hit.map(\.maxX).max() ?? rect.minX + 20
+            point = NSPoint(x: min(after + 12, rect.maxX - 2), y: rect.midY)
+        case .thumbnails:
+            point = NSPoint(x: rect.minX + 4, y: rect.minY + Self.thumbnailSize + 12)
+        }
+        return isOnName(point, row: row) ? nil : point
+    }
+    #endif
+
+    /// Starts the in-place rename of the selected entry after a short delay.
+    /// A double click, a drag, a key, another selection or a menu cancels it.
+    private func scheduleRenameAfterClick(row: Int) {
+        cancelPendingRename()
+        let name = items[row].name
+        let timer = Timer(timeInterval: Self.clickRenameDelay, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.clickRenameTimer = nil
+                guard self.isActive, self.window?.firstResponder === self, !self.isRenaming,
+                      self.currentItem?.name == name else { return }
+                self.beginRenaming()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        clickRenameTimer = timer
+    }
+
     /// Shows an editor over the Name and Ext columns of the cursor row,
     /// with the name selected but not the extension.
     func beginRenaming() {
+        cancelPendingRename()
         guard let item = currentItem, !item.isParent else { return }
         endRenaming()
         scrollCursorToVisible()
@@ -231,6 +358,7 @@ final class FileListView: NSView {
     private(set) var previousMarks: Set<String> = []
 
     func setMarked(_ names: Set<String>) {
+        if names != marked { cancelPendingRename() }
         if !marked.isEmpty && names != marked {
             previousMarks = marked
         }
@@ -629,6 +757,8 @@ final class FileListView: NSView {
     // MARK: - Mouse
 
     override func mouseDown(with event: NSEvent) {
+        let wasActive = isActive
+        cancelPendingRename()
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
         dragOrigin = nil
@@ -643,10 +773,38 @@ final class FileListView: NSView {
             markRangeAndMove(to: row)
             return
         }
+        let item = items[row]
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            .subtracting([.function, .numericPad, .capsLock])
+        // The first click only selects; a later click on the selected entry's name
+        // starts renaming once the button is released, and a second click of a
+        // double click opens as usual.
+        let selectedOnce = wasActive && row == cursor
+        let singleSelection = marked.isEmpty || (marked.count == 1 && marked.contains(item.name))
+        let renames = selectedOnce && singleSelection && !item.isParent
+            && isOnName(point, row: row)
+            && delegate?.fileListCanRename(self) == true
         moveCursor(to: row)
         if event.clickCount == 2 {
             delegate?.fileList(self, openItemAt: row)
+            return
         }
+        if event.clickCount == 1, renames, modifiers.isEmpty {
+            clickRenameCandidate = (row, item.name)
+        }
+    }
+
+    /// The rename starts only when the button comes up without a drag: a held
+    /// button neither shows the editor nor turns into a drag from the editor.
+    override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
+        guard let candidate = clickRenameCandidate else { return }
+        clickRenameCandidate = nil
+        guard event.clickCount == 1, items.indices.contains(candidate.row),
+              items[candidate.row].name == candidate.name, cursor == candidate.row,
+              isActive, window?.firstResponder === self, !isRenaming,
+              delegate?.fileListCanRename(self) == true else { return }
+        scheduleRenameAfterClick(row: candidate.row)
     }
 
     /// How long the right button is held still on a file for the context menu when
@@ -657,6 +815,7 @@ final class FileListView: NSView {
     /// the file, a drag over files makes them all as the first one became, holding the
     /// button still shows the context menu. Elsewhere, the menu at once.
     override func rightMouseDown(with event: NSEvent) {
+        cancelPendingRename()
         guard Settings.rightButton == .marks, let window,
               let row = index(at: convert(event.locationInWindow, from: nil)), !items[row].isParent else {
             super.rightMouseDown(with: event)
@@ -704,7 +863,14 @@ final class FileListView: NSView {
 
     // MARK: - Keyboard
 
+    /// Pressing a modifier alone while a click-to-rename timer is pending cancels it.
+    override func flagsChanged(with event: NSEvent) {
+        cancelPendingRename()
+        super.flagsChanged(with: event)
+    }
+
     override func keyDown(with event: NSEvent) {
+        cancelPendingRename()
         if delegate?.fileList(self, interceptKey: event) == true { return }
         let modifiers = event.modifierFlags
             .intersection(.deviceIndependentFlagsMask)

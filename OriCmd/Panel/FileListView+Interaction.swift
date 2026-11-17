@@ -6,6 +6,7 @@ extension FileListView {
     /// Right click: the clicked entry becomes the cursor unless it is marked,
     /// then the menu applies to the marked entries or the cursor entry.
     override func menu(for event: NSEvent) -> NSMenu? {
+        cancelPendingRename()
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
         if let row = index(at: point), !marked.contains(items[row].name) {
@@ -61,6 +62,7 @@ extension FileListView: NSServicesMenuRequestor {
 
 extension FileListView: NSDraggingSource {
     override func mouseDragged(with event: NSEvent) {
+        cancelPendingRename()
         guard let origin = dragOrigin, delegate?.fileListCanDragItems(self) == true else { return }
         let point = convert(event.locationInWindow, from: nil)
         guard hypot(point.x - origin.point.x, point.y - origin.point.y) > 4,

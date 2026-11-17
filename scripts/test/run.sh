@@ -6,7 +6,7 @@ setopt nullglob
 cd "$(dirname $0)/../.."
 mkdir -p build/shots
 name=$1; keys=$2
-rm -f build/shots/$name.png build/shots/$name-sheet* build/shots/$name-win* build/shots/$name-terminal.*
+rm -f build/shots/$name.png build/shots/$name-sheet* build/shots/$name-win* build/shots/$name-terminal.* build/shots/$name-*.txt
 # RIGHT_PANEL: another folder for the right panel (e.g. a path through a symlink).
 # ORICMD_DDJVU: the ddjvu that draws DjVu pages (none unless given, whatever is installed).
 # ORICMD_UNAR_DIR: where lsar and unar are (for solid RAR 4; none unless given).

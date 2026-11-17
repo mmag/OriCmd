@@ -10,7 +10,7 @@ import WebKit
 ///   `down shift+down f7 text:New enter wait`, or commands like `cmd:cm_SyncDirs`,
 ///   `menu` (writes the context menu to `<snapshot>-menu.txt`, submenu items checked with ✓ or –), `menupick:Title|N` (item N of its submenu Title chosen), `servicedata` (what a service gets for the selected files, to `<snapshot>-services.txt`), `drop:/path`, `drive:/path` (a drive
 ///   button), `drivemenu:/path` / `drivemenu:/path|Item_Title` (a drive button's context menu),
-///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `drawrect:x,y,w,h` (the active file list asked to draw that rect, even beyond its bounds), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `headerdrag:date:-40` / `headerdoubleclick:date` (the header's divider before a column dragged by so many points / double-clicked), `headerclick:date` (a column's title clicked), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `speed:5_MB/s` (the speed limit the next copy starts with), `keybindings` (the Keyboard Shortcuts window), `flippedoffmain` (the window's views asked off the main thread whether they are flipped, as a drag does), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
+///   `droptab:left:1:right:0` (a tab dropped on a tab bar), `wheel:N` (a mouse wheel over a 3D model), `drawrect:x,y,w,h` (the active file list asked to draw that rect, even beyond its bounds), `tabbardoubleclick` (the empty end of the tab bar), `tabmiddleclick:N` (the middle button on the active panel's tab N), `tabmenu:N|Item_Title` (a tab's context menu), `menuitem:Submenu>Item_Title` (a main menu item), `headermenu:Item_Title` (the column header's menu), `headerdrag:date:-40` / `headerdoubleclick:date` (the header's divider before a column dragged by so many points / double-clicked), `headerclick:date` (a column's title clicked), `tree:/path` (a folder chosen in the separate tree), `file:/path` (the file the next save or open sheet chooses), `speed:5_MB/s` (the speed limit the next copy starts with), `keybindings` (the Keyboard Shortcuts window), `flippedoffmain` (the window's views asked off the main thread whether they are flipped, as a drag does), `pathclick` (the path bar), `colorpreset:N` (Settings → Colors), `rightmouse:click:N` / `hold:N` / `drag:N-M` / `ctrlclick:N` (the right button on rows), `rowclick:NAME` / `rowdoubleclick:NAME` (the left button on a row's name, with `:shift`, `:cmd`, `:alt` or `:ctrl`), `rowpress:NAME` / `rowrelease:NAME` / `rowdrag:NAME` / `rowclickempty:NAME` (a click held, released or moved, or beside the text), `renamestate:NAME` (whether the active panel is renaming, to `<snapshot>-NAME.txt`), `renamewait` (a wait past the system's double-click interval), `flagschanged:MODIFIER` (a modifier key pressed alone), `textmenu` (the frontmost text's context menu), `promise:/path` (the file on the
 ///   clipboard as a promise, plus a placeholder of zeros), `lazyfile:/path` (as Microsoft Remote Desktop
 ///   does: a placeholder written only when read through file coordination), `click:Button_Title` (also a tab of a tab view),
 ///   `set:identifier=value` (a control by its identifier: text, a pop-up item's title, `on`/`off`/`mixed`, a
@@ -24,6 +24,27 @@ import WebKit
 /// - `ORICMD_QUIT`: exit when done (even with a sheet open).
 enum DebugAutomation {
     private static var environment: [String: String] { ProcessInfo.processInfo.environment }
+
+    /// A test action that did run, for the scripts to check that a negative result
+    /// is not just an event that silently did nothing.
+    static func testAction(_ action: String) {
+        appendTestLine(action, suffix: "-actions.txt")
+    }
+
+    /// A test token that could not be played: written next to the snapshot and
+    /// logged, so a broken negative test cannot pass by doing nothing.
+    static func testFailure(_ message: String) {
+        NSLog("OriCmd test: \(message)")
+        NSSound.beep()
+        appendTestLine("error " + message, suffix: "-error.txt")
+    }
+
+    private static func appendTestLine(_ line: String, suffix: String) {
+        guard let snapshot = environment["ORICMD_SNAPSHOT"] else { return }
+        let path = snapshot.replacingOccurrences(of: ".png", with: suffix)
+        let old = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+        try? (old + line + "\n").write(toFile: path, atomically: true, encoding: .utf8)
+    }
 
     /// Keys to play or a snapshot to take: a test run, which stays in the background.
     static var isTestRun: Bool {
@@ -49,6 +70,11 @@ enum DebugAutomation {
             for token in keys {
                 if token == "wait" {
                     try? await Task.sleep(for: .milliseconds(700))
+                } else if token == "renamewait" {
+                    // Longer than the user's double-click interval: after a click's
+                    // mouse up, the click-to-rename timer has certainly fired.
+                    let milliseconds = Int((NSEvent.doubleClickInterval + 0.25) * 1000)
+                    try? await Task.sleep(for: .milliseconds(milliseconds))
                 } else if token == "menu", let list = window.firstResponder as? FileListView,
                           let menu = list.delegate?.fileList(list, contextMenuFor: list.selectedEntries),
                           let snapshot = environment["ORICMD_SNAPSHOT"] {
@@ -152,6 +178,141 @@ enum DebugAutomation {
                         event(.rightMouseDown, at: first).map(window.sendEvent)
                     }
                     NotificationCenter.default.removeObserver(observer)
+                } else if ["rowclick", "rowclickempty", "rowdoubleclick",
+                           "rowpress", "rowrelease", "rowdrag"].contains(where: { token.hasPrefix($0 + ":") }) {
+                    // `rowclick:NAME` / `rowdoubleclick:NAME`: a left click (or two) on the
+                    // name of that entry in the focused panel; `:shift`, `:cmd`, `:alt`,
+                    // `:ctrl` add a modifier. A number picks the row. `rowclickempty` clicks
+                    // beside the text; `rowpress`, `rowrelease` and `rowdrag` play the button
+                    // in parts (a hold, and a movement that cancels the click).
+                    let kinds = ["rowclick", "rowclickempty", "rowdoubleclick", "rowpress", "rowrelease", "rowdrag"]
+                    let kind = kinds.first { token.hasPrefix($0 + ":") } ?? "rowclick"
+                    let parts = token.dropFirst(kind.count + 1).split(separator: ":").map(String.init)
+                    guard let list = window.firstResponder as? FileListView else {
+                        testFailure("\(kind): no file list has the focus")
+                        continue
+                    }
+                    guard let first = parts.first,
+                          let row = list.items.firstIndex(where: { $0.name == first }) ?? Int(first),
+                          list.items.indices.contains(row) else {
+                        testFailure("\(kind): no row “\(parts.first ?? "")”")
+                        continue
+                    }
+                    let modifierName = parts.count > 1 ? parts[1] : ""
+                    let modifiers: NSEvent.ModifierFlags?
+                    switch modifierName {
+                    case "": modifiers = []
+                    case "shift": modifiers = [.shift]
+                    case "cmd", "command": modifiers = [.command]
+                    case "alt", "option": modifiers = [.option]
+                    case "ctrl", "control": modifiers = [.control]
+                    default:
+                        testFailure("\(kind): unknown modifier “\(modifierName)”")
+                        continue
+                    }
+                    let maybePoint = kind == "rowclickempty"
+                        ? list.emptyNamePoint(for: row) : list.nameHitPoint(for: row)
+                    guard let point = maybePoint, let modifiers else {
+                        testFailure("\(kind): row \(row) has no clickable name")
+                        continue
+                    }
+                    @MainActor func event(_ type: NSEvent.EventType, at location: NSPoint, clicks: Int) -> NSEvent? {
+                        NSEvent.mouseEvent(
+                            with: type, location: list.convert(location, to: nil), modifierFlags: modifiers,
+                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                            context: nil, eventNumber: harnessEventNumber, clickCount: clicks,
+                            pressure: type == .leftMouseUp ? 0 : 1)
+                    }
+                    switch kind {
+                    case "rowpress":
+                        guard let down = event(.leftMouseDown, at: point, clicks: 1) else {
+                            testFailure("\(kind): no mouse down event")
+                            continue
+                        }
+                        list.mouseDown(with: down)
+                    case "rowrelease":
+                        guard let up = event(.leftMouseUp, at: point, clicks: 1) else {
+                            testFailure("\(kind): no mouse up event")
+                            continue
+                        }
+                        list.mouseUp(with: up)
+                    case "rowdrag":
+                        // Below the 4-point drag threshold, so no dragging session starts;
+                        // FileListView still cancels the click candidate on the movement.
+                        let moved = NSPoint(x: point.x + 3, y: point.y)
+                        guard let drag = event(.leftMouseDragged, at: moved, clicks: 1) else {
+                            testFailure("\(kind): no mouse dragged event")
+                            continue
+                        }
+                        list.mouseDragged(with: drag)
+                    case "rowdoubleclick":
+                        var played = true
+                        for clicks in 1...2 {
+                            guard let down = event(.leftMouseDown, at: point, clicks: clicks),
+                                  let up = event(.leftMouseUp, at: point, clicks: clicks) else {
+                                testFailure("\(kind): no mouse event")
+                                played = false
+                                break
+                            }
+                            list.mouseDown(with: down)
+                            list.mouseUp(with: up)
+                        }
+                        guard played else { continue }
+                    default:
+                        guard let down = event(.leftMouseDown, at: point, clicks: 1),
+                              let up = event(.leftMouseUp, at: point, clicks: 1) else {
+                            testFailure("\(kind): no mouse event")
+                            continue
+                        }
+                        list.mouseDown(with: down)
+                        list.mouseUp(with: up)
+                    }
+                    testAction("\(kind) \(first) \(row)")
+                } else if token.hasPrefix("renamestate:") {
+                    // `renamestate:NAME`: whether the active panel is in in-place rename,
+                    // to <snapshot>-NAME.txt, for the click/hold/drag checks.
+                    let label = String(token.dropFirst(12))
+                    guard let main = window.contentViewController as? MainViewController,
+                          let snapshot = environment["ORICMD_SNAPSHOT"] else {
+                        testFailure("renamestate: no main window or snapshot")
+                        continue
+                    }
+                    let state = main.activePanel.listView.isRenaming ? "renaming" : "idle"
+                    do {
+                        try state.write(toFile: snapshot.replacingOccurrences(of: ".png", with: "-\(label).txt"),
+                                        atomically: true, encoding: .utf8)
+                    } catch {
+                        testFailure("renamestate: cannot write “\(label)”: \(error.localizedDescription)")
+                        continue
+                    }
+                    testAction("renamestate \(label) \(state)")
+                } else if token.hasPrefix("flagschanged:") {
+                    // `flagschanged:shift`: a modifier pressed and released alone, to
+                    // check that it cancels a pending click rename.
+                    let name = String(token.dropFirst(13))
+                    let modifier: (NSEvent.ModifierFlags, UInt16)?
+                    switch name {
+                    case "shift": modifier = ([.shift], 56)
+                    case "cmd", "command": modifier = ([.command], 55)
+                    case "alt", "option": modifier = ([.option], 58)
+                    case "ctrl", "control": modifier = ([.control], 59)
+                    default: modifier = nil
+                    }
+                    guard let list = window.firstResponder as? FileListView else {
+                        testFailure("flagschanged: no file list has the focus")
+                        continue
+                    }
+                    guard let (flags, keyCode) = modifier,
+                          let event = NSEvent.keyEvent(
+                            with: .flagsChanged, location: .zero, modifierFlags: flags,
+                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                            context: nil, characters: "", charactersIgnoringModifiers: "",
+                            isARepeat: false, keyCode: keyCode) else {
+                        testFailure("flagschanged: no modifier “\(name)”")
+                        continue
+                    }
+                    list.flagsChanged(with: event)
+                    testAction("flagschanged \(name)")
                 } else if token.hasPrefix("drop:"), let list = window.firstResponder as? FileListView {
                     // Simulates dropping a file onto the focused panel.
                     _ = list.delegate?.fileList(list, drop: [URL(filePath: String(token.dropFirst(5)))], into: nil, moving: false)
