@@ -40,16 +40,39 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
 
     /// The control sockets live in a private folder (0700, random name): a
     /// predictable path in /tmp could be taken by another user first. $TMPDIR
-    /// would be tidier but too long for a socket path.
-    private static let controlDirectory: String = {
-        var template = Array("/tmp/oricmd-XXXXXX".utf8CString)
-        return template.withUnsafeMutableBufferPointer { buffer in
-            mkdtemp(buffer.baseAddress!).map { String(cString: $0) }
-        } ?? FileManager.default.temporaryDirectory.path
-    }()
+    /// would be tidier but too long for a socket path. Recreated if the empty
+    /// folder was removed while the app stayed open.
+    private static let controlDirectoryLock = OSAllocatedUnfairLock<String?>(initialState: nil)
 
-    private var options: [String] {
-        var options = ["-o", "ControlPath=\(Self.controlDirectory)/%C", "-o", "StrictHostKeyChecking=accept-new",
+    private static func controlDirectory() -> String {
+        controlDirectoryLock.withLock { current in
+            if let path = current, isOwnPrivateDirectory(path) {
+                return path
+            }
+            var template = Array("/tmp/oricmd-XXXXXX".utf8CString)
+            let created = template.withUnsafeMutableBufferPointer { buffer in
+                mkdtemp(buffer.baseAddress!).map { String(cString: $0) }
+            } ?? FileManager.default.temporaryDirectory.path
+            current = created
+            return created
+        }
+    }
+
+    private static func existingControlDirectory() -> String? {
+        controlDirectoryLock.withLock { current in
+            guard let path = current, isOwnPrivateDirectory(path) else { return nil }
+            return path
+        }
+    }
+
+    private static func isOwnPrivateDirectory(_ path: String) -> Bool {
+        var info = stat()
+        return lstat(path, &info) == 0 && info.st_uid == getuid()
+            && (info.st_mode & S_IFMT) == S_IFDIR && (info.st_mode & 0o777) == 0o700
+    }
+
+    private func options(controlDirectory: String = SFTPFileSystem.controlDirectory()) -> [String] {
+        var options = ["-o", "ControlPath=\(controlDirectory)/%C", "-o", "StrictHostKeyChecking=accept-new",
                        "-o", "ConnectTimeout=20", "-o", "ServerAliveInterval=30"]
         #if DEBUG
         if let config = ProcessInfo.processInfo.environment["ORICMD_SSH_CONFIG"] {
@@ -59,6 +82,8 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
         return options
     }
 
+    private var options: [String] { options() }
+
     private func portOption(_ flag: String) -> [String] {
         port.map { [flag, String($0)] } ?? []
     }
@@ -67,7 +92,7 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
     /// sftp client writes every byte above 127 as an octal escape (`\320\240`).
     private var environment: [String: String] {
         ["LC_ALL": "", "LANG": "C", "LC_TIME": "C", "LC_CTYPE": "C.UTF-8",
-         "SSH_ASKPASS": Askpass.path, "SSH_ASKPASS_REQUIRE": "force", "DISPLAY": ":0"]
+         "SSH_ASKPASS": Askpass.path(), "SSH_ASKPASS_REQUIRE": "force", "DISPLAY": ":0"]
     }
 
     // MARK: - Connection
@@ -177,9 +202,10 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
 
     func disconnect() {
         masterChecked.withLock { $0 = nil }
+        guard let directory = Self.existingControlDirectory() else { return }
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/ssh")
-        process.arguments = ["-O", "exit"] + options + portOption("-p") + ["--", destination]
+        process.arguments = ["-O", "exit"] + options(controlDirectory: directory) + portOption("-p") + ["--", destination]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         try? process.run()
@@ -460,30 +486,57 @@ nonisolated final class SFTPFileSystem: RemoteFileSystem {
 }
 
 /// The SSH_ASKPASS helper: answers with the saved password (from a private
-/// file) or asks in a dialog.
+/// file) or asks in a dialog. Rewritten if macOS cleaned it from $TMPDIR while
+/// the app stayed open, or after a day so it does not age out mid-session.
 nonisolated enum Askpass {
-    static let path: String = {
-        let url = FileManager.default.temporaryDirectory.appending(path: "oricmd-askpass.sh")
-        let script = """
-            #!/bin/sh
-            if [ -n "$ORICMD_SSH_PASSWORD_FILE" ] && [ -s "$ORICMD_SSH_PASSWORD_FILE" ]; then
-              cat "$ORICMD_SSH_PASSWORD_FILE"; echo; exit 0
-            fi
-            exec /usr/bin/osascript - "$1" <<'APPLESCRIPT'
-            on run argv
-              set promptText to item 1 of argv
-              if promptText contains "(yes/no" then
-                set answer to button returned of (display dialog promptText buttons {"No", "Yes"} default button "Yes" with title "OriCmd" with icon caution)
-                if answer is "Yes" then return "yes"
-                return "no"
-              end if
-              return text returned of (display dialog promptText default answer "" with hidden answer with title "OriCmd")
-            end run
-            APPLESCRIPT
+    private static let lock = OSAllocatedUnfairLock(initialState: false)
+    private static let script = """
+        #!/bin/sh
+        if [ -n "$ORICMD_SSH_PASSWORD_FILE" ] && [ -s "$ORICMD_SSH_PASSWORD_FILE" ]; then
+          cat "$ORICMD_SSH_PASSWORD_FILE"; echo; exit 0
+        fi
+        exec /usr/bin/osascript - "$1" <<'APPLESCRIPT'
+        on run argv
+          set promptText to item 1 of argv
+          if promptText contains "(yes/no" then
+            set answer to button returned of (display dialog promptText buttons {"No", "Yes"} default button "Yes" with title "OriCmd" with icon caution)
+            if answer is "Yes" then return "yes"
+            return "no"
+          end if
+          return text returned of (display dialog promptText default answer "" with hidden answer with title "OriCmd")
+        end run
+        APPLESCRIPT
 
-            """
-        try? script.write(to: url, atomically: true, encoding: .utf8)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
-        return url.path
-    }()
+        """
+
+    static func path() -> String {
+        lock.withLock { written in
+            let manager = FileManager.default
+            let folder = manager.temporaryDirectory
+            let url = folder.appending(path: "oricmd-askpass.sh")
+            var info = stat()
+            let now = Date().timeIntervalSince1970
+            let valid = written
+                && lstat(url.path, &info) == 0
+                && info.st_uid == getuid()
+                && (info.st_mode & S_IFMT) == S_IFREG
+                && (info.st_mode & 0o777) == 0o700
+                && now - Double(info.st_mtimespec.tv_sec) < 24 * 60 * 60
+            if !valid {
+                try? manager.createDirectory(at: folder, withIntermediateDirectories: true,
+                                             attributes: [.posixPermissions: 0o700])
+                let stage = folder.appending(path: "oricmd-askpass-\(UUID().uuidString).sh")
+                if manager.createFile(atPath: stage.path, contents: Data(script.utf8),
+                                      attributes: [.posixPermissions: 0o700]) {
+                    chmod(stage.path, 0o700)
+                    if rename(stage.path, url.path) == 0 {
+                        written = true
+                    } else {
+                        try? manager.removeItem(at: stage)
+                    }
+                }
+            }
+            return url.path
+        }
+    }
 }
