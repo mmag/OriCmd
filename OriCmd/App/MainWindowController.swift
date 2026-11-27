@@ -20,10 +20,10 @@ final class MainWindowController: NSWindowController {
         // Applications dropped on the toolbar become buttons.
         window.registerForDraggedTypes([.fileURL])
         window.minSize = NSSize(width: 640, height: 400)
+        super.init(window: window)
         if !window.rememberFrame(as: Self.frameAutosaveName) {
             window.center()
         }
-        super.init(window: window)
         window.onDropApplications = { [weak self] urls in self?.buttonBar.addApplications(urls) }
     }
 
